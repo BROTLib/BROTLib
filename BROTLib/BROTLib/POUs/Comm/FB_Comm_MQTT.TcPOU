@@ -1,0 +1,110 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Comm_MQTT" Id="{d8bbe4b4-77fa-45ad-bf12-17a65647a3ca}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK ABSTRACT FB_Comm_MQTT EXTENDS I_Comm
+VAR_INPUT
+	sHostName     	: STRING(255);
+    nHostPort     	: UINT := 1883;
+    nKeepAlive    	: UINT := 60;
+	sTopicSub     	: STRING(255);
+	Telescope     	: I_Telescope;
+	Focus			: I_Focus;
+	Filter			: I_Filter;
+	Nasmyth			: I_Nasmyth;
+END_VAR
+VAR_OUTPUT
+	bConnected    	: BOOL := FALSE;
+END_VAR
+VAR
+	state     		: INT := 0;
+	GetHostName		: FB_GetHostName;
+	HostName		: STRING(255);
+	
+	{attribute 'TcEncoding':='UTF-8'}
+	sTopicRcv: 			STRING(255);
+	{attribute 'TcEncoding':='UTF-8'}
+	fbMessageQueue:		FB_IotMqttMessageQueue;
+    fbMessage:			FB_IotMqttMessage;
+	fbMqttClient:		FB_IotMqttClient;
+	sPayloadRcv: 		STRING;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(*
+MQTT Communication section
+
+Source:
+https://infosys.beckhoff.com/english.php?content=../content/1033/tf6701_tc3_iot_communication_mqtt/3518541195.html&id=
+
+*)
+
+CASE state OF
+0:
+	// get hostname of this machine
+	GetHostName(bExecute := TRUE, sHostName => HostName);	
+	
+	// finished?
+	IF HostName <> '' THEN
+		GetHostName(bExecute := FALSE);
+		state := 1;
+	END_IF
+	
+1:
+	// set parameters
+    fbMqttClient.sHostName      := sHostName;
+    fbMqttClient.nHostPort      := nHostPort;
+    fbMqttClient.sClientId      := HostName; 
+    fbMqttClient.sTopicPrefix   := ''; 
+	fbMqttClient.nKeepAlive     := nKeepAlive; 
+    fbMqttClient.ipMessageQueue := fbMessageQueue;
+	
+	// connect
+	fbMqttClient.Execute(bConnect := TRUE);
+	IF fbMqttClient.bConnected THEN
+		state := 2;
+	END_IF
+	
+2:
+  	// subscribe
+	fbMqttClient.Execute(bConnect := TRUE);
+	IF fbMqttClient.Subscribe(sTopic:=sTopicSub, eQoS:=TcIotMqttQos.AtMostOnceDelivery) THEN
+		bConnected := TRUE;
+		state := 3;
+	END_IF
+	
+3:
+	// receive queued messages
+	IF fbMessageQueue.nQueuedMessages > 0 THEN
+		IF fbMessageQueue.Dequeue(fbMessage:=fbMessage) THEN
+			fbMessage.GetTopic(pTopic:=ADR(sTopicRcv), nTopicSize:=SIZEOF(sTopicRcv) );
+			fbMessage.GetPayload(pPayload:=ADR(sPayloadRcv), nPayloadSize:=SIZEOF(sPayloadRcv), bSetNullTermination:=TRUE);
+			ADSLOGSTR(ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, 'MQTT %s', sPayloadRcv);
+			IF sTopicRcv = sTopicSub THEN
+				_handleMQTTMessage(sPayloadRcv);
+			END_IF // measurement
+		END_IF // Topic
+		sPayloadRcv := '';
+    END_IF // Dequeue
+	
+END_CASE
+]]></ST>
+    </Implementation>
+    <Method Name="_handleMQTTMessage" Id="{3fc5e2b4-d47a-4c7b-b15d-e4c641e066c5}">
+      <Declaration><![CDATA[METHOD ABSTRACT _handleMQTTMessage : BOOL
+VAR_INPUT
+	sPayloadRcv	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_Comm_MQTT">
+      <LineId Id="245" Count="56" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Comm_MQTT._handleMQTTMessage">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

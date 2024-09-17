@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="ST_AltAzCoordinate" Id="{4f21c3d6-d831-46f3-ae81-3e2e7b0b91db}">
+    <Declaration><![CDATA[TYPE ST_AltAzCoordinate :
+STRUCT
+	Altitude : LREAL;
+	Azimuth  : LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

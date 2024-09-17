@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Comm_MQTT_Influx" Id="{48590b1c-8149-4a75-a4a7-086285ed3fbf}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Comm_MQTT_Influx EXTENDS FB_Comm_MQTT
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
+	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SUPER^();]]></ST>
+    </Implementation>
+    <Method Name="_handleMQTTMessage" Id="{6b8170c3-1db8-4027-aca0-99823e943d46}">
+      <Declaration><![CDATA[METHOD _handleMQTTMessage : BOOL
+VAR_INPUT
+	sPayloadRcv		: STRING(255);
+END_VAR
+VAR
+	measurement		: STRING(255);
+	parameter		: STRING(255);
+	value			: STRING(255);
+	influxMessage	: FB_InfluxMessage;	
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[influxMessage(  sPayload := sPayloadRcv, measurement => measurement, parameter => parameter, value => value);
+IF measurement = 'command' THEN
+	IF parameter = 'power' THEN
+		IF STRING_TO_BOOL(value) THEN
+			Telescope.PowerOn();
+		ELSE
+			Telescope.PowerOff();			
+		END_IF
+	ELSIF parameter = 'park' THEN
+		Telescope.Park();
+	ELSIF parameter = 'gohome' THEN
+		Telescope.Home();
+	ELSIF parameter = 'track' THEN
+		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
+			Telescope.TrackRaDec(RaDec);
+		END_IF
+		RaDec.RightAscension := GVL_Math.LREAL_MIN;
+		RaDec.Declination := GVL_Math.LREAL_MIN;
+	ELSIF parameter = 'goto' THEN
+		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
+			Telescope.MoveRaDec(RaDec);
+		END_IF
+		RaDec.RightAscension := GVL_Math.LREAL_MIN;
+		RaDec.Declination := GVL_Math.LREAL_MIN;		
+	ELSIF parameter = 'slew' THEN
+		IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
+			Telescope.MoveAltAz(AltAz);
+		END_IF
+		AltAz.Azimuth := GVL_Math.LREAL_MIN;
+		AltAz.Altitude := GVL_Math.LREAL_MIN;	
+	ELSIF parameter = 'stop' THEN
+		Telescope.Stop();
+	ELSIF parameter = 'reset' THEN
+		Telescope.Reset();
+	ELSIF parameter = 'nasmyth' THEN
+		Nasmyth.SetNasmyth(STRING_TO_USINT(value));
+	ELSIF parameter = 'rightascension' THEN
+		RaDec.RightAscension := STRING_TO_LREAL(value);
+	ELSIF parameter = 'declination' THEN
+		RaDec.Declination := STRING_TO_LREAL(value);
+	ELSIF parameter = 'elevation' THEN
+		AltAz.Altitude := STRING_TO_LREAL(value);
+	ELSIF parameter = 'azimuth' THEN
+		AltAz.Azimuth := STRING_TO_LREAL(value);
+	ELSIF parameter = 'focus' THEN
+		Focus.SetFocus(STRING_TO_LREAL(value));
+	ELSIF parameter = 'filter' THEN
+		Filter.SetFilter(STRING_TO_USINT(value));
+	ELSIF parameter = 'derotator' THEN
+		Telescope.SetDerotatorOffset(STRING_TO_LREAL(value));
+	ELSIF parameter = 'elevationoffset' THEN
+		Telescope.SetAltitudeOffset(STRING_TO_LREAL(value));
+	ELSIF parameter = 'azimuthoffset' THEN
+		Telescope.SetAzimuthOffset(STRING_TO_LREAL(value));
+	ELSIF parameter = 'derotatoroffset' THEN
+		Telescope.SetDerotatorOffset(STRING_TO_LREAL(value)); 
+	ELSE
+		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_Comm_MQTT_Influx">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
+      <LineId Id="78" Count="12" />
+      <LineId Id="128" Count="4" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="135" Count="3" />
+      <LineId Id="134" Count="0" />
+      <LineId Id="94" Count="0" />
+      <LineId Id="139" Count="3" />
+      <LineId Id="95" Count="5" />
+      <LineId Id="143" Count="0" />
+      <LineId Id="103" Count="0" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="105" Count="6" />
+      <LineId Id="126" Count="0" />
+      <LineId Id="113" Count="0" />
+      <LineId Id="127" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="144" Count="0" />
+      <LineId Id="117" Count="5" />
+      <LineId Id="133" Count="0" />
+      <LineId Id="123" Count="1" />
+      <LineId Id="61" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

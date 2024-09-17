@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="I_Filter" Id="{369ce03b-3dae-4f80-85b9-cf8255ffdfa1}" SpecialFunc="None">
+    <Declaration><![CDATA[INTERFACE I_Filter]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="SetFilter" Id="{f495802b-4026-4457-9091-482dcab0997f}">
+      <Declaration><![CDATA[METHOD SetFilter : BOOL
+VAR_INPUT
+	FilterPos	: USINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="I_Filter">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="I_Filter.SetFilter">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <Itf Name="I_Telescope" Id="{5003d6e3-4b52-4cb8-a028-b0ab2a6b3370}">
+    <Declaration><![CDATA[INTERFACE I_Telescope
+]]></Declaration>
+    <Property Name="AltAz" Id="{a6146940-4650-466d-9ac9-c2c5b727745a}">
+      <Declaration><![CDATA[PROPERTY AltAz : ST_AltAzCoordinate]]></Declaration>
+      <Get Name="Get" Id="{8ad68625-dc7b-4361-8150-63f54617c376}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Home" Id="{2fc689c7-e332-49bc-87f2-069b41e58195}">
+      <Declaration><![CDATA[METHOD ABSTRACT Home : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="MoveAltAz" Id="{cc0d567e-4a90-40d9-8f8e-e1a94eb43aa2}">
+      <Declaration><![CDATA[METHOD MoveAltAz : BOOL
+VAR_INPUT
+	AltAz	: ST_AltAzCoordinate;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="MoveRaDec" Id="{3fa8011d-980e-4e74-a2b5-1fdb3dd84098}">
+      <Declaration><![CDATA[METHOD MoveRaDec : BOOL
+VAR_INPUT
+	RaDec	: ST_RaDecCoordinate;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Park" Id="{4989c55f-52d0-4389-8fa2-916073e653f8}">
+      <Declaration><![CDATA[METHOD ABSTRACT Park : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="PowerOff" Id="{3291b764-646f-4fe2-b792-3aa38b38e854}">
+      <Declaration><![CDATA[METHOD ABSTRACT PowerOff : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="PowerOn" Id="{22b1f0f6-3e21-43e9-a91c-d9db89f97e54}">
+      <Declaration><![CDATA[METHOD ABSTRACT PowerOn : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="RaDec" Id="{12c8886c-56f7-4ec9-a493-221526805c02}">
+      <Declaration><![CDATA[PROPERTY RaDec : ST_RaDecCoordinate]]></Declaration>
+      <Get Name="Get" Id="{d3f2ced6-23ed-44bd-a553-0d3cbd87919b}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Reset" Id="{7c6108fb-54b5-48bf-af67-cc7170330ed5}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="SetAltitudeOffset" Id="{1a4df7a8-72ea-47ad-923c-f0c163cab97c}">
+      <Declaration><![CDATA[METHOD SetAltitudeOffset : BOOL
+VAR_INPUT
+	Offset	: LREAL;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="SetAzimuthOffset" Id="{03e900b7-1d08-4452-a79c-3f3c7fce3a8a}">
+      <Declaration><![CDATA[METHOD SetAzimuthOffset : BOOL
+VAR_INPUT
+	Offset	: LREAL;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="SetDerotatorOffset" Id="{4321acfd-c2aa-4930-a9a9-411c79360413}">
+      <Declaration><![CDATA[METHOD SetDerotatorOffset : BOOL
+VAR_INPUT
+	Offset	: LREAL;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Stop" Id="{078c3ad2-bc5e-4ad8-9b03-f137aaad29d9}">
+      <Declaration><![CDATA[METHOD Stop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="TrackRaDec" Id="{17caa4eb-aef5-4541-b247-843b6eb5de40}">
+      <Declaration><![CDATA[METHOD TrackRaDec : BOOL
+VAR_INPUT
+	RaDec	: ST_RaDecCoordinate;
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

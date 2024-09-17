@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="ST_RaDecCoordinate" Id="{d4d1b5c6-50e5-4c90-9e33-ea200a6e99f7}">
+    <Declaration><![CDATA[TYPE ST_RaDecCoordinate :
+STRUCT
+	RightAscension  : LREAL;
+	Declination : LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

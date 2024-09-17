@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="I_Nasmyth" Id="{4813c151-6664-41fc-a0d0-2e76bd1bea8d}" SpecialFunc="None">
+    <Declaration><![CDATA[INTERFACE I_Nasmyth]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="SetNasmyth" Id="{e1c0b1d1-b238-4570-9066-517811e0b058}">
+      <Declaration><![CDATA[METHOD SetNasmyth : BOOL
+VAR_INPUT
+	Port	: USINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="I_Nasmyth">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="I_Nasmyth.SetNasmyth">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

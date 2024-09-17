@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="MAIN" Id="{6cfeea34-4fca-49d7-9b7c-57f77e87b2d0}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+	Comm	: FB_Comm_MQTT_Influx;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Comm(
+	sHostName	:= '',
+	nHostPort	:= 0,
+	nKeepAlive	:= 0,
+	sTopicSub	:= '');]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="2" Count="0" />
+      <LineId Id="7" Count="3" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

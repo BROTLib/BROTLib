@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="I_Focus" Id="{caac64bd-2b24-42ed-9fda-2fff76bfb76e}" SpecialFunc="None">
+    <Declaration><![CDATA[INTERFACE I_Focus]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="SetFocus" Id="{8b7d991c-9a45-4faf-a402-2c683bc45831}">
+      <Declaration><![CDATA[METHOD SetFocus : BOOL
+VAR_INPUT
+	Focus	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="I_Focus">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="I_Focus.SetFocus">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
