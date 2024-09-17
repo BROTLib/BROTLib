@@ -28,39 +28,39 @@ END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[influxMessage(  sPayload := sPayloadRcv, measurement => measurement, parameter => parameter, value => value);
 IF measurement = 'command' THEN
-	IF parameter = 'power' THEN
+	IF parameter = 'power' AND Telescope <> 0 THEN
 		IF STRING_TO_BOOL(value) THEN
 			Telescope.PowerOn();
 		ELSE
 			Telescope.PowerOff();			
 		END_IF
-	ELSIF parameter = 'park' THEN
+	ELSIF parameter = 'park' AND Telescope <> 0 THEN
 		Telescope.Park();
-	ELSIF parameter = 'gohome' THEN
+	ELSIF parameter = 'gohome' AND Telescope <> 0 THEN
 		Telescope.Home();
-	ELSIF parameter = 'track' THEN
+	ELSIF parameter = 'track' AND Telescope <> 0 THEN
 		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
 			Telescope.TrackRaDec(RaDec);
 		END_IF
 		RaDec.RightAscension := GVL_Math.LREAL_MIN;
 		RaDec.Declination := GVL_Math.LREAL_MIN;
-	ELSIF parameter = 'goto' THEN
+	ELSIF parameter = 'goto' AND Telescope <> 0 THEN
 		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
 			Telescope.MoveRaDec(RaDec);
 		END_IF
 		RaDec.RightAscension := GVL_Math.LREAL_MIN;
 		RaDec.Declination := GVL_Math.LREAL_MIN;		
-	ELSIF parameter = 'slew' THEN
+	ELSIF parameter = 'slew' AND Telescope <> 0 THEN
 		IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
 			Telescope.MoveAltAz(AltAz);
 		END_IF
 		AltAz.Azimuth := GVL_Math.LREAL_MIN;
 		AltAz.Altitude := GVL_Math.LREAL_MIN;	
-	ELSIF parameter = 'stop' THEN
+	ELSIF parameter = 'stop' AND Telescope <> 0 THEN
 		Telescope.Stop();
-	ELSIF parameter = 'reset' THEN
+	ELSIF parameter = 'reset' AND Telescope <> 0 THEN
 		Telescope.Reset();
-	ELSIF parameter = 'nasmyth' THEN
+	ELSIF parameter = 'nasmyth' AND Nasmyth <> 0 THEN
 		Nasmyth.SetNasmyth(STRING_TO_USINT(value));
 	ELSIF parameter = 'rightascension' THEN
 		RaDec.RightAscension := STRING_TO_LREAL(value);
@@ -70,17 +70,17 @@ IF measurement = 'command' THEN
 		AltAz.Altitude := STRING_TO_LREAL(value);
 	ELSIF parameter = 'azimuth' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
-	ELSIF parameter = 'focus' THEN
+	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.SetFocus(STRING_TO_LREAL(value));
-	ELSIF parameter = 'filter' THEN
+	ELSIF parameter = 'filter' AND Filter <> 0 THEN
 		Filter.SetFilter(STRING_TO_USINT(value));
-	ELSIF parameter = 'derotator' THEN
+	ELSIF parameter = 'derotator' AND Telescope <> 0 THEN
 		Telescope.SetDerotatorOffset(STRING_TO_LREAL(value));
-	ELSIF parameter = 'elevationoffset' THEN
+	ELSIF parameter = 'elevationoffset' AND Telescope <> 0 THEN
 		Telescope.SetAltitudeOffset(STRING_TO_LREAL(value));
-	ELSIF parameter = 'azimuthoffset' THEN
+	ELSIF parameter = 'azimuthoffset' AND Telescope <> 0 THEN
 		Telescope.SetAzimuthOffset(STRING_TO_LREAL(value));
-	ELSIF parameter = 'derotatoroffset' THEN
+	ELSIF parameter = 'derotatoroffset' AND Telescope <> 0 THEN
 		Telescope.SetDerotatorOffset(STRING_TO_LREAL(value)); 
 	ELSE
 		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
@@ -92,7 +92,9 @@ END_IF]]></ST>
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
-      <LineId Id="78" Count="12" />
+      <LineId Id="78" Count="10" />
+      <LineId Id="158" Count="0" />
+      <LineId Id="90" Count="0" />
       <LineId Id="128" Count="4" />
       <LineId Id="92" Count="0" />
       <LineId Id="135" Count="3" />
