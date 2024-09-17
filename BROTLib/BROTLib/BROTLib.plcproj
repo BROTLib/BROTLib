@@ -16,6 +16,10 @@
     <Implicit_KindOfTask>{5c4f0b42-26fe-4744-a39c-9b64e76a6b43}</Implicit_KindOfTask>
     <Implicit_Jitter_Distribution>{e767e672-54fa-4524-92d2-65ea692b6a9f}</Implicit_Jitter_Distribution>
     <LibraryReferences>{2da14b86-3faa-4751-ad60-5d72f48385da}</LibraryReferences>
+    <Company>BROT</Company>
+    <Released>false</Released>
+    <Title>BROTLib</Title>
+    <ProjectVersion>0.1.0</ProjectVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="DUTs\ST_AltAzCoordinate.TcDUT">
@@ -65,6 +69,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Devices\I_Filter.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Devices\I_Roof.TcIO">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Devices\I_Telescope.TcIO">
@@ -161,6 +168,7 @@
           <Value>255</Value>
         </Parameter>
       </Parameters>
+      <Namespace>Tc2_Utilities</Namespace>
     </PlaceholderReference>
     <PlaceholderReference Include="Tc3_IotBase">
       <DefaultResolution>Tc3_IotBase, * (Beckhoff Automation GmbH)</DefaultResolution>

@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <Itf Name="I_Roof" Id="{fca33943-8ae8-4619-8aba-a9cc7530ccc6}">
+    <Declaration><![CDATA[INTERFACE I_Roof
+]]></Declaration>
+    <Method Name="Close" Id="{2a5de17d-b0db-429d-b5d4-7bf8aa94c396}">
+      <Declaration><![CDATA[METHOD Close : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Open" Id="{b0027d20-fad9-4b5e-89f3-643491aad030}">
+      <Declaration><![CDATA[METHOD Open : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Reset" Id="{7ac4ab4b-1dc7-43d7-b41b-04995de189e4}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Stop" Id="{7c78fc7d-6196-46aa-bb88-07ed0ce90889}">
+      <Declaration><![CDATA[METHOD Stop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>
