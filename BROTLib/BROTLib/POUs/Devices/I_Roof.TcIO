@@ -21,6 +21,12 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
+    <Property Name="State" Id="{9d0e9ff5-3e4c-4491-9e51-534859a8107e}">
+      <Declaration><![CDATA[PROPERTY State : E_RoofState]]></Declaration>
+      <Get Name="Get" Id="{103715e1-874b-4449-b6dc-3e7edf4fcdf8}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
     <Method Name="Stop" Id="{7c78fc7d-6196-46aa-bb88-07ed0ce90889}">
       <Declaration><![CDATA[METHOD Stop : BOOL
 VAR_INPUT

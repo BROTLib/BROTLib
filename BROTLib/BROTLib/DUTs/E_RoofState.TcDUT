@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="E_RoofState" Id="{ab0f7a04-d568-44a2-89e4-710361631022}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_RoofState :
+(
+	closed := 0,
+	opened := 1,
+	opening := 2,
+	closing := 3,
+	stopped := 4,
+	error := 5
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
