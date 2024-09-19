@@ -1,14 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
   <POU Name="I_Comm" Id="{c918bc36-95ef-4710-847f-cd3195d10ef3}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK ABSTRACT I_Comm
-VAR_INPUT
-END_VAR
-VAR_OUTPUT
-END_VAR
-VAR
-END_VAR
-]]></Declaration>
+    <Declaration><![CDATA[INTERFACE I_Comm]]></Declaration>
     <Implementation>
       <ST><![CDATA[]]></ST>
     </Implementation>
