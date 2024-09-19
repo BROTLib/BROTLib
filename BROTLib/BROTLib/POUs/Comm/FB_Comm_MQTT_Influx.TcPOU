@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
   <POU Name="FB_Comm_MQTT_Influx" Id="{48590b1c-8149-4a75-a4a7-086285ed3fbf}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Comm_MQTT_Influx EXTENDS FB_Comm_MQTT
 VAR_INPUT
@@ -88,6 +88,87 @@ IF measurement = 'command' THEN
 END_IF]]></ST>
       </Implementation>
     </Method>
+    <Method Name="Publish" Id="{0b9304dc-7cd5-4e61-ac34-34dd3afe6924}">
+      <Declaration><![CDATA[METHOD Publish : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
+END_VAR
+VAR
+	sPayloadPub		: STRING(255) := '';
+	fbFormat		: FB_FormatString;
+	bError			: BOOL;
+	nErrID			: UDINT;
+	retain_message	: BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
+fbFormat( 
+	sFormat 	:= '%s,location=%s,host=%s %s=%s', 
+	arg1 		:= F_STRING(domain), 
+	arg2 		:= F_STRING(location), 
+	arg3 		:= F_STRING(HostName),
+	arg4 		:= F_STRING(parameter),
+	arg5 		:= F_STRING(value),
+	sOut 		=> sPayloadPub,
+	bError 		=> bError, 
+	nErrID 		=> nErrID 
+);
+
+// retain message if value is boolean
+retain_message := value = 'TRUE' OR value = 'FALSE';
+
+Publish := fbMqttClient.Publish(	
+	sTopic			:= 'MONETN/Telemetry', 
+	pPayload		:= ADR(sPayloadPub), 
+	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
+	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
+	bRetain			:= retain_message, 
+	bQueue			:= FALSE 
+);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLog" Id="{dd46de85-b82a-4d9d-9238-d6c509f88651}">
+      <Declaration><![CDATA[METHOD PublishLog : BOOL
+VAR_INPUT
+	level		: STRING(255) := 'INFO';
+	message		: STRING(255);
+END_VAR
+VAR
+	sPayloadPub	: STRING(255) := '';
+	fbFormat	: FB_FormatString;
+	bError		: BOOL;
+	nErrID		: UDINT;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
+fbFormat( 
+	sFormat := 'log,host=%s,level=%s message="%s"', 
+	arg1 	:= F_STRING(HostName), 
+	arg2 	:= F_STRING(level), 
+	arg3 	:= F_STRING(message),
+	sOut 	=> sPayloadPub,
+	bError 	=> bError, 
+	nErrID 	=> nErrID 
+);
+
+published := fbMqttClient.Publish(	
+	sTopic			:= 'MONETN/Log', 
+	pPayload		:= ADR(sPayloadPub), 
+	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
+	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
+	bRetain			:= FALSE, 
+	bQueue			:= FALSE 
+);
+]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_Comm_MQTT_Influx">
       <LineId Id="9" Count="0" />
     </LineIds>
@@ -115,6 +196,26 @@ END_IF]]></ST>
       <LineId Id="133" Count="0" />
       <LineId Id="123" Count="1" />
       <LineId Id="61" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Comm_MQTT_Influx.Publish">
+      <LineId Id="19" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="21" Count="4" />
+      <LineId Id="27" Count="2" />
+      <LineId Id="41" Count="1" />
+      <LineId Id="30" Count="9" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Comm_MQTT_Influx.PublishLog">
+      <LineId Id="20" Count="1" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="22" Count="2" />
+      <LineId Id="26" Count="2" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="29" Count="7" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

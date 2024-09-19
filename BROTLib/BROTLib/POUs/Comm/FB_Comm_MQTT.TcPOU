@@ -99,11 +99,43 @@ END_VAR
         <ST><![CDATA[]]></ST>
       </Implementation>
     </Method>
+    <Method Name="Publish" Id="{8c84bc73-5131-48d3-9d98-8c3aca716aef}">
+      <Declaration><![CDATA[METHOD Publish : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLog" Id="{887bcbbd-6ea5-41c8-8b6d-52f19ad54d4d}">
+      <Declaration><![CDATA[METHOD PublishLog : BOOL
+VAR_INPUT
+	level		: STRING(255) := 'INFO';
+	message		: STRING(255);
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_Comm_MQTT">
       <LineId Id="245" Count="56" />
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT._handleMQTTMessage">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Comm_MQTT.Publish">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Comm_MQTT.PublishLog">
       <LineId Id="5" Count="0" />
     </LineIds>
   </POU>

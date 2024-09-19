@@ -47,13 +47,13 @@
     <Compile Include="PlcTask.TcTTO">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\Comm\I_Comm.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="POUs\Comm\FB_Comm_MQTT.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Comm\FB_Comm_MQTT_Influx.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\I_Comm.TcIO">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Debug\FB_InfoConnection.TcPOU">
