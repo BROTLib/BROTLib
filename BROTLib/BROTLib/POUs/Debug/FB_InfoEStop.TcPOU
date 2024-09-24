@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_InfoEStop" Id="{ae9d67ff-b3b1-4182-8d0a-2bf52cf76ebe}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_InfoEStop
+VAR_INPUT
+	stInfoData		:ST_InfoDataFB;
+END_VAR
+VAR_OUTPUT
+	sState			:STRING;
+	sDiag			:STRING;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF stInfoData.usiMapState= 0 THEN
+	sState:='undefined';
+ELSIF stInfoData.usiMapState= 1 THEN
+	sState:='RUN';
+ELSIF stInfoData.usiMapState= 2 THEN
+	sState:='STOP';
+ELSIF stInfoData.usiMapState= 3 THEN
+	sState:='SAFE';
+ELSIF stInfoData.usiMapState= 4 THEN
+	sState:='ERROR';
+ELSIF stInfoData.usiMapState= 5 THEN
+	sState:='RESET';
+ELSIF stInfoData.usiMapState= 6 THEN
+	sState:='START';
+ELSIF stInfoData.usiMapState= 8 THEN
+	sState:='DELAYOUT';
+ELSE
+	sState:='Unknown';
+END_IF
+
+IF stInfoData.uiMapDiag = 0 THEN
+	sDiag:='No error';
+ELSIF stInfoData.uiMapDiag.0 THEN
+	sDiag:='Discrepancy error input group 1';
+ELSIF stInfoData.uiMapDiag.1 THEN
+	sDiag:='Discrepancy error input group 2';
+ELSIF stInfoData.uiMapDiag.2 THEN
+	sDiag:='Discrepancy error input group 3';
+ELSIF stInfoData.uiMapDiag.3 THEN
+	sDiag:='Discrepancy error input group 4';
+ELSIF stInfoData.uiMapDiag.4 THEN
+	sDiag:='EDM Error EDM 1';
+ELSIF stInfoData.uiMapDiag.5 THEN
+	sDiag:='EDM Error EDM 2';
+ELSE
+	sDiag:='Unknown';
+END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_InfoEStop">
+      <LineId Id="21" Count="21" />
+      <LineId Id="44" Count="1" />
+      <LineId Id="47" Count="1" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="52" Count="1" />
+      <LineId Id="55" Count="1" />
+      <LineId Id="58" Count="1" />
+      <LineId Id="61" Count="1" />
+      <LineId Id="64" Count="1" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

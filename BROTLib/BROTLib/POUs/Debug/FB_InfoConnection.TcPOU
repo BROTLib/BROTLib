@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_InfoConnection" Id="{20866d00-a67f-4183-9603-a0bbdd91ae1d}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_InfoConnection
+VAR_INPUT
+	stInfoData	:ST_InfoDataConnection;
+END_VAR
+VAR_OUTPUT
+	sState		:STRING;
+	sDiag		:STRING;
+	bChannel1	:BOOL;
+	bChannel2	:BOOL;
+	bChannel3	:BOOL;
+	bChannel4	:BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF stInfoData.usiMapState = 100 THEN
+	sState:='State Reset';
+ELSIF stInfoData.usiMapState = 101 THEN
+	sState:='State Session';
+ELSIF stInfoData.usiMapState = 102 THEN
+	sState:='State Connection';
+ELSIF stInfoData.usiMapState = 103 THEN
+	sState:='State Parameter';
+ELSIF stInfoData.usiMapState = 104 THEN
+	sState:='State Data';
+ELSIF stInfoData.usiMapState = 105 THEN
+	sState:='State Shutdown';
+ELSE
+	sState:='Error';
+END_IF
+
+IF stInfoData.usiMapDiag = 0 THEN
+	sDiag:='No error';
+ELSIF	stInfoData.usiMapDiag.0 = TRUE THEN
+	sDiag:='Invalid Command';
+ELSIF	stInfoData.usiMapDiag.1 = TRUE THEN
+	sDiag:='Unknown Command';
+ELSIF	(stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.0)= TRUE THEN
+	sDiag:='Invalid Connection ID';
+ELSIF	 stInfoData.usiMapDiag.2= TRUE THEN
+	sDiag:='Invalid CRC';
+ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.2)= TRUE THEN
+	sDiag:='Watchdog expired';
+ELSIF	(stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.2)= TRUE THEN
+	sDiag:='Invalid FSoE address';
+ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.2)= TRUE THEN
+	sDiag:='Invalid data';
+ELSIF	stInfoData.usiMapDiag.3= TRUE THEN
+	sDiag:='Invalid Com.-Parameter length';
+ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.3)= TRUE THEN
+	sDiag:='Invalid Com.-Parameter ';
+ELSIF	(stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.3)= TRUE THEN
+	sDiag:='Invalid User.-Parameter length';
+ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.3)= TRUE THEN
+	sDiag:='Invalid User.-Parameter ';
+ELSIF	(stInfoData.usiMapDiag.2 AND stInfoData.usiMapDiag.3)= TRUE THEN
+	sDiag:='FSoE Master Reset  ';
+ELSIF	stInfoData.usiMapDiag.4= TRUE THEN
+	sDiag:='Error by FSoE Slave detected';
+ELSIF	stInfoData.usiMapDiag.5= TRUE THEN
+	sDiag:='FSoE Slave reports Failsafe value active';
+ELSIF	stInfoData.usiMapDiag.6= TRUE THEN
+	sDiag:='StartUp';
+ELSIF	stInfoData.usiMapDiag.7= TRUE THEN
+	sDiag:='FSoE Master reports Failsafe value active';
+ELSE
+	sDiag:='Error';
+END_IF
+
+(*Signals*)
+bChannel1 := stInfoData.bySignal.0;
+bChannel2 := stInfoData.bySignal.1;
+bChannel3 := stInfoData.bySignal.2;
+bChannel4 := stInfoData.bySignal.3;]]></ST>
+    </Implementation>
+    <LineIds Name="FB_InfoConnection">
+      <LineId Id="26" Count="0" />
+      <LineId Id="28" Count="1" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="34" Count="1" />
+      <LineId Id="37" Count="1" />
+      <LineId Id="40" Count="1" />
+      <LineId Id="43" Count="1" />
+      <LineId Id="46" Count="3" />
+      <LineId Id="51" Count="1" />
+      <LineId Id="54" Count="1" />
+      <LineId Id="57" Count="1" />
+      <LineId Id="60" Count="1" />
+      <LineId Id="63" Count="1" />
+      <LineId Id="66" Count="1" />
+      <LineId Id="69" Count="1" />
+      <LineId Id="72" Count="1" />
+      <LineId Id="75" Count="1" />
+      <LineId Id="78" Count="1" />
+      <LineId Id="81" Count="1" />
+      <LineId Id="84" Count="1" />
+      <LineId Id="87" Count="1" />
+      <LineId Id="90" Count="1" />
+      <LineId Id="93" Count="1" />
+      <LineId Id="96" Count="1" />
+      <LineId Id="99" Count="1" />
+      <LineId Id="102" Count="1" />
+      <LineId Id="115" Count="4" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
