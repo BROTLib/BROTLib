@@ -96,6 +96,9 @@ VAR_INPUT
 	parameter		: STRING(255);
 	value			: STRING(255);
 END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR
 VAR
 	sPayloadPub		: STRING(255) := '';
 	fbFormat		: FB_FormatString;
@@ -120,8 +123,8 @@ fbFormat(
 // retain message if value is boolean
 retain_message := value = 'TRUE' OR value = 'FALSE';
 
-Publish := fbMqttClient.Publish(	
-	sTopic			:= 'MONETN/Telemetry', 
+published := fbMqttClient.Publish(	
+	sTopic			:= sTopicPublish, 
 	pPayload		:= ADR(sPayloadPub), 
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
@@ -159,7 +162,7 @@ fbFormat(
 );
 
 published := fbMqttClient.Publish(	
-	sTopic			:= 'MONETN/Log', 
+	sTopic			:= sTopicLog, 
 	pPayload		:= ADR(sPayloadPub), 
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,

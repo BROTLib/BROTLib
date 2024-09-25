@@ -3,22 +3,23 @@
   <POU Name="FB_EventLog" Id="{3524ed80-3787-4549-a84e-d995fc3a40dc}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_EventLog
 VAR_INPUT
-	Trigger:		BOOL;
+	Trigger			: BOOL;
 	// ADSLOG_MSGTYPE_HINT or ADSLOG_MSGTYPE_WARN or ADSLOG_MSGTYPE_ERROR
-	Level:			UDINT := ADSLOG_MSGTYPE_HINT;
-	FormatString: 	STRING(255) := '%s';
-	OnMessage: 		STRING(255) := '';
-	OffMessage:		STRING(255) := '';
-	OffLevel:		UDINT := ADSLOG_MSGTYPE_HINT;
+	Level			: UDINT := ADSLOG_MSGTYPE_HINT;
+	FormatString	: STRING(255) := '%s';
+	OnMessage		: STRING(255) := '';
+	OffMessage		: STRING(255) := '';
+	OffLevel		: UDINT := ADSLOG_MSGTYPE_HINT;
+	Comm			: I_Comm;
 END_VAR
 VAR_OUTPUT
 END_VAR
 VAR
-	LogonTrigger: R_TRIG;
-	LogoffTrigger: F_TRIG; // R_Trig or F_Trig ?!
-	PayloadMessage: STRING(255);
-	fbFormat:	FB_FormatString;
-	LevelString: STRING;
+	LogonTrigger	: R_TRIG;
+	LogoffTrigger	: F_TRIG; // R_Trig or F_Trig ?!
+	PayloadMessage	: STRING(255);
+	fbFormat		: FB_FormatString;
+	LevelString		: STRING;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -45,7 +46,7 @@ IF LogonTrigger.Q AND LEN(OnMessage)>1 THEN
 	    LevelString := 'ERROR';
 	END_IF
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OnMessage), sOut => PayloadMessage);
-	MAIN.MQTTClient.PublishLog(LevelString, PayloadMessage);
+	Comm.PublishLog(LevelString, PayloadMessage);
 
 END_IF
 
@@ -58,7 +59,7 @@ IF LogoffTrigger.Q AND LEN(OffMessage)>1 THEN
 	    LevelString := 'ERROR';
 	END_IF
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OffMessage), sOut => PayloadMessage);
-	MAIN.MQTTClient.PublishLog(LevelString, PayloadMessage);
+	Comm.PublishLog(LevelString, PayloadMessage);
 END_IF	
 ]]></ST>
     </Implementation>

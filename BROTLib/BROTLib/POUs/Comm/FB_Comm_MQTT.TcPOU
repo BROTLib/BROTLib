@@ -6,7 +6,9 @@ VAR_INPUT
 	sHostName     	: STRING(255);
     nHostPort     	: UINT := 1883;
     nKeepAlive    	: UINT := 60;
-	sTopicSub     	: STRING(255);
+	sTopicSub    	: STRING(255);
+	sTopicPublish  	: STRING(255);
+	sTopicLog     	: STRING(255);
 	Telescope     	: I_Telescope;
 	Focus			: I_Focus;
 	Filter			: I_Filter;
@@ -107,7 +109,9 @@ VAR_INPUT
 	parameter		: STRING(255);
 	value			: STRING(255);
 END_VAR
-]]></Declaration>
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[]]></ST>
       </Implementation>

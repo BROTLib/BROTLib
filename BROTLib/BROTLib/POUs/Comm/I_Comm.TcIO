@@ -1,7 +1,29 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
   <Itf Name="I_Comm" Id="{aef8fd82-119a-49b9-85f1-c62ccf3b36f3}">
     <Declaration><![CDATA[INTERFACE I_Comm
 ]]></Declaration>
+    <Method Name="Publish" Id="{5b2a42b4-e26b-405d-99ca-66788602b2d5}">
+      <Declaration><![CDATA[METHOD Publish : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);	
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="PublishLog" Id="{bb17fd3c-9433-4b30-9d10-3bf6aa5dc9fe}">
+      <Declaration><![CDATA[METHOD PublishLog : BOOL
+VAR_INPUT
+	level		: STRING(255) := 'INFO';
+	message		: STRING(255);	
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+    </Method>
   </Itf>
 </TcPlcObject>
