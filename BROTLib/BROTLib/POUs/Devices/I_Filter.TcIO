@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <Itf Name="I_Filter" Id="{7e4f80b1-b6cc-4387-86b4-3956422cdca3}">
+    <Declaration><![CDATA[INTERFACE I_Filter
+]]></Declaration>
+    <Method Name="SetFilter" Id="{6999e10a-d22d-4416-aea3-af5c082017db}">
+      <Declaration><![CDATA[METHOD SetFilter : BOOL
+VAR_INPUT
+	FilterPos	: USINT;
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

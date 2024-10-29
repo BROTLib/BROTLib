@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <Itf Name="I_Nasmyth" Id="{3d5a95db-dda5-4c5c-90eb-98d64d4dd740}">
+    <Declaration><![CDATA[INTERFACE I_Nasmyth
+]]></Declaration>
+    <Method Name="SetNasmyth" Id="{b269bb4f-772b-443e-acef-1282c6633bcc}">
+      <Declaration><![CDATA[METHOD SetNasmyth : BOOL
+VAR_INPUT
+	Port	: INT;
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

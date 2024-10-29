@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <Itf Name="I_Focus" Id="{1a3f6670-f8af-4019-b502-f4da4afb4275}">
+    <Declaration><![CDATA[INTERFACE I_Focus
+]]></Declaration>
+    <Method Name="SetFocus" Id="{64699341-182b-489a-8606-89784e443c73}">
+      <Declaration><![CDATA[METHOD SetFocus : BOOL
+VAR_INPUT
+	Focus	: LREAL;
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>
