@@ -1,16 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
   <Itf Name="I_MirrorCover" Id="{ce637c3e-ed3e-4174-8b7f-5e29873c1a6c}">
     <Declaration><![CDATA[INTERFACE I_MirrorCover
 ]]></Declaration>
-    <Method Name="Close" Id="{d170ed42-b733-4dca-b829-4ce12e150295}">
-      <Declaration><![CDATA[METHOD Close : BOOL
+    <Method Name="CloseCover" Id="{d170ed42-b733-4dca-b829-4ce12e150295}">
+      <Declaration><![CDATA[METHOD CloseCover : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="Open" Id="{47330435-4ab9-4214-8907-9d0910956eeb}">
-      <Declaration><![CDATA[METHOD Open : BOOL
+    <Method Name="OpenCover" Id="{47330435-4ab9-4214-8907-9d0910956eeb}">
+      <Declaration><![CDATA[METHOD OpenCover : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="ResetCover" Id="{8fd140fa-4504-401a-a6d2-edb6c92f8267}">
+      <Declaration><![CDATA[METHOD ResetCover : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
