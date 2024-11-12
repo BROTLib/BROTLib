@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="NCError_TO_STRING" Id="{7c7a83d0-e949-43db-95ab-59b66fb84a0e}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION NCError_TO_STRING : STRING(255)
+VAR_INPUT
+	// NC Error ID
+	ErrorID:	UDINT;
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[NCError_TO_STRING := '';
+
+CASE ErrorID OF
+	16#D012:	NCError_TO_STRING := 'Control and power section ready (no error)';
+	16#D013:	NCError_TO_STRING := 'Axis in operation (no error)';
+	16#4220:	NCError_TO_STRING := 'Group not ready / group not ready for new task';
+	16#4253:	NCError_TO_STRING := 'Reference cam became free too soon';
+	16#4257:	NCError_TO_STRING := 'Function not allowed';
+	16#4260:	NCError_TO_STRING := 'Controller enable';
+	16#42EF:	NCError_TO_STRING := 'Axis is locked for motion commands because a stop command is still active';
+	16#4466:	NCError_TO_STRING := 'Invalid IO data FOR more than n subsequent NC cycles (encoder)';
+	16#4550: 	NCError_TO_STRING := 'Following error monitoring (position)';
+	16#4650:	NCError_TO_STRING := 'Drive hardware not ready to operate';
+	16#4B07:	NCError_TO_STRING := 'Timeout axis function block';
+	16#4B09:	NCError_TO_STRING := 'Axis is not ready';
+	16#4B0A:	NCError_TO_STRING := 'Error during referencing';
+	16#ECD0:	NCError_TO_STRING := 'Positive limit switch warning.';				
+	16#ED43:	NCError_TO_STRING := 'Under-voltage - DC link.';				
+	16#F324:	NCError_TO_STRING := 'Excessive position command value deviation';				
+	16#F601:	NCError_TO_STRING := 'Calibrate commutation offset error.';				
+
+ELSE
+	NCError_TO_STRING := DWORD_TO_HEXSTR(ErrorID, 4, FALSE);
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="NCError_TO_STRING">
+      <LineId Id="1" Count="23" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
