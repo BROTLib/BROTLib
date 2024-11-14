@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="F_Elevationvelocity" Id="{c42a2839-5c1e-49cc-93fc-575144a6ced3}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION F_Elevationvelocity : LREAL
+VAR_INPUT
+	// azimuth in degrees
+	azimuth:	LREAL;
+	// observers latitude in degrees
+	latitude:	LREAL;
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+	// Earth's angular rotation frequency in [deg/s]
+	Omega: LREAL := 4.178074605556E-3;
+	d2r:	LREAL := PI/180.0;
+	//r2d:	LREAL := 180.0/PI;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//returns the rotational velocity for the azimuth in degrees per second
+F_Elevationvelocity := SIN(azimuth*d2r) * COS(latitude*d2r) * Omega;]]></ST>
+    </Implementation>
+    <LineIds Name="F_Elevationvelocity">
+      <LineId Id="1" Count="1" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <DUT Name="E_Horn" Id="{b033c196-a04e-49b0-90e9-2a923f9dd67c}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_Horn :
+(
+	off := 0,
+	beep,
+	short,
+	long
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

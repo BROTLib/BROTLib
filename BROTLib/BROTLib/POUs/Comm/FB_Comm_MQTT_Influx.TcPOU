@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
   <POU Name="FB_Comm_MQTT_Influx" Id="{48590b1c-8149-4a75-a4a7-086285ed3fbf}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Comm_MQTT_Influx EXTENDS FB_Comm_MQTT
 VAR_INPUT
@@ -9,6 +9,7 @@ END_VAR
 VAR
 	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
+	sent		: INT := 0;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -131,7 +132,8 @@ published := fbMqttClient.Publish(
 	bRetain			:= retain_message, 
 	bQueue			:= FALSE 
 );
-]]></ST>
+
+sent := sent + 1;]]></ST>
       </Implementation>
     </Method>
     <Method Name="PublishLog" Id="{dd46de85-b82a-4d9d-9238-d6c509f88651}">
@@ -207,7 +209,7 @@ published := fbMqttClient.Publish(
       <LineId Id="27" Count="2" />
       <LineId Id="41" Count="1" />
       <LineId Id="30" Count="9" />
-      <LineId Id="43" Count="0" />
+      <LineId Id="43" Count="1" />
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx.PublishLog">

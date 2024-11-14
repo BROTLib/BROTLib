@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="PointingModelElevation" Id="{59d0c2f1-ac61-4bba-8481-3144f6aba662}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION PointingModelElevation : LREAL
+// https://aro.as.arizona.edu/~aro/12_obs_manual/pdfs/Appendix_A_Rev_2.pdf
+VAR_INPUT
+	// current azimuth of telescope
+	azimuth: LREAL;
+	// current elevation of telescope
+	elevation: LREAL;
+	// elevation encoder zero offset
+	EOFF: 	LREAL;
+	// azimuth axis offset/misalignment north-south
+	AN_E:	LREAL;
+	// azimuth axis offset/misalignment east-west
+	AE_E:	LREAL;
+	// gravitational flexure correction at the horizon
+	TF:		LREAL;
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+	d2r:	LREAL := PI/180.0;
+	//r2d:	LREAL := 180.0/PI;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[PointingModelElevation := EOFF + AN_E*COS(azimuth * d2r) + AE_E*SIN(azimuth * d2r) + TF*COS(elevation * d2r);
+]]></ST>
+    </Implementation>
+    <LineIds Name="PointingModelElevation">
+      <LineId Id="1" Count="1" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

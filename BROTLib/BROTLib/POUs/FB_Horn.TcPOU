@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="FB_Horn" Id="{30db338a-35ce-4efd-97d8-7974ae10b0f5}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Horn
+VAR_INPUT
+	horn:	E_Horn;
+END_VAR
+VAR_OUTPUT
+		Q:		BOOL;
+END_VAR
+VAR
+	ON_TIME:	TIME := T#500MS;
+	IMPULS   :TOF;
+    PAUSE    :TOF;
+
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE horn OF
+	e_horn.off:
+		ON_TIME := T#0MS;
+	e_horn.beep:
+		ON_TIME := T#500MS;
+	e_horn.short:
+		ON_TIME := T#3000MS;
+	e_horn.long:
+		ON_TIME := T#5000MS;
+END_CASE
+
+IMPULS(IN:= NOT PAUSE.Q AND NOT IMPULS.Q, PT:= ON_TIME);
+IF horn = e_horn.off THEN
+	Q := FALSE;
+ELSE
+	Q := IMPULS.Q;	
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Horn">
+      <LineId Id="1" Count="16" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="FB_BLINK" Id="{56aa9b26-e1df-4289-b787-9e9311227a5a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_BLINK
+VAR_INPUT
+	blink:		E_Blink;
+	ON_TIME:	TIME := T#500MS;
+	OFF_TIME:	TIME := T#500MS;
+END_VAR
+VAR_OUTPUT
+	Q:		BOOL;
+END_VAR
+VAR
+    IMPULS   :TOF;
+    PAUSE    :TOF;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE blink OF
+	e_blink.slow:
+		ON_TIME := T#500MS;
+		OFF_TIME := T#500MS;
+	e_blink.fast:
+		ON_TIME := T#250MS;
+		OFF_TIME := T#250MS;
+	e_blink.short:
+		ON_TIME := T#100MS;
+		OFF_TIME := T#900MS;
+	e_blink.long:
+		ON_TIME := T#900MS;
+		OFF_TIME := T#100MS;
+END_CASE
+
+IMPULS(IN:= NOT PAUSE.Q AND NOT IMPULS.Q, PT:= ON_TIME);
+PAUSE(IN:= NOT PAUSE.Q AND NOT IMPULS.Q, PT:= OFF_TIME);
+IF blink = e_blink.off THEN
+	Q := FALSE;
+ELSIF blink = e_blink.on THEN
+	Q := TRUE;
+ELSE
+	Q := IMPULS.Q;	
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FB_BLINK">
+      <LineId Id="1" Count="23" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

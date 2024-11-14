@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="PointingModelAzimuth" Id="{d2a050df-7353-4ffa-a2e1-5e59abc9eaea}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION PointingModelAzimuth : LREAL
+// https://aro.as.arizona.edu/~aro/12_obs_manual/pdfs/Appendix_A_Rev_2.pdf
+VAR_INPUT
+	// current azimuth of telescope in degrees
+	azimuth: LREAL;
+	// current elevation of telescope in degrees
+	elevation: LREAL;
+	// azimuth encoder zero offset
+	AOFF: 	LREAL;
+	// collimation error of the electromagnetic axis
+	BNP:	LREAL;
+	// azimuth axis offset/misalignment north-south
+	AN_A:	LREAL;
+	// azimuth axis offset/misalignment east-west,
+	AE_A:	LREAL;
+	// Non-perpendicularity between the mount azimuth and elevation axes
+	NPAE:	LREAL;
+END_VAR
+VAR
+	tan_elevation:	LREAL;
+	cos_elevation:	LREAL;
+END_VAR
+VAR CONSTANT
+	d2r:	LREAL := PI/180.0;
+	//r2d:	LREAL := 180.0/PI;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF elevation<89.9 THEN
+	tan_elevation := TAN(elevation * d2r);
+	cos_elevation := COS(elevation * d2r);
+ELSE // clamp values so that we do not run into DIV by zero or overflow
+	tan_elevation := 572.9572133543033;
+	cos_elevation := 0.0017453283658982613;
+END_IF
+
+//d(az)=AOFF-BNP/cos(el)+NPAE*tan(el)+AAN*sin(az)*tan(el)-AAE*cos(az)*tan(el)
+
+PointingModelAzimuth := AOFF - BNP/cos_elevation + AN_A*SIN(azimuth * d2r)*tan_elevation - AE_A*COS(azimuth * d2r)*tan_elevation + NPAE*tan_elevation;
+]]></ST>
+    </Implementation>
+    <LineIds Name="PointingModelAzimuth">
+      <LineId Id="1" Count="11" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
