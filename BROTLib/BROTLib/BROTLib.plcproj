@@ -19,7 +19,10 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.2.0</ProjectVersion>
+    <ProjectVersion>0.3.0</ProjectVersion>
+    <AllowChecksForLibrary>false</AllowChecksForLibrary>
+    <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
+    <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="DUTs\E_Blink.TcDUT">
