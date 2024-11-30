@@ -9,6 +9,18 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
+    <Method Name="IsClosed" Id="{5bfd566b-f5d0-4c6f-9f10-d10c9709d33c}">
+      <Declaration><![CDATA[METHOD IsClosed : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="IsOpen" Id="{380f6690-4fbb-4ef1-9dc3-7a4959b63b35}">
+      <Declaration><![CDATA[METHOD IsOpen : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
     <Method Name="OpenCover" Id="{47330435-4ab9-4214-8907-9d0910956eeb}">
       <Declaration><![CDATA[METHOD OpenCover : BOOL
 VAR_INPUT
