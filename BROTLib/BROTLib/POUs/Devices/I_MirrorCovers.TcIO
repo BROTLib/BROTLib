@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <Itf Name="I_MirrorCovers" Id="{ce637c3e-ed3e-4174-8b7f-5e29873c1a6c}">
+    <Declaration><![CDATA[INTERFACE I_MirrorCovers
+]]></Declaration>
+    <Method Name="AreCoversClosed" Id="{5bfd566b-f5d0-4c6f-9f10-d10c9709d33c}">
+      <Declaration><![CDATA[METHOD AreCoversClosed : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="AreCoversOpen" Id="{380f6690-4fbb-4ef1-9dc3-7a4959b63b35}">
+      <Declaration><![CDATA[METHOD AreCoversOpen : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="CloseCover" Id="{154de5be-ed9e-40a6-affb-5973b8c678f6}">
+      <Declaration><![CDATA[METHOD CloseCover : BOOL
+VAR_INPUT
+	cover	: UINT;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="CloseCovers" Id="{d170ed42-b733-4dca-b829-4ce12e150295}">
+      <Declaration><![CDATA[METHOD CloseCovers : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="HasError" Id="{613276ee-e929-4e0f-a375-6b53a68dcba2}">
+      <Declaration><![CDATA[METHOD HasError : BOOL
+VAR_INPUT
+	cover	: UINT;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="IsCoverClosed" Id="{293aaa8b-84c3-44d0-8b88-9876c26d5402}">
+      <Declaration><![CDATA[METHOD IsCoverClosed : BOOL
+VAR_INPUT
+	cover	: UINT;	
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="IsCoverOpen" Id="{7bf7d76e-c4ea-413e-8a66-508730888dbd}">
+      <Declaration><![CDATA[METHOD IsCoverOpen : BOOL
+VAR_INPUT
+	cover	: UINT;	
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="OpenCover" Id="{a28ff9c8-eed2-49bd-83bd-d47b722e5119}">
+      <Declaration><![CDATA[METHOD OpenCover : BOOL
+VAR_INPUT
+	cover	: UINT;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="OpenCovers" Id="{47330435-4ab9-4214-8907-9d0910956eeb}">
+      <Declaration><![CDATA[METHOD OpenCovers : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="ResetCovers" Id="{8fd140fa-4504-401a-a6d2-edb6c92f8267}">
+      <Declaration><![CDATA[METHOD ResetCovers : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

@@ -89,7 +89,7 @@
     <Compile Include="POUs\Devices\I_Focus.TcIO">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\Devices\I_MirrorCover.TcIO">
+    <Compile Include="POUs\Devices\I_MirrorCovers.TcIO">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Devices\I_Nasmyth.TcIO">
