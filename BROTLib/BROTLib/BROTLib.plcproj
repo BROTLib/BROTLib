@@ -9,7 +9,7 @@
     <WriteProductVersion>true</WriteProductVersion>
     <GenerateTpy>false</GenerateTpy>
     <Name>BROTLib</Name>
-    <ProgramVersion>3.1.4026.11</ProgramVersion>
+    <ProgramVersion>3.1.4026.12</ProgramVersion>
     <Application>{f55beaa9-1516-4765-90f8-f3848e3c86b6}</Application>
     <TypeSystem>{cde8d1f3-c07f-4e83-a2b3-fa9baa36a0a1}</TypeSystem>
     <Implicit_Task_Info>{b58423d4-b14d-4ba2-8fc3-d7cf9a26f503}</Implicit_Task_Info>

@@ -72,7 +72,7 @@ IF measurement = 'command' THEN
 	ELSIF parameter = 'azimuth' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
-		Focus.SetFocus(STRING_TO_LREAL(value));
+		Focus.Position := STRING_TO_LREAL(value);
 	ELSIF parameter = 'filter' AND Filter <> 0 THEN
 		Filter.SetFilter(STRING_TO_USINT(value));
 	ELSIF parameter = 'derotator' AND Telescope <> 0 THEN
