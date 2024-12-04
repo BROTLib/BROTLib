@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <Itf Name="I_Brake" Id="{1ea40e6b-7b15-4224-8327-2c0169da68d6}">
+    <Declaration><![CDATA[INTERFACE I_Brake
+]]></Declaration>
+    <Property Name="BrakeOpen" Id="{e9b670f4-c3dd-4a6c-b452-216be4638562}">
+      <Declaration><![CDATA[PROPERTY BrakeOpen : BOOL]]></Declaration>
+      <Get Name="Get" Id="{ead55009-18f9-4895-a1e0-d4cbb81f3778}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="CloseBrake" Id="{0fa19818-81a5-4563-a75a-2ae1429c657d}">
+      <Declaration><![CDATA[METHOD CloseBrake : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="OpenBrake" Id="{61c25982-5a7c-403f-8b9e-e60c42fa6606}">
+      <Declaration><![CDATA[METHOD OpenBrake : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>
