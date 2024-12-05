@@ -3,5 +3,62 @@
   <Itf Name="I_Hydraulics" Id="{98debd9f-1fac-4f33-8ff3-46ce32fb4d2a}">
     <Declaration><![CDATA[INTERFACE I_Hydraulics
 ]]></Declaration>
+    <Property Name="Enable" Id="{f70ce529-7aed-438a-89b6-4fbf03d857d2}">
+      <Declaration><![CDATA[PROPERTY Enable : BOOL]]></Declaration>
+      <Get Name="Get" Id="{82d1ed71-1773-4c60-b8da-706e97e6c142}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{ec4088e3-75ad-4ddf-90ac-35648220c5e1}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="Error" Id="{8c254afe-5981-47bc-bd9a-a2be4478d939}">
+      <Declaration><![CDATA[PROPERTY Error : BOOL]]></Declaration>
+      <Get Name="Get" Id="{ebd85397-baf8-44ae-ab33-11454280f646}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="ManualStartSuction" Id="{e8f371b8-d1da-4f83-b3a6-6270a51be7c5}">
+      <Declaration><![CDATA[PROPERTY ManualStartSuction : BOOL]]></Declaration>
+      <Get Name="Get" Id="{ceb105d0-9e19-4bdc-9741-6c0518098f3d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{ea71707e-82db-4802-8426-ea04866f4806}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="ManualStopPump" Id="{ee815c57-d264-4103-af66-f4b924ce7fc0}">
+      <Declaration><![CDATA[PROPERTY ManualStopPump : BOOL]]></Declaration>
+      <Get Name="Get" Id="{8a07ee38-66da-4d16-b4f1-fb3378bfb471}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{0b6a3ba7-304a-456f-87cb-89531d9ce13f}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="OilPressureOK" Id="{23ea1e38-8438-4a2d-a85a-1efdf53a24f5}">
+      <Declaration><![CDATA[PROPERTY OilPressureOK : BOOL]]></Declaration>
+      <Get Name="Get" Id="{d51cec44-30db-4fee-a0ae-fab1f64bdfa3}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="PumpRunning" Id="{a8c4a319-51d7-4f74-8037-5bbb4aa24cbb}">
+      <Declaration><![CDATA[PROPERTY PumpRunning : BOOL]]></Declaration>
+      <Get Name="Get" Id="{7e8bffd7-8972-491b-8e14-d1864a300809}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Reset" Id="{bb0787e6-c94a-4fe3-ba68-190cb3cdd48d}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="SuctionRunning" Id="{11deb407-c091-442c-879d-7860a615bce0}">
+      <Declaration><![CDATA[PROPERTY SuctionRunning : BOOL]]></Declaration>
+      <Get Name="Get" Id="{384f4973-2a43-4e47-804a-23deb6bb2eb8}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
   </Itf>
 </TcPlcObject>
