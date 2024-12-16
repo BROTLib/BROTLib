@@ -28,13 +28,12 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="HasError" Id="{613276ee-e929-4e0f-a375-6b53a68dcba2}">
-      <Declaration><![CDATA[METHOD HasError : BOOL
-VAR_INPUT
-	cover	: UINT;
-END_VAR
-]]></Declaration>
-    </Method>
+    <Property Name="Error" Id="{ff09ec7f-4b0d-4bfe-9bc0-a74f6b8e0c04}">
+      <Declaration><![CDATA[PROPERTY Error : BOOL]]></Declaration>
+      <Get Name="Get" Id="{65d2e08e-b6f2-4c31-8697-8d42891b20d7}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
     <Method Name="IsCoverClosed" Id="{293aaa8b-84c3-44d0-8b88-9876c26d5402}">
       <Declaration><![CDATA[METHOD IsCoverClosed : BOOL
 VAR_INPUT
