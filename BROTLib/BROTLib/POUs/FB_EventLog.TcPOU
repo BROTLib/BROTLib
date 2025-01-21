@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <POU Name="FB_EventLog" Id="{3524ed80-3787-4549-a84e-d995fc3a40dc}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_EventLog
 VAR_INPUT

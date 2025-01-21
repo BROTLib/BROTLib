@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <Itf Name="I_Focus" Id="{1a3f6670-f8af-4019-b502-f4da4afb4275}">
-    <Declaration><![CDATA[INTERFACE I_Focus]]></Declaration>
+    <Declaration><![CDATA[INTERFACE I_Focus EXTENDS I_Axis]]></Declaration>
     <Property Name="Enable" Id="{643f2566-d6d2-46dd-bd5b-e96034b8795b}">
       <Declaration><![CDATA[PROPERTY PUBLIC Enable : BOOL]]></Declaration>
       <Get Name="Get" Id="{ab497783-e1ed-4f20-8914-7347a56fcb97}">
@@ -10,12 +10,6 @@
       <Set Name="Set" Id="{026a2490-76ae-472d-9f8d-c35c04729ed6}">
         <Declaration><![CDATA[]]></Declaration>
       </Set>
-    </Property>
-    <Property Name="Error" Id="{dd80834c-41db-4b28-9b5d-ab00020034c2}">
-      <Declaration><![CDATA[PROPERTY Error : BOOL]]></Declaration>
-      <Get Name="Get" Id="{c6dc85b7-646f-47c3-bd1a-83816855a60f}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
     </Property>
     <Property Name="ErrorID" Id="{b1f76494-3238-4e2c-8eeb-95c56a1cb045}">
       <Declaration><![CDATA[PROPERTY PUBLIC ErrorID : UDINT]]></Declaration>

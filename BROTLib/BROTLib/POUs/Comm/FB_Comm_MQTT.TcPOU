@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <POU Name="FB_Comm_MQTT" Id="{d8bbe4b4-77fa-45ad-bf12-17a65647a3ca}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK ABSTRACT FB_Comm_MQTT IMPLEMENTS I_Comm
 VAR_INPUT

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4024.53">
+<TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4026.13">
 	<Project ProjectGUID="{A46C50F4-4F67-4A5F-9957-2B17C076595D}" Target64Bit="true" ShowHideConfigurations="#x6">
 		<System>
 			<Tasks>
@@ -10,7 +10,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{564FFD9A-1497-4C08-97FE-C383F6EF4E3A}" Name="BROTLib" PrjFilePath="BROTLib\BROTLib.plcproj" TmcFilePath="BROTLib\BROTLib.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcPath="BROTLib\BROTLib.tmc" TmcHash="{708DC6D8-8FBA-A914-2161-DD91DB2BA096}">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcHash="{48DC3030-49BC-FC82-58B0-B3358E1018BB}" TmcPath="BROTLib\BROTLib.tmc">
 					<Name>BROTLib Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Contexts>

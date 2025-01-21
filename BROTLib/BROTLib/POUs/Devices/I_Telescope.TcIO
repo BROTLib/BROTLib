@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <Itf Name="I_Telescope" Id="{5003d6e3-4b52-4cb8-a028-b0ab2a6b3370}">
     <Declaration><![CDATA[INTERFACE I_Telescope
 ]]></Declaration>

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <Itf Name="I_MirrorCovers" Id="{ce637c3e-ed3e-4174-8b7f-5e29873c1a6c}">
     <Declaration><![CDATA[INTERFACE I_MirrorCovers
 ]]></Declaration>
@@ -34,6 +34,13 @@ END_VAR
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
+    <Method Name="HasError" Id="{b744f98a-093d-4a51-8522-cba4215a667c}">
+      <Declaration><![CDATA[METHOD HasError : BOOL
+VAR_INPUT
+	cover	: UINT;
+END_VAR
+]]></Declaration>
+    </Method>
     <Method Name="IsCoverClosed" Id="{293aaa8b-84c3-44d0-8b88-9876c26d5402}">
       <Declaration><![CDATA[METHOD IsCoverClosed : BOOL
 VAR_INPUT
