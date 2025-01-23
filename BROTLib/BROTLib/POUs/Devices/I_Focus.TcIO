@@ -1,31 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <Itf Name="I_Focus" Id="{1a3f6670-f8af-4019-b502-f4da4afb4275}">
     <Declaration><![CDATA[INTERFACE I_Focus EXTENDS I_BaseAxis]]></Declaration>
-    <Property Name="Enable" Id="{643f2566-d6d2-46dd-bd5b-e96034b8795b}">
-      <Declaration><![CDATA[PROPERTY PUBLIC Enable : BOOL]]></Declaration>
-      <Get Name="Get" Id="{ab497783-e1ed-4f20-8914-7347a56fcb97}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{026a2490-76ae-472d-9f8d-c35c04729ed6}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
-    <Property Name="ErrorID" Id="{b1f76494-3238-4e2c-8eeb-95c56a1cb045}">
-      <Declaration><![CDATA[PROPERTY PUBLIC ErrorID : UDINT]]></Declaration>
-      <Get Name="Get" Id="{738a8145-fea6-4249-9b8d-7bcded910b67}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
-    <Property Name="HomeAxis" Id="{3182a13c-9537-421f-99c4-f067252a46dd}">
-      <Declaration><![CDATA[PROPERTY PUBLIC HomeAxis : BOOL]]></Declaration>
-      <Get Name="Get" Id="{35328787-ef1b-4be8-bd6a-545a0778140a}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{79bccbc1-7e85-40cb-a181-246f9be6e85e}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
     <Property Name="InFarLimit" Id="{7b6b4b4d-e4c5-47d1-8b4a-b4622e852f4c}">
       <Declaration><![CDATA[PROPERTY PUBLIC InFarLimit : BOOL]]></Declaration>
       <Get Name="Get" Id="{2753d606-2eb5-490d-805c-06bb8b75c66f}">
@@ -49,27 +25,6 @@ END_VAR
       <Declaration><![CDATA[METHOD MoveOut : BOOL
 VAR_INPUT
 	bEnable	: BOOL;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Property Name="Position" Id="{f1ad021e-6436-4a86-9585-e3bdc8f6adce}">
-      <Declaration><![CDATA[PROPERTY PUBLIC Position : LREAL]]></Declaration>
-      <Get Name="Get" Id="{fcf2be21-c05c-4cf8-b98a-ca176c04f342}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{8406f8d0-d1a3-4b20-ba5d-68620c12795d}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
-    <Property Name="Ready" Id="{bdf45cbe-7a1e-42c6-adb7-29476f97644c}">
-      <Declaration><![CDATA[PROPERTY PUBLIC Ready : BOOL]]></Declaration>
-      <Get Name="Get" Id="{460aacd7-eef9-400d-91ff-d6c354b33c91}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
-    <Method Name="Reset" Id="{9f2423d2-ef16-447c-9309-b8f19e3944b4}">
-      <Declaration><![CDATA[METHOD Reset : BOOL
-VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>

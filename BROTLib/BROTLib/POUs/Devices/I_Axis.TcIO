@@ -1,32 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <Itf Name="I_Axis" Id="{595a9217-864b-493b-b1f1-9dea5601aca8}">
     <Declaration><![CDATA[INTERFACE I_Axis EXTENDS I_BaseAxis
 ]]></Declaration>
-    <Property Name="Enable" Id="{f00a00ca-cd53-4195-883b-b5305c4bc6dc}">
-      <Declaration><![CDATA[PROPERTY Enable : BOOL]]></Declaration>
-      <Get Name="Get" Id="{54ded346-e658-4c29-b3c2-795c8c4546ec}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{27371135-a06f-4870-87b9-fc5625a5988c}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
-    <Property Name="ErrorID" Id="{55a37fa5-5d66-4267-aad3-3a98aa372c29}">
-      <Declaration><![CDATA[PROPERTY ErrorID : UDINT]]></Declaration>
-      <Get Name="Get" Id="{25802475-7347-42d5-a54f-4b632a030274}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
-    <Property Name="HomeAxis" Id="{d1537209-25a2-4e1c-94aa-5e8bec67a977}">
-      <Declaration><![CDATA[PROPERTY HomeAxis : BOOL]]></Declaration>
-      <Get Name="Get" Id="{9c29ba6a-1a3a-4434-bcdf-2c14e7dc6431}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{d3c08ea7-d2cd-4af0-868f-5fadac210a9e}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
     <Property Name="isTracking" Id="{0d2ea9c7-dd11-4be0-9e83-6118b37e161b}">
       <Declaration><![CDATA[PROPERTY isTracking : BOOL]]></Declaration>
       <Get Name="Get" Id="{c9cdb742-ee96-4320-b6b2-cd6aece51d85}">
@@ -48,27 +24,6 @@
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
-    <Property Name="Position" Id="{b990da48-4810-4c07-9b89-53062240be15}">
-      <Declaration><![CDATA[PROPERTY Position : LREAL]]></Declaration>
-      <Get Name="Get" Id="{4e1c508f-c40a-4af5-9f87-d147eca48a3e}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{e09eff94-3fd9-4578-a736-1299b29646c3}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
-    <Property Name="Ready" Id="{7d6e258f-d171-42f5-a90b-a905b21fe52c}">
-      <Declaration><![CDATA[PROPERTY Ready : BOOL]]></Declaration>
-      <Get Name="Get" Id="{910a411c-438b-480a-bf39-34253c3cab2f}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
-    <Method Name="Reset" Id="{466c4f7e-e945-477b-a4db-3103979d61bc}">
-      <Declaration><![CDATA[METHOD Reset : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-    </Method>
     <Property Name="SlewTime" Id="{ea9cbc59-52a8-43e3-b9ff-bd11e69913af}">
       <Declaration><![CDATA[PROPERTY SlewTime : LREAL]]></Declaration>
       <Get Name="Get" Id="{07820cdd-1819-4cf1-ad7a-493b97cc2472}">
@@ -90,15 +45,6 @@ END_VAR
         <Declaration><![CDATA[]]></Declaration>
       </Get>
       <Set Name="Set" Id="{a7020af0-be07-460d-88fe-c9babbe577d5}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Set>
-    </Property>
-    <Property Name="Velocity" Id="{ccd581c9-c5ee-4b41-8cf1-7d61f7e80a83}">
-      <Declaration><![CDATA[PROPERTY Velocity : LREAL]]></Declaration>
-      <Get Name="Get" Id="{16838da0-ce65-47be-9f18-f1ac4e6a8893}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-      <Set Name="Set" Id="{685648c2-6602-486f-95c0-65e9bf425878}">
         <Declaration><![CDATA[]]></Declaration>
       </Set>
     </Property>
