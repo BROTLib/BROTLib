@@ -3,73 +3,38 @@
   <Itf Name="I_MirrorCovers" Id="{ce637c3e-ed3e-4174-8b7f-5e29873c1a6c}">
     <Declaration><![CDATA[INTERFACE I_MirrorCovers
 ]]></Declaration>
-    <Method Name="AreCoversClosed" Id="{5bfd566b-f5d0-4c6f-9f10-d10c9709d33c}">
-      <Declaration><![CDATA[METHOD AreCoversClosed : BOOL
+    <Method Name="Close" Id="{154de5be-ed9e-40a6-affb-5973b8c678f6}">
+      <Declaration><![CDATA[METHOD Close : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="AreCoversOpen" Id="{380f6690-4fbb-4ef1-9dc3-7a4959b63b35}">
-      <Declaration><![CDATA[METHOD AreCoversOpen : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="CloseCover" Id="{154de5be-ed9e-40a6-affb-5973b8c678f6}">
-      <Declaration><![CDATA[METHOD CloseCover : BOOL
-VAR_INPUT
-	cover	: UINT;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="CloseCovers" Id="{d170ed42-b733-4dca-b829-4ce12e150295}">
-      <Declaration><![CDATA[METHOD CloseCovers : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-    </Method>
+    <Property Name="Closed" Id="{df5c5dcb-f0cb-4027-85a3-748560fa09dc}">
+      <Declaration><![CDATA[PROPERTY Closed : BOOL]]></Declaration>
+      <Get Name="Get" Id="{6a5afbac-a6cd-43df-90ce-766f647c9945}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
     <Property Name="Error" Id="{ff09ec7f-4b0d-4bfe-9bc0-a74f6b8e0c04}">
       <Declaration><![CDATA[PROPERTY Error : BOOL]]></Declaration>
       <Get Name="Get" Id="{65d2e08e-b6f2-4c31-8697-8d42891b20d7}">
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
-    <Method Name="HasError" Id="{b744f98a-093d-4a51-8522-cba4215a667c}">
-      <Declaration><![CDATA[METHOD HasError : BOOL
-VAR_INPUT
-	cover	: UINT;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="IsCoverClosed" Id="{293aaa8b-84c3-44d0-8b88-9876c26d5402}">
-      <Declaration><![CDATA[METHOD IsCoverClosed : BOOL
-VAR_INPUT
-	cover	: UINT;	
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="IsCoverOpen" Id="{7bf7d76e-c4ea-413e-8a66-508730888dbd}">
-      <Declaration><![CDATA[METHOD IsCoverOpen : BOOL
-VAR_INPUT
-	cover	: UINT;	
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="OpenCover" Id="{a28ff9c8-eed2-49bd-83bd-d47b722e5119}">
-      <Declaration><![CDATA[METHOD OpenCover : BOOL
-VAR_INPUT
-	cover	: UINT;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="OpenCovers" Id="{47330435-4ab9-4214-8907-9d0910956eeb}">
-      <Declaration><![CDATA[METHOD OpenCovers : BOOL
+    <Method Name="Open" Id="{47330435-4ab9-4214-8907-9d0910956eeb}">
+      <Declaration><![CDATA[METHOD Open : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="ResetCovers" Id="{8fd140fa-4504-401a-a6d2-edb6c92f8267}">
-      <Declaration><![CDATA[METHOD ResetCovers : BOOL
+    <Property Name="Opened" Id="{9c791bb0-7b95-44f9-87e7-ce5d0e9a2540}">
+      <Declaration><![CDATA[PROPERTY Opened : BOOL]]></Declaration>
+      <Get Name="Get" Id="{fbdbf55f-40c4-4cdf-bbbf-a3b663be85c7}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Reset" Id="{8fd140fa-4504-401a-a6d2-edb6c92f8267}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
