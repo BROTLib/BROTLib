@@ -86,6 +86,9 @@
     <Compile Include="POUs\Devices\I_Axis.TcIO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Devices\I_BaseAxis.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Devices\I_Brake.TcIO">
       <SubType>Code</SubType>
     </Compile>
