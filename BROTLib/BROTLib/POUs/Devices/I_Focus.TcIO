@@ -2,17 +2,5 @@
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <Itf Name="I_Focus" Id="{1a3f6670-f8af-4019-b502-f4da4afb4275}">
     <Declaration><![CDATA[INTERFACE I_Focus EXTENDS I_BaseAxis]]></Declaration>
-    <Property Name="InFarLimit" Id="{7b6b4b4d-e4c5-47d1-8b4a-b4622e852f4c}">
-      <Declaration><![CDATA[PROPERTY PUBLIC InFarLimit : BOOL]]></Declaration>
-      <Get Name="Get" Id="{2753d606-2eb5-490d-805c-06bb8b75c66f}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
-    <Property Name="InNearLimit" Id="{f9da4b78-4e13-4428-8107-3d61080bdca6}">
-      <Declaration><![CDATA[PROPERTY PUBLIC InNearLimit : BOOL]]></Declaration>
-      <Get Name="Get" Id="{90b15be6-99e4-4c70-b46e-d806a93e02b2}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
   </Itf>
 </TcPlcObject>
