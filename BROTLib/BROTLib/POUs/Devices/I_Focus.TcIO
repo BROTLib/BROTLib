@@ -14,19 +14,5 @@
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
-    <Method Name="MoveIn" Id="{0300957d-3653-4c03-aab6-af05c67ead32}">
-      <Declaration><![CDATA[METHOD MoveIn : BOOL
-VAR_INPUT
-	bEnable	: BOOL;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="MoveOut" Id="{a5d53a40-38df-490c-9679-3a07e7f9a968}">
-      <Declaration><![CDATA[METHOD MoveOut : BOOL
-VAR_INPUT
-	bEnable	: BOOL;
-END_VAR
-]]></Declaration>
-    </Method>
   </Itf>
 </TcPlcObject>

@@ -45,6 +45,36 @@
         <Declaration><![CDATA[]]></Declaration>
       </Set>
     </Property>
+    <Property Name="InNegLimit" Id="{7ed5f7ce-2d19-4c51-9235-cf95950da38a}">
+      <Declaration><![CDATA[PROPERTY InNegLimit : BOOL]]></Declaration>
+      <Get Name="Get" Id="{b2c791f1-a929-476d-b8be-d54029b01049}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="InPosLimit" Id="{c0bbcafb-ad06-49ef-b33e-162cf573768b}">
+      <Declaration><![CDATA[PROPERTY InPosLimit : BOOL]]></Declaration>
+      <Get Name="Get" Id="{987fb4b2-a0ed-4b53-9433-3bafe5e57d71}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="MoveNeg" Id="{273cb633-0163-4c0e-aa79-479108adb62f}">
+      <Declaration><![CDATA[PROPERTY MoveNeg : BOOL]]></Declaration>
+      <Get Name="Get" Id="{66565ae8-18e2-44be-8013-686e2e637e40}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{cb8eec97-cc0f-45c9-80ee-b220687ec4c4}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="MovePos" Id="{a0bc8eac-5450-447e-b5e2-4ae970562be2}">
+      <Declaration><![CDATA[PROPERTY MovePos : BOOL]]></Declaration>
+      <Get Name="Get" Id="{591ab01b-6e09-472d-ba71-ce72830b3221}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{a69c274c-e5d2-4d7f-8117-90ecc821dbc1}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
     <Property Name="Position" Id="{b990da48-4810-4c07-9b89-53062240be15}">
       <Declaration><![CDATA[PROPERTY Position : LREAL]]></Declaration>
       <Get Name="Get" Id="{4e1c508f-c40a-4af5-9f87-d147eca48a3e}">
