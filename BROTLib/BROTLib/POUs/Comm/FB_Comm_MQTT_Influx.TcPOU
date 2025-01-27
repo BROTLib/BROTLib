@@ -31,9 +31,7 @@ END_VAR]]></Declaration>
 IF measurement = 'command' THEN
 	IF parameter = 'power' AND Telescope <> 0 THEN
 		IF STRING_TO_BOOL(value) THEN
-			Telescope.PowerOn();
-		ELSE
-			Telescope.PowerOff();			
+			Telescope.Init();
 		END_IF
 	ELSIF parameter = 'park' AND Telescope <> 0 THEN
 		Telescope.Park();
@@ -178,7 +176,11 @@ published := fbMqttClient.Publish(
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
-      <LineId Id="78" Count="10" />
+      <LineId Id="78" Count="2" />
+      <LineId Id="159" Count="0" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="160" Count="0" />
+      <LineId Id="86" Count="2" />
       <LineId Id="158" Count="0" />
       <LineId Id="90" Count="0" />
       <LineId Id="128" Count="4" />

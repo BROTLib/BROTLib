@@ -15,6 +15,12 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
+    <Method Name="Init" Id="{a446f50b-d891-42c3-bcd4-e100ad4f506e}">
+      <Declaration><![CDATA[METHOD Init : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
     <Method Name="MoveAltAz" Id="{cc0d567e-4a90-40d9-8f8e-e1a94eb43aa2}">
       <Declaration><![CDATA[METHOD MoveAltAz : BOOL
 VAR_INPUT
@@ -31,18 +37,6 @@ END_VAR
     </Method>
     <Method Name="Park" Id="{4989c55f-52d0-4389-8fa2-916073e653f8}">
       <Declaration><![CDATA[METHOD ABSTRACT Park : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="PowerOff" Id="{3291b764-646f-4fe2-b792-3aa38b38e854}">
-      <Declaration><![CDATA[METHOD ABSTRACT PowerOff : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="PowerOn" Id="{22b1f0f6-3e21-43e9-a91c-d9db89f97e54}">
-      <Declaration><![CDATA[METHOD ABSTRACT PowerOn : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
