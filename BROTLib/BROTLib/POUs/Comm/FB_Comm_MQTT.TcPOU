@@ -76,6 +76,7 @@ CASE state OF
 	
 3:
 	// receive queued messages
+	fbMqttClient.Execute(bConnect := TRUE);
 	IF fbMessageQueue.nQueuedMessages > 0 THEN
 		IF fbMessageQueue.Dequeue(fbMessage:=fbMessage) THEN
 			fbMessage.GetTopic(pTopic:=ADR(sTopicRcv), nTopicSize:=SIZEOF(sTopicRcv) );
@@ -130,7 +131,9 @@ END_VAR]]></Declaration>
       </Implementation>
     </Method>
     <LineIds Name="FB_Comm_MQTT">
-      <LineId Id="245" Count="56" />
+      <LineId Id="245" Count="43" />
+      <LineId Id="302" Count="0" />
+      <LineId Id="289" Count="12" />
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT._handleMQTTMessage">
