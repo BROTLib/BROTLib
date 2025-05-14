@@ -212,6 +212,9 @@
     <Compile Include="Telescope\I_TelescopeState.TcIO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Telescope\ST_TelescopeConfig.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="DUTs" />
