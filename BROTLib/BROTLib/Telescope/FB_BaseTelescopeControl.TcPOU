@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_BaseTelescopeControl" Id="{eddbf876-a986-4fe1-ba5b-16d782882b92}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_BaseTelescopeControl
+VAR_INPUT
+	bInit				: BOOL;
+	bPark				: BOOL;
+	bSlew				: BOOL;
+	bTrack				: BOOL;
+	bStop				: BOOL;
+	bReset				: BOOL;
+	
+	bBrakeClearing		: BOOL	:= TRUE;
+	
+	fRightAscension		: LREAL;	
+	fDeclination		: LREAL;
+	fAzimuth			: LREAL;
+	fElevation			: LREAL;
+	
+	telescopeConfig		: ST_TelescopeConfig;
+END_VAR
+VAR_OUTPUT
+	bPower				: BOOL;
+	bError				: BOOL;
+	
+END_VAR
+VAR
+	comm				: I_Comm;
+	
+	fbMachine			: FB_TelescopeMachine;
+	fbParkedState		: FB_TelescopeParkedState(fbMachine);
+	fbInitializingState	: FB_TelescopeInitializingState(fbMachine);
+	fbParkingState		: FB_TelescopeParkingState(fbMachine);
+	fbIdleState			: FB_TelescopeIdleState(fbMachine);
+	fbSlewingState		: FB_TelescopeSlewingState(fbMachine);
+	fbTrackingState		: FB_TelescopeTrackingState(fbMachine);
+	
+	bPowerFailure		: BOOL;		// triggers power-failure event
+	
+	fbTime				: FB_AstroClock;	// precise astronomical	time
+	fJD					: LREAL;	// current Julian Date calculated from system time
+	fLST				: LREAL;	// local siderial time calculated from Julian date
+
+	MQTTTimer 			: TON := (PT:=T#5S);
+	
+	TCSpowerEvent,
+	TCSgohomeEvent,
+	TCSparkEvent,
+	TCSgotoEvent,
+	TCStrackEvent,
+	TCSstopEvent,
+	AltitudeEvent,
+	TCSreadyEvent,
+	TCSCTOEvent			: FB_Eventlog;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// get the system time
+fbTime();
+fJD := DateTime2JD(fbTime.time_RTCEX2);
+fLST := CT2LST(telescopeConfig.longitude, fJD);
+
+// run the state machine
+fbMachine(
+	bInit				:= bInit,
+	bPark				:= bPark,
+	bSlew 				:= bSlew,
+	bTrack 				:= bTrack,
+	bStop 				:= bStop,
+	fbParkedState		:= fbParkedState,
+	fbInitializingState	:= fbInitializingState,
+	fbParkingState		:= fbParkingState,
+	fbIdleState			:= fbIdleState,
+	fbSlewingState		:= fbSlewingState,
+	fbTrackingState		:= fbTrackingState,	
+);
+
+bInit	:= FALSE;
+bPark	:= FALSE;
+bSlew 	:= FALSE;
+bTrack 	:= FALSE;
+bStop 	:= FALSE;
+
+// has error been reset?
+IF NOT bError THEN
+	bReset := FALSE;
+END_IF
+
+// telemetry cadence depends on state
+IF fbMachine.State = E_TelescopeState.slewing OR fbMachine.State = E_TelescopeState.tracking THEN
+	MQTTTimer.PT := T#1000MS;
+ELSE
+	MQTTTimer.PT := T#5000MS;
+END_IF
+MQTTTimer(IN:=TRUE);]]></ST>
+    </Implementation>
+    <Method Name="_Initialize" Id="{f5caea65-cedf-4c3b-8428-6180ca9de8c7}">
+      <Declaration><![CDATA[METHOD _Initialize : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_Park" Id="{f5cfd253-b848-4530-8152-490bf96244a1}">
+      <Declaration><![CDATA[METHOD _Park : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_Slew" Id="{c957e7ca-0ba7-48bf-b704-d815850fcff1}">
+      <Declaration><![CDATA[METHOD _Slew : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_Stop" Id="{7cad4e81-581c-422c-b1a5-ad091472f55c}">
+      <Declaration><![CDATA[METHOD _Stop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_Track" Id="{07ca8c4a-208d-4937-a7e1-d6867043cb82}">
+      <Declaration><![CDATA[METHOD _Track : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FB_init" Id="{a32d2f32-4a31-4d05-8712-e937ed61ba13}">
+      <Declaration><![CDATA[METHOD FB_init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
+	bInCopyCode : BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
+	comm			: I_Comm;	
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^.comm := comm;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{3d17fa40-fd53-4e7d-b2aa-5ea6dd1055c0}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bReset := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_BaseTelescopeControl">
+      <LineId Id="105" Count="2" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="108" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="26" Count="2" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="63" Count="4" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="37" Count="3" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="177" Count="0" />
+      <LineId Id="159" Count="3" />
+      <LineId Id="178" Count="0" />
+      <LineId Id="169" Count="5" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl._Initialize">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl._Park">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl._Slew">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl._Stop">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl._Track">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl.FB_init">
+      <LineId Id="7" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl.Reset">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="E_TelescopeState" Id="{45b3efdc-7e57-494e-9642-185d9d9047f3}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_TelescopeState :
+(
+	none := 0,
+	parked := 1,
+	initializing := 2,
+	parking := 3,
+	idle := 4,
+	slewing := 5,
+	tracking := 6,
+	referencing := 7,
+	error := 8
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

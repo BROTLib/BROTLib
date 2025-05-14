@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_TelescopeMachine" Id="{d878fe8e-6ab3-467d-9898-60a0958e8303}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_TelescopeMachine
+VAR_INPUT
+	bInit				: BOOL;
+	bPark				: BOOL;
+	bSlew				: BOOL;
+	bTrack				: BOOL;
+	bStop				: BOOL;
+	bReset				: BOOL;
+	
+	fbParkedState		: I_TelescopeState;
+	fbInitializingState	: I_TelescopeState;
+	fbParkingState		: I_TelescopeState;
+	fbIdleState			: I_TelescopeState;
+	fbSlewingState		: I_TelescopeState;
+	fbTrackingState		: I_TelescopeState;
+	fbErrorState		: I_TelescopeState;
+END_VAR
+VAR_OUTPUT
+	eState				: E_TelescopeState := E_TelescopeState.parked;
+	ipState				: I_TelescopeState := fbParkedState; 
+	eNextState			: E_TelescopeState;
+END_VAR	
+VAR	
+	rtrigInit			: R_TRIG;
+	rtrigPark			: R_TRIG;
+	rtrigSlew			: R_TRIG;
+	rtrigTrack			: R_TRIG;
+	rtrigStop			: R_TRIG;
+	rtrigReset			: R_TRIG;
+	
+	pControl 			: POINTER TO FB_BaseTelescopeControl;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[rtrigInit(CLK := bInit);
+rtrigPark(CLK := bPark);
+rtrigSlew(CLK := bSlew);
+rtrigTrack(CLK := bTrack);
+rtrigStop(CLK := bStop);
+rtrigReset(CLK := bReset);
+
+IF rtrigInit.Q THEN
+	ipState.Initialize();
+END_IF
+
+IF rtrigPark.Q THEN
+	ipState.Park();
+END_IF
+
+IF rtrigSlew.Q THEN
+	ipState.Slew(0, 0);
+END_IF
+
+IF rtrigTrack.Q THEN
+	ipState.Track(0, 0);
+END_IF
+
+IF rtrigStop.Q THEN
+	ipState.Stop();
+END_IF
+
+IF rtrigReset.Q THEN
+	ipState.Reset();
+END_IF]]></ST>
+    </Implementation>
+    <Method Name="_GetState" Id="{7ec3eff3-6fdd-4614-9b7f-b2d995e8fb2c}">
+      <Declaration><![CDATA[METHOD PRIVATE _GetState : I_TelescopeState
+VAR_INPUT
+	eState	: E_TelescopeState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE State OF
+	E_TelescopeState.parked:
+		_GetState := fbParkedState;
+	E_TelescopeState.initializing:
+		_GetState := fbInitializingState;
+	E_TelescopeState.parking:
+		_GetState := fbParkingState;
+	E_TelescopeState.idle:
+		_GetState := fbIdleState;
+	E_TelescopeState.slewing:
+		_GetState := fbSlewingState;
+	E_TelescopeState.tracking:
+		_GetState := fbTrackingState;
+END_CASE
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FB_init" Id="{3c22ef87-332a-4653-9eae-03a8b125faa1}">
+      <Declaration><![CDATA[METHOD FB_init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
+	bInCopyCode : BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
+	pControl : POINTER TO FB_BaseTelescopeControl;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^.pControl := pControl;]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="NextState" Id="{557174c8-f941-432c-856a-d20d0a114a36}">
+      <Declaration><![CDATA[PROPERTY NextState : E_TelescopeState]]></Declaration>
+      <Get Name="Get" Id="{6a1705a7-fc43-4f59-be74-ad0ef9f9ca86}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[NextState := THIS^.eNextState;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{ae4e4284-bc78-4249-99c5-85b5e1b1bf52}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[THIS^.eNextState := NextState;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="State" Id="{8a257365-d0e0-49c6-ad50-1dc0f794a1fd}">
+      <Declaration><![CDATA[PROPERTY State : E_TelescopeState]]></Declaration>
+      <Get Name="Get" Id="{bac14e72-4e75-42fa-9d7d-04644d0b6712}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[State := THIS^.eState;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{ab3e2683-fe73-4c26-be05-bdf3f7bd2aee}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[THIS^.eState := State;
+THIS^.ipState := THIS^._GetState(State);
+THIS^.eNextState := E_TelescopeState.none;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <LineIds Name="FB_TelescopeMachine">
+      <LineId Id="37" Count="3" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="41" Count="19" />
+      <LineId Id="94" Count="2" />
+      <LineId Id="93" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeMachine._GetState">
+      <LineId Id="7" Count="13" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeMachine.FB_init">
+      <LineId Id="7" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeMachine.NextState.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeMachine.NextState.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeMachine.State.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeMachine.State.Set">
+      <LineId Id="2" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="25" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

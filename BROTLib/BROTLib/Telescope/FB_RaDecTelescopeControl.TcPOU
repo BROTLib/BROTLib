@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RaDecTelescopeControl" Id="{970d8181-0be4-4e4a-9ab2-2a422d7ff3f2}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_RaDecTelescopeControl EXTENDS FB_BaseTelescopeControl
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	eq2hor				: FB_EQ2HOR;
+	hor2eq				: FB_HOR2EQ;
+	
+	fElevationCalc		: LREAL;	// elevation calulated when ra and dec are set by TCS 
+	fAzimuthCalc		: LREAL;	// azimuth calulated when ra and dec are set by TCS
+	fHourAngleCalc		: LREAL;	// hour angle calulated when ra and dec are set by TCS
+	fRightAscensionCalc	: LREAL;	// right ascension calculated from current Alt/Az
+	fDeclinationCalc	: LREAL;	// declination calculated from current Alt/Az
+	
+	fHourAngleOffset	: LREAL := 0.0;		// absolute offset for hour angle
+	fDeclinationOffset	: LREAL := 0.0;		// absolute offset for declination
+	
+	fHourAngleVelocity	: LREAL;	// rotational velocity of the HA
+	fDeclinationVelocity: LREAL;	// rotational velocity of the declination
+	
+	fRightAscensionCurrent  : LREAL;	// true position of the HA
+	fHourAngleCurrent  	 	: LREAL;	// true position of the HA
+	fDeclinationCurrent     : LREAL;	// true position of the declination
+	
+	fElevationPointing  	: LREAL;	// true position of the elevation with applied pointing model
+	fAzimuthPointing    	: LREAL;	// true position of the azimuth with applied pointing model
+	fRightAscensionPointing	: LREAL;	// RA from pointing Az/El
+	fDeclinationPointing	: LREAL;	// Dec from pointing Az/El
+	
+	fDerotationSign	: LREAL := 1.0;	// sign of derotation
+END_VAR
+VAR PERSISTENT
+	EOFF				: LREAL;	// elevation encoder zero offset
+	AN_E				: LREAL;	// azimuth axis offset/misalignment north-south
+	AE_E				: LREAL;	// azimuth axis offset/misalignment east-west
+	TF					: LREAL;	// gravitational flexure correction at the horizon
+	AOFF				: LREAL;	// azimuth encoder zero offset
+	BNP					: LREAL;	// collimation error of the electromagnetic axis
+	AN_A				: LREAL;	// azimuth axis offset/misalignment north-south
+	AE_A				: LREAL;	// azimuth axis offset/misalignment east-west,
+	NPAE				: LREAL;	// Non-perpendicularity between the mount azimuth and elevation axes
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Alt/Az to RA/Dec
+hor2eq(alt := fElevation, 
+		az := fAzimuth,
+		jd := fJD,
+		lat := telescopeConfig.latitude,
+		lon := telescopeConfig.longitude,
+		altitude := telescopeConfig.altitude,
+		ra => fRightAscensionCalc,
+		dec => fDeclinationCalc);
+		
+// to HA
+fHourAngleCalc := 0.0;
+
+// apply pointing model
+//fRightAscensionCalc := fRightAscensionCalc + PointingModelRightAscension
+//fDeclinationCalc := fDeclinationCalc + PointingModelDeclination 
+
+// calculate velocities
+//fHourAngleVelocity := F_Elevationvelocity(fAzimuthCalc, telescopeConfig.latitude);
+//fDeclinationVelocity := F_Azimuthvelocity(fElevationCalc, fAzimuthCalc, telescopeConfig.latitude);
+
+// apply reverse pointing model
+//fElevationPointing := fElevationCurrent - PointingModelElevation(fAzimuthCurrent, fElevationCurrent, EOFF, AN_E, AE_E, TF);
+//fAzimuthPointing := fAzimuthCurrent - PointingModelAzimuth(fAzimuthCurrent, fElevationCurrent, AOFF, BNP, AN_A, AE_A, NPAE);
+
+// add offsets
+//fElevationCurrent := fElevationPointing - fElevationOffset;
+//fAzimuthCurrent := fAzimuthPointing - fAzimuthOffset;
+
+// calculate horizontal coordinates
+eq2hor(
+	ra := fRightAscensionCurrent,
+	dec := fDeclinationCurrent,
+	lon := telescopeConfig.longitude,
+	lat := telescopeConfig.latitude,
+	JD := fJD,
+	alt => fElevationCalc,
+	az => fAzimuthCalc,
+	ha => fHourAngleCalc)
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_RaDecTelescopeControl">
+      <LineId Id="232" Count="0" />
+      <LineId Id="225" Count="6" />
+      <LineId Id="223" Count="0" />
+      <LineId Id="235" Count="2" />
+      <LineId Id="224" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="233" Count="1" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="52" Count="1" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="104" Count="8" />
+      <LineId Id="239" Count="7" />
+      <LineId Id="238" Count="0" />
+      <LineId Id="44" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
