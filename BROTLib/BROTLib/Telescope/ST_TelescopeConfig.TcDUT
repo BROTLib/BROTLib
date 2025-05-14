@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="ST_TelescopeConfig" Id="{13de919a-2bce-4e8d-abc6-4c39522fc874}">
+    <Declaration><![CDATA[TYPE ST_TelescopeConfig :
+STRUCT
+	// location
+	longitude			: LREAL; // telescope site longitude
+	latitude			: LREAL; // telescope site latitude
+	altitude			: LREAL; // telescope site height above sea level: estimated
+	
+	// park position
+	elevationPark		: LREAL;
+	azimuthPark			: LREAL;
+	derotatorPark		: LREAL;
+	focusPark			: LREAL;
+
+	// home position
+	elevationHome		: LREAL;
+	azimuthHome			: LREAL;
+	derotatorHome		: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
