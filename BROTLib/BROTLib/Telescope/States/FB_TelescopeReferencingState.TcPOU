@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_TelescopeReferencingState" Id="{3471d165-9b96-4b1b-90bd-c2a75cfe669b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_TelescopeReferencingState EXTENDS FB_TelescopeState
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <LineIds Name="FB_TelescopeReferencingState">
+      <LineId Id="54" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
