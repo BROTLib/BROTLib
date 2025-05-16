@@ -14,7 +14,7 @@ END_VAR
 // state
 //
 
-pMachine^.pControl^._Track();
+fbMachine.pControl^._Track();
 
 //
 // commands
@@ -23,11 +23,11 @@ pMachine^.pControl^._Track();
 IF bPark THEN
 	CASE iStage OF
 		0:
-			IF pMachine^.pControl^._Stop() THEN
+			IF fbMachine.pControl^._Stop() THEN
 				iStage := 1;
 			END_IF
 		1:
-			pMachine^.State := E_TelescopeState.parking;
+			fbMachine.State := E_TelescopeState.parking;
 			bPark := FALSE;
 	END_CASE
 END_IF
@@ -35,18 +35,18 @@ END_IF
 IF bSlew THEN
 	CASE iStage OF
 		0:
-			IF pMachine^.pControl^._Stop() THEN
+			IF fbMachine.pControl^._Stop() THEN
 				iStage := 1;
 			END_IF
 		1:
-			pMachine^.State := E_TelescopeState.slewing;
+			fbMachine.State := E_TelescopeState.slewing;
 			bTrack := FALSE;
 	END_CASE
 END_IF
 
 IF bStop THEN
-	IF pMachine^.pControl^._Stop() THEN
-		pMachine^.State := E_TelescopeState.idle;
+	IF fbMachine.pControl^._Stop() THEN
+		fbMachine.State := E_TelescopeState.idle;
 		bStop := FALSE;
 	END_IF
 END_IF
@@ -54,11 +54,11 @@ END_IF
 IF bTrack THEN
 	CASE iStage OF
 		0:
-			IF pMachine^.pControl^._Stop() THEN
+			IF fbMachine.pControl^._Stop() THEN
 				iStage := 1;
 			END_IF
 		1:
-			pMachine^.State := E_TelescopeState.tracking;
+			fbMachine.State := E_TelescopeState.tracking;
 			bTrack := FALSE;
 	END_CASE
 END_IF]]></ST>

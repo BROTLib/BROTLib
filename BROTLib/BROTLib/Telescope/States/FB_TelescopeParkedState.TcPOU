@@ -15,7 +15,7 @@ END_VAR
 // 
 
 IF bInitialize THEN
-	pMachine^.State := E_TelescopeState.initializing;
+	fbMachine.State := E_TelescopeState.initializing;
 	bInitialize := FALSE;
 END_IF]]></ST>
     </Implementation>

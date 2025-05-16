@@ -14,8 +14,8 @@ END_VAR]]></Declaration>
 //
 
 // run until initialized
-IF NOT pMachine^.pControl^._Initialize() THEN
-	pMachine^.State := E_TelescopeState.idle;
+IF NOT fbMachine.pControl^._Initialize() THEN
+	fbMachine.State := E_TelescopeState.idle;
 END_IF]]></ST>
     </Implementation>
     <LineIds Name="FB_TelescopeInitializingState">

@@ -15,8 +15,8 @@ END_VAR
 //
 
 // run until parked
-IF NOT pMachine^.pControl^._Park() THEN
-	pMachine^.State := E_TelescopeState.parked;
+IF NOT fbMachine.pControl^._Park() THEN
+	fbMachine.State := E_TelescopeState.parked;
 END_IF]]></ST>
     </Implementation>
     <LineIds Name="FB_TelescopeParkingState">

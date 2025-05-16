@@ -185,6 +185,9 @@
     <Compile Include="Telescope\StateMachine\FB_TelescopeState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Telescope\StateMachine\I_TelescopeState.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\States\FB_TelescopeErrorState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
