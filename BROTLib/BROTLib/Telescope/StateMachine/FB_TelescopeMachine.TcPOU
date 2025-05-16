@@ -20,7 +20,6 @@ VAR_INPUT
 END_VAR
 VAR_OUTPUT
 	eState				: E_TelescopeState := E_TelescopeState.parked;
-	ipState				: I_TelescopeState := fbParkedState; 
 	eNextState			: E_TelescopeState;
 END_VAR	
 VAR	
@@ -32,6 +31,7 @@ VAR
 	rtrigReset			: R_TRIG;
 	
 	pControl 			: POINTER TO FB_BaseTelescopeControl;
+	ipState				: REFERENCE TO FB_TelescopeState := fbParkedState;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -64,7 +64,9 @@ END_IF
 
 IF rtrigReset.Q THEN
 	ipState.Reset();
-END_IF]]></ST>
+END_IF
+
+ipState();]]></ST>
     </Implementation>
     <Method Name="_GetState" Id="{7ec3eff3-6fdd-4614-9b7f-b2d995e8fb2c}">
       <Declaration><![CDATA[METHOD PRIVATE _GetState : I_TelescopeState
@@ -149,6 +151,8 @@ THIS^.eNextState := E_TelescopeState.none;]]></ST>
       <LineId Id="41" Count="19" />
       <LineId Id="94" Count="2" />
       <LineId Id="93" Count="0" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="129" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeMachine._GetState">
       <LineId Id="7" Count="13" />
