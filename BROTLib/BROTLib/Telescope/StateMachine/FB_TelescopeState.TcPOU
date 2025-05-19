@@ -7,7 +7,7 @@ END_VAR
 VAR_OUTPUT
 END_VAR
 VAR
-	fbMachine 		: REFERENCE TO FB_TelescopeMachine;
+	pMachine 		: POINTER TO FB_TelescopeMachine;
 	comm			: I_Comm;
 	
 	bInitialize		: BOOL;
@@ -27,12 +27,12 @@ END_VAR
 VAR_INPUT
 	bInitRetains 	: BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
 	bInCopyCode 	: BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
-	fbMachine 		: REFERENCE TO FB_TelescopeMachine;
-	comm			: I_Comm;	
+	pMachine 		: POINTER TO FB_TelescopeMachine;
+	comm			: I_Comm;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[THIS^.fbMachine := fbMachine;
+        <ST><![CDATA[THIS^.pMachine := pMachine;
 THIS^.comm := comm;]]></ST>
       </Implementation>
     </Method>

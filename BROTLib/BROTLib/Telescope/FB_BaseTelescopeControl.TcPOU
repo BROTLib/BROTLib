@@ -26,15 +26,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 	comm				: I_Comm;
-	
-	fbMachine			: FB_TelescopeMachine(THIS);
-	fbParkedState		: FB_TelescopeParkedState(fbMachine, comm);
-	fbInitializingState	: FB_TelescopeInitializingState(fbMachine, comm);
-	fbParkingState		: FB_TelescopeParkingState(fbMachine, comm);
-	fbIdleState			: FB_TelescopeIdleState(fbMachine, comm);
-	fbSlewingState		: FB_TelescopeSlewingState(fbMachine, comm);
-	fbTrackingState		: FB_TelescopeTrackingState(fbMachine, comm);
-	
+	fbMachine			: FB_TelescopeMachine(pControl := THIS, comm := comm);
 	bPowerFailure		: BOOL;		// triggers power-failure event
 	
 	fbTime				: FB_AstroClock;	// precise astronomical	time
@@ -66,13 +58,7 @@ fbMachine(
 	bPark				:= bPark,
 	bSlew 				:= bSlew,
 	bTrack 				:= bTrack,
-	bStop 				:= bStop,
-	fbParkedState		:= fbParkedState,
-	fbInitializingState	:= fbInitializingState,
-	fbParkingState		:= fbParkingState,
-	fbIdleState			:= fbIdleState,
-	fbSlewingState		:= fbSlewingState,
-	fbTrackingState		:= fbTrackingState,	
+	bStop 				:= bStop
 );
 
 bInit	:= FALSE;
@@ -161,7 +147,10 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[THIS^.comm := comm;]]></ST>
+        <ST><![CDATA[THIS^.comm := comm;
+
+fbMachine.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pControl := THIS, comm := comm);
+]]></ST>
       </Implementation>
     </Method>
     <Method Name="Home" Id="{84524932-267e-412f-a6c3-40e991630e8d}">
@@ -293,8 +282,6 @@ END_VAR
       <LineId Id="35" Count="0" />
       <LineId Id="26" Count="2" />
       <LineId Id="34" Count="0" />
-      <LineId Id="63" Count="4" />
-      <LineId Id="62" Count="0" />
       <LineId Id="36" Count="0" />
       <LineId Id="30" Count="0" />
       <LineId Id="37" Count="3" />
@@ -325,6 +312,9 @@ END_VAR
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.FB_init">
       <LineId Id="7" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="14" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Home">
       <LineId Id="4" Count="0" />

@@ -15,8 +15,8 @@ END_VAR
 //
 
 // wait until error is gone
-IF NOT fbMachine.pControl^.bError THEN
-	fbMachine.State := E_TelescopeState.idle;
+IF NOT pMachine^.pControl^.bError THEN
+	pMachine^.State := E_TelescopeState.idle;
 END_IF
 
 //
@@ -24,7 +24,7 @@ END_IF
 // 
 
 IF bReset THEN
-	fbMachine.pControl^.Reset();
+	pMachine^.pControl^.Reset();
 	bReset := FALSE;
 END_IF]]></ST>
     </Implementation>
