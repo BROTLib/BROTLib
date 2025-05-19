@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <Itf Name="I_Dome" Id="{97c41eeb-cc9f-4286-aebb-137faba3b329}">
+    <Declaration><![CDATA[INTERFACE I_Dome
+]]></Declaration>
+    <Method Name="Close" Id="{324da6d9-cec6-4890-ad47-67782826b0a8}">
+      <Declaration><![CDATA[METHOD Close : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="Error" Id="{a794a4bc-62d7-45f0-94ee-2879b59d67e9}">
+      <Declaration><![CDATA[PROPERTY Error : BOOL]]></Declaration>
+      <Get Name="Get" Id="{d77664c7-c8dc-4360-a991-27233099243e}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="ErrorID" Id="{23f972b2-0650-45e6-9f00-215590f68f85}">
+      <Declaration><![CDATA[PROPERTY ErrorID : UDINT]]></Declaration>
+      <Get Name="Get" Id="{dc7d32e9-a08e-4407-b52b-6af80e99487b}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Open" Id="{93be79ba-c7cb-4bb7-a779-5569a9b5f64b}">
+      <Declaration><![CDATA[METHOD Open : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Park" Id="{ec477463-5cda-448f-946a-095caeb42b46}">
+      <Declaration><![CDATA[METHOD Park : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="Parked" Id="{b36a6845-c8da-493a-807b-13e34dcb1c3c}">
+      <Declaration><![CDATA[PROPERTY Parked : BOOL]]></Declaration>
+      <Get Name="Get" Id="{3d26b278-b164-42c8-ac02-0f45a894de74}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Reset" Id="{7cb5034b-2625-4d18-b1cd-4cf4aad842da}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="State" Id="{7210269f-3287-4ee9-b4b6-ea62cb9473cb}">
+      <Declaration><![CDATA[PROPERTY State : E_DomeState]]></Declaration>
+      <Get Name="Get" Id="{bc306067-186a-4fbf-a0b9-cf743eb5905f}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="StopTrack" Id="{db4faf08-b158-4f1f-882a-1c0ed13959f6}">
+      <Declaration><![CDATA[METHOD StopTrack : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Track" Id="{bf111ab9-334e-415e-b99d-0bdc6457753a}">
+      <Declaration><![CDATA[METHOD Track : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="Tracking" Id="{3c48ab71-271d-4230-8284-85891e3c766d}">
+      <Declaration><![CDATA[PROPERTY Tracking : BOOL]]></Declaration>
+      <Get Name="Get" Id="{aa429e62-32dc-4010-a0a4-4357cce9602e}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+  </Itf>
+</TcPlcObject>

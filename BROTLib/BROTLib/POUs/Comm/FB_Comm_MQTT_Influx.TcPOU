@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_Comm_MQTT_Influx" Id="{48590b1c-8149-4a75-a4a7-086285ed3fbf}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Comm_MQTT_Influx EXTENDS FB_Comm_MQTT
 VAR_INPUT
@@ -71,6 +71,18 @@ IF measurement = 'command' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.Position := STRING_TO_LREAL(value);
+	ELSIF parameter = 'dome_open' AND Dome <> 0 THEN
+		Dome.Open();
+	ELSIF parameter = 'dome_close' AND Dome <> 0 THEN
+		Dome.Close();
+	ELSIF parameter = 'dome_park' AND Dome <> 0 THEN
+		Dome.Park();
+	ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
+		Dome.Track();
+	ELSIF parameter = 'dome_stoptrack' AND Dome <> 0 THEN
+		Dome.StopTrack();
+	ELSIF parameter = 'dome_reset' AND Dome <> 0 THEN
+		Dome.Reset();
 	ELSIF parameter = 'filter' AND Filter <> 0 THEN
 		Filter.SetFilter(STRING_TO_USINT(value));
 	ELSIF parameter = 'derotator' AND Telescope <> 0 THEN
@@ -195,6 +207,7 @@ published := fbMqttClient.Publish(
       <LineId Id="125" Count="0" />
       <LineId Id="105" Count="6" />
       <LineId Id="126" Count="0" />
+      <LineId Id="170" Count="11" />
       <LineId Id="113" Count="0" />
       <LineId Id="127" Count="0" />
       <LineId Id="115" Count="0" />
