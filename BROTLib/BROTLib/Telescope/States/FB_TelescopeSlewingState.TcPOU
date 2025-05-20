@@ -15,7 +15,7 @@ END_VAR
 // state
 //
 
-IF pMachine^.pControl^._Slew() THEN
+IF NOT pMachine^.pControl^._Slew() THEN
 	IF bAutoTrack THEN
 		pMachine^.State := E_TelescopeState.tracking;
 	ELSE

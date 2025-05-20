@@ -9,18 +9,10 @@ VAR_INPUT
 	bTrack				: BOOL;
 	bStop				: BOOL;
 	bReset				: BOOL;
-	
-	fbParkedState		: I_TelescopeState;
-	fbInitializingState	: I_TelescopeState;
-	fbParkingState		: I_TelescopeState;
-	fbIdleState			: I_TelescopeState;
-	fbSlewingState		: I_TelescopeState;
-	fbTrackingState		: I_TelescopeState;
-	fbErrorState		: I_TelescopeState;
 END_VAR
 VAR_OUTPUT
 	eState				: E_TelescopeState := E_TelescopeState.parked;
-	ipState				: I_TelescopeState := fbParkedState; 
+	ipState				: I_TelescopeState := fbParkedState;	
 	eNextState			: E_TelescopeState;
 END_VAR	
 VAR	
@@ -30,8 +22,17 @@ VAR
 	rtrigTrack			: R_TRIG;
 	rtrigStop			: R_TRIG;
 	rtrigReset			: R_TRIG;
-	
+
 	pControl 			: POINTER TO FB_BaseTelescopeControl;
+	comm				: I_Comm;
+
+	fbParkedState		: FB_TelescopeParkedState(pMachine := THIS, comm := comm);
+	fbInitializingState	: FB_TelescopeInitializingState(pMachine := THIS, comm := comm);
+	fbParkingState		: FB_TelescopeParkingState(pMachine := THIS, comm := comm);
+	fbIdleState			: FB_TelescopeIdleState(pMachine := THIS, comm := comm);
+	fbSlewingState		: FB_TelescopeSlewingState(pMachine := THIS, comm := comm);
+	fbTrackingState		: FB_TelescopeTrackingState(pMachine := THIS, comm := comm);
+	fbErrorState		: FB_TelescopeErrorState(pMachine := THIS, comm := comm);
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -64,7 +65,9 @@ END_IF
 
 IF rtrigReset.Q THEN
 	ipState.Reset();
-END_IF]]></ST>
+END_IF
+
+ipState.Main();]]></ST>
     </Implementation>
     <Method Name="_GetState" Id="{7ec3eff3-6fdd-4614-9b7f-b2d995e8fb2c}">
       <Declaration><![CDATA[METHOD PRIVATE _GetState : I_TelescopeState
@@ -95,11 +98,22 @@ END_CASE
 VAR_INPUT
 	bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
 	bInCopyCode : BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
-	pControl : POINTER TO FB_BaseTelescopeControl;
+	pControl 	: POINTER TO FB_BaseTelescopeControl;
+	comm		: I_Comm;		
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[THIS^.pControl := pControl;]]></ST>
+        <ST><![CDATA[THIS^.pControl := pControl;
+THIS^.comm := comm;
+
+fbParkedState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+fbInitializingState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+fbParkingState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+fbIdleState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+fbSlewingState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+fbTrackingState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+fbErrorState.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pMachine := THIS, comm := comm);
+]]></ST>
       </Implementation>
     </Method>
     <Property Name="NextState" Id="{557174c8-f941-432c-856a-d20d0a114a36}">
@@ -149,6 +163,8 @@ THIS^.eNextState := E_TelescopeState.none;]]></ST>
       <LineId Id="41" Count="19" />
       <LineId Id="94" Count="2" />
       <LineId Id="93" Count="0" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="129" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeMachine._GetState">
       <LineId Id="7" Count="13" />
@@ -156,6 +172,11 @@ THIS^.eNextState := E_TelescopeState.none;]]></ST>
     </LineIds>
     <LineIds Name="FB_TelescopeMachine.FB_init">
       <LineId Id="7" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="20" Count="5" />
+      <LineId Id="18" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeMachine.NextState.Get">
       <LineId Id="2" Count="0" />

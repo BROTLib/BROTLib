@@ -28,7 +28,7 @@ VAR_INPUT
 	bInitRetains 	: BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
 	bInCopyCode 	: BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
 	pMachine 		: POINTER TO FB_TelescopeMachine;
-	comm			: I_Comm;	
+	comm			: I_Comm;
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -43,6 +43,15 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[bInitialize := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Main" Id="{eab1ce7f-ef78-48ef-ab88-bd1f860b5b79}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
       </Implementation>
     </Method>
     <Method Name="Park" Id="{1d7b2094-1b9e-4f3f-8684-35da700e0b9a}">
@@ -103,10 +112,13 @@ iStage := 0;]]></ST>
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeState.FB_init">
-      <LineId Id="7" Count="0" />
+      <LineId Id="30" Count="0" />
       <LineId Id="15" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeState.Initialize">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeState.Main">
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeState.Park">

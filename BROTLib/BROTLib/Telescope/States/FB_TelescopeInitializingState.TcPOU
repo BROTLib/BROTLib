@@ -7,15 +7,14 @@ END_VAR
 VAR_OUTPUT
 END_VAR
 VAR
-END_VAR
-]]></Declaration>
+END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[// 
 // state
 //
 
 // run until initialized
-IF pMachine^.pControl^._Initialize() THEN
+IF NOT pMachine^.pControl^._Initialize() THEN
 	pMachine^.State := E_TelescopeState.idle;
 END_IF]]></ST>
     </Implementation>

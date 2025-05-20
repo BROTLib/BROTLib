@@ -9,6 +9,12 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
+    <Method Name="Main" Id="{686e3e5c-69b5-4049-ab8c-32913f162cea}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
     <Method Name="Park" Id="{d7648141-6fdf-46d8-88c3-dd6b9f1c7b28}">
       <Declaration><![CDATA[METHOD Park : BOOL
 VAR_INPUT
