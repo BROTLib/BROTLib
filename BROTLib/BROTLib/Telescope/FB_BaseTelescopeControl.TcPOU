@@ -84,7 +84,11 @@ IF fbMachine.State = E_TelescopeState.slewing OR fbMachine.State = E_TelescopeSt
 ELSE
 	MQTTTimer.PT := T#5000MS;
 END_IF
-MQTTTimer(IN:=TRUE);]]></ST>
+MQTTTimer(IN:=TRUE);
+IF MQTTTimer.Q THEN // publish new payload every second
+	MQTTTimer(IN:=FALSE);
+	_PublishTelemetry();	
+END_IF]]></ST>
     </Implementation>
     <Method Name="_Initialize" Id="{f5caea65-cedf-4c3b-8428-6180ca9de8c7}">
       <Declaration><![CDATA[METHOD _Initialize : BOOL
@@ -102,6 +106,19 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_PublishTelemetry" Id="{6dec3368-4b87-4c9c-96fd-ac4ed46b70ff}">
+      <Declaration><![CDATA[METHOD _PublishTelemetry : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.AZ.REALPOS', LREAL_TO_STRING(fAzimuthCurrent));
+comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.ALT.REALPOS', LREAL_TO_STRING(fElevationCurrent));
+comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.RA.REALPOS', LREAL_TO_STRING(fRightAscensionCurrent));
+comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.REALPOS', LREAL_TO_STRING(fDeclinationCurrent));
+]]></ST>
       </Implementation>
     </Method>
     <Method Name="_Slew" Id="{c957e7ca-0ba7-48bf-b704-d815850fcff1}">
@@ -284,11 +301,19 @@ bTrack := TRUE;]]></ST>
       <LineId Id="178" Count="0" />
       <LineId Id="169" Count="5" />
       <LineId Id="9" Count="0" />
+      <LineId Id="234" Count="1" />
+      <LineId Id="241" Count="0" />
+      <LineId Id="233" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl._Initialize">
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl._Park">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl._PublishTelemetry">
+      <LineId Id="6" Count="0" />
+      <LineId Id="8" Count="2" />
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl._Slew">
