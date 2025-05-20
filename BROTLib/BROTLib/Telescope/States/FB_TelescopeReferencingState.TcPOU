@@ -12,8 +12,20 @@ END_VAR
     <Implementation>
       <ST><![CDATA[]]></ST>
     </Implementation>
+    <Method Name="Main" Id="{0f210c9c-e7b5-4c7c-a079-f1d91ac29638}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_TelescopeReferencingState">
       <LineId Id="54" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeReferencingState.Main">
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

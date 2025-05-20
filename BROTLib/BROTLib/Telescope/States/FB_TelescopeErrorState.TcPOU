@@ -10,7 +10,15 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// 
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Main" Id="{5e502bd3-c077-408e-93cc-6a9fe7b1ce10}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// 
 // state
 //
 
@@ -27,20 +35,14 @@ IF bReset THEN
 	pMachine^.pControl^.Reset();
 	bReset := FALSE;
 END_IF]]></ST>
-    </Implementation>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_TelescopeErrorState">
-      <LineId Id="49" Count="1" />
-      <LineId Id="48" Count="0" />
-      <LineId Id="51" Count="0" />
-      <LineId Id="9" Count="0" />
-      <LineId Id="36" Count="2" />
-      <LineId Id="44" Count="2" />
-      <LineId Id="40" Count="0" />
-      <LineId Id="47" Count="0" />
-      <LineId Id="39" Count="0" />
-      <LineId Id="41" Count="0" />
-      <LineId Id="43" Count="0" />
       <LineId Id="42" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeErrorState.Main">
+      <LineId Id="6" Count="15" />
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

@@ -10,22 +10,30 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// 
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Main" Id="{1ebcd16a-bc33-4bc2-a810-798abb82852b}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// 
 // state
 //
 
 // run until parked
-IF NOT pMachine^.pControl^._Park() THEN
+IF pMachine^.pControl^._Park() THEN
 	pMachine^.State := E_TelescopeState.parked;
 END_IF]]></ST>
-    </Implementation>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_TelescopeParkingState">
-      <LineId Id="36" Count="1" />
-      <LineId Id="35" Count="0" />
-      <LineId Id="38" Count="0" />
-      <LineId Id="31" Count="1" />
-      <LineId Id="34" Count="0" />
       <LineId Id="29" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeParkingState.Main">
+      <LineId Id="6" Count="6" />
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

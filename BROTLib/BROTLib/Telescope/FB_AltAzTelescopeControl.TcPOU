@@ -44,7 +44,9 @@ VAR PERSISTENT
 	NPAE				: LREAL;	// Non-perpendicularity between the mount azimuth and elevation axes
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// RA/Dec to Alt/Az/HA
+      <ST><![CDATA[SUPER^();
+
+// RA/Dec to Alt/Az/HA
 eq2hor(
 	ra := fRightAscension,
 	dec := fDeclination,
@@ -105,7 +107,8 @@ hor2eq(alt := fElevationPointing,
 		lon := telescopeConfig.longitude,
 		altitude := telescopeConfig.altitude,
 		ra => fRightAscensionPointing,
-		dec => fDeclinationPointing);]]></ST>
+		dec => fDeclinationPointing);
+]]></ST>
     </Implementation>
     <Method Name="_PublishTelemetry" Id="{313bc6a7-19ec-4722-9d6e-3ac84aa9588f}">
       <Declaration><![CDATA[METHOD _PublishTelemetry : BOOL
@@ -184,6 +187,7 @@ END_VAR
       </Set>
     </Property>
     <LineIds Name="FB_AltAzTelescopeControl">
+      <LineId Id="174" Count="1" />
       <LineId Id="54" Count="0" />
       <LineId Id="17" Count="7" />
       <LineId Id="9" Count="0" />
@@ -199,6 +203,7 @@ END_VAR
       <LineId Id="92" Count="6" />
       <LineId Id="104" Count="23" />
       <LineId Id="44" Count="0" />
+      <LineId Id="172" Count="0" />
     </LineIds>
     <LineIds Name="FB_AltAzTelescopeControl._PublishTelemetry">
       <LineId Id="5" Count="0" />

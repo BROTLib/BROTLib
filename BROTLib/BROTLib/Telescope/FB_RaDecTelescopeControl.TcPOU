@@ -41,7 +41,9 @@ VAR PERSISTENT
 	NPAE				: LREAL;	// Non-perpendicularity between the mount azimuth and elevation axes
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// Alt/Az to RA/Dec
+      <ST><![CDATA[SUPER^();
+
+// Alt/Az to RA/Dec
 hor2eq(alt := fElevation, 
 		az := fAzimuth,
 		jd := fJD,
@@ -136,6 +138,7 @@ END_VAR
       </Set>
     </Property>
     <LineIds Name="FB_RaDecTelescopeControl">
+      <LineId Id="285" Count="1" />
       <LineId Id="232" Count="0" />
       <LineId Id="225" Count="6" />
       <LineId Id="223" Count="0" />

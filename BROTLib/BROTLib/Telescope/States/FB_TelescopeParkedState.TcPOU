@@ -10,7 +10,15 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[//
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Main" Id="{986994a7-1a9a-4dca-a732-be6127717194}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//
 // commands
 // 
 
@@ -18,13 +26,14 @@ IF bInitialize THEN
 	pMachine^.State := E_TelescopeState.initializing;
 	bInitialize := FALSE;
 END_IF]]></ST>
-    </Implementation>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_TelescopeParkedState">
-      <LineId Id="21" Count="1" />
-      <LineId Id="20" Count="0" />
-      <LineId Id="23" Count="0" />
-      <LineId Id="17" Count="2" />
       <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeParkedState.Main">
+      <LineId Id="6" Count="6" />
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

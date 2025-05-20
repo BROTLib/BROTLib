@@ -43,6 +43,13 @@ rtrigTrack(CLK := bTrack);
 rtrigStop(CLK := bStop);
 rtrigReset(CLK := bReset);
 
+IF ipState = 0 THEN
+	State := E_TelescopeState.parked;
+END_IF
+
+// get current state
+THIS^.ipState := THIS^._GetState(eState);
+
 IF rtrigInit.Q THEN
 	ipState.Initialize();
 END_IF
@@ -151,7 +158,6 @@ END_VAR
 ]]></Declaration>
         <Implementation>
           <ST><![CDATA[THIS^.eState := State;
-THIS^.ipState := THIS^._GetState(State);
 THIS^.eNextState := E_TelescopeState.none;]]></ST>
         </Implementation>
       </Set>
@@ -160,6 +166,12 @@ THIS^.eNextState := E_TelescopeState.none;]]></ST>
       <LineId Id="37" Count="3" />
       <LineId Id="9" Count="0" />
       <LineId Id="92" Count="0" />
+      <LineId Id="165" Count="0" />
+      <LineId Id="164" Count="0" />
+      <LineId Id="166" Count="1" />
+      <LineId Id="169" Count="0" />
+      <LineId Id="168" Count="0" />
+      <LineId Id="170" Count="0" />
       <LineId Id="41" Count="19" />
       <LineId Id="94" Count="2" />
       <LineId Id="93" Count="0" />
@@ -189,7 +201,6 @@ THIS^.eNextState := E_TelescopeState.none;]]></ST>
     </LineIds>
     <LineIds Name="FB_TelescopeMachine.State.Set">
       <LineId Id="2" Count="0" />
-      <LineId Id="6" Count="0" />
       <LineId Id="25" Count="0" />
     </LineIds>
   </POU>

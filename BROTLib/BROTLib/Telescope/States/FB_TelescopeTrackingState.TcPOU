@@ -10,7 +10,15 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// 
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Main" Id="{746d29fd-78c6-4168-8291-c780b8ac91f6}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// 
 // state
 //
 
@@ -62,19 +70,14 @@ IF bTrack THEN
 			bTrack := FALSE;
 	END_CASE
 END_IF]]></ST>
-    </Implementation>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_TelescopeTrackingState">
-      <LineId Id="73" Count="1" />
-      <LineId Id="72" Count="0" />
-      <LineId Id="81" Count="1" />
-      <LineId Id="80" Count="0" />
-      <LineId Id="77" Count="0" />
-      <LineId Id="75" Count="0" />
-      <LineId Id="78" Count="1" />
-      <LineId Id="31" Count="12" />
-      <LineId Id="64" Count="7" />
-      <LineId Id="44" Count="19" />
       <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeTrackingState.Main">
+      <LineId Id="6" Count="50" />
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

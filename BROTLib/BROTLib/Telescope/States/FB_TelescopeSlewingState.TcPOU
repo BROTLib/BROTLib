@@ -11,11 +11,19 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// 
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Main" Id="{8935381a-8694-430d-be93-47a8ae5e496e}">
+      <Declaration><![CDATA[METHOD Main : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// 
 // state
 //
 
-IF NOT pMachine^.pControl^._Slew() THEN
+IF pMachine^.pControl^._Slew() THEN
 	IF bAutoTrack THEN
 		pMachine^.State := E_TelescopeState.tracking;
 	ELSE
@@ -64,45 +72,14 @@ IF bTrack THEN
 			bTrack := FALSE;
 	END_CASE
 END_IF]]></ST>
-    </Implementation>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_TelescopeSlewingState">
-      <LineId Id="60" Count="0" />
-      <LineId Id="81" Count="0" />
-      <LineId Id="75" Count="0" />
-      <LineId Id="82" Count="0" />
-      <LineId Id="62" Count="1" />
-      <LineId Id="67" Count="0" />
-      <LineId Id="65" Count="0" />
-      <LineId Id="68" Count="0" />
-      <LineId Id="66" Count="0" />
-      <LineId Id="64" Count="0" />
-      <LineId Id="76" Count="2" />
-      <LineId Id="69" Count="0" />
-      <LineId Id="79" Count="0" />
-      <LineId Id="9" Count="0" />
-      <LineId Id="31" Count="1" />
-      <LineId Id="34" Count="5" />
-      <LineId Id="33" Count="0" />
-      <LineId Id="18" Count="0" />
-      <LineId Id="70" Count="0" />
-      <LineId Id="19" Count="0" />
-      <LineId Id="59" Count="0" />
-      <LineId Id="58" Count="0" />
-      <LineId Id="21" Count="1" />
-      <LineId Id="71" Count="0" />
-      <LineId Id="23" Count="0" />
-      <LineId Id="41" Count="0" />
-      <LineId Id="43" Count="0" />
-      <LineId Id="42" Count="0" />
-      <LineId Id="40" Count="0" />
-      <LineId Id="26" Count="0" />
-      <LineId Id="72" Count="0" />
-      <LineId Id="27" Count="0" />
-      <LineId Id="46" Count="5" />
-      <LineId Id="57" Count="0" />
-      <LineId Id="52" Count="1" />
-      <LineId Id="30" Count="0" />
       <LineId Id="54" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TelescopeSlewingState.Main">
+      <LineId Id="6" Count="51" />
+      <LineId Id="5" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>
