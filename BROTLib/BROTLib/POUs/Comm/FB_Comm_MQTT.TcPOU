@@ -10,6 +10,8 @@ VAR_INPUT
 	sTopicPublish  	: STRING(255);
 	sTopicLog     	: STRING(255);
 	Telescope     	: I_Telescope;
+	AltAzTelescope 	: I_AltAzTelescope;
+	RaDecTelescope	: I_RaDecTelescope;
 	Focus			: I_Focus;
 	Filter			: I_Filter;
 	Nasmyth			: I_Nasmyth;

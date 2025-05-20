@@ -23,6 +23,12 @@ VAR_OUTPUT
 	bPower				: BOOL;
 	bError				: BOOL;
 	
+	fElevationCurrent   : LREAL;	// true position of the elevation
+	fAzimuthCurrent     : LREAL;	// true position of the azimuth
+	fDerotatorCurrent	: LREAL;	// true position of the de-rotator
+	fRightAscensionCurrent	: LREAL;
+	fDeclinationCurrent	: LREAL;
+	fHourAngleCurrent	: LREAL;
 END_VAR
 VAR
 	comm				: I_Comm;
@@ -125,16 +131,42 @@ END_VAR
         <ST><![CDATA[]]></ST>
       </Implementation>
     </Method>
-    <Property Name="AltAz" Id="{b5469fc0-3ead-4b2f-a6ad-9324630c8073}">
+    <Property Name="Altitude" Id="{caafb587-dfec-4075-98b5-4e0c659dd422}">
       <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY AltAz : ST_AltAzCoordinate
+PROPERTY Altitude : LREAL
 ]]></Declaration>
-      <Get Name="Get" Id="{bb6bfc77-7ddb-4212-85b5-e272a9d2d0ab}">
+      <Get Name="Get" Id="{3eadfa0f-91b9-4d35-b2a2-3995bf1ad272}">
         <Declaration><![CDATA[VAR
 END_VAR
 ]]></Declaration>
         <Implementation>
-          <ST><![CDATA[]]></ST>
+          <ST><![CDATA[Altitude := THIS^.fElevationCurrent;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Azimuth" Id="{4ab08aee-62ef-436f-afb0-a92312153ecc}">
+      <Declaration><![CDATA[{warning 'add property implementation'}
+PROPERTY Azimuth : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{5db7deaa-4ebd-480d-94f2-987ee6c7533c}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Azimuth := THIS^.fAzimuthCurrent;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Declination" Id="{f1005b84-337c-4b64-b7ea-204360ce618d}">
+      <Declaration><![CDATA[{warning 'add property implementation'}
+PROPERTY Declination : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{f2fb9d57-e433-4c82-b5be-80f2fdab955e}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Declination := THIS^.fDeclinationCurrent;]]></ST>
         </Implementation>
       </Get>
     </Property>
@@ -166,29 +198,7 @@ METHOD Home : BOOL
 METHOD Init : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="MoveAltAz" Id="{c9fecd44-6a6f-4a55-81c4-7243946a8163}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD MoveAltAz : BOOL
-VAR_INPUT
-	AltAz	: ST_AltAzCoordinate;
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="MoveRaDec" Id="{319f20f2-e139-4f08-8133-252710a01ae3}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD MoveRaDec : BOOL
-VAR_INPUT
-	RaDec	: ST_RaDecCoordinate;
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
+        <ST><![CDATA[bInit := TRUE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="Park" Id="{621c0fc8-dd4d-44e7-85fe-cb7551b9d3ae}">
@@ -196,22 +206,9 @@ END_VAR
 METHOD Park : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[]]></ST>
+        <ST><![CDATA[bPark := TRUE;]]></ST>
       </Implementation>
     </Method>
-    <Property Name="RaDec" Id="{4cda5ae2-68b2-4465-b42f-daa2a17018ac}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY RaDec : ST_RaDecCoordinate
-]]></Declaration>
-      <Get Name="Get" Id="{b9df03af-7249-4abe-bb42-35cc54059314}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[]]></ST>
-        </Implementation>
-      </Get>
-    </Property>
     <Method Name="Reset" Id="{3d17fa40-fd53-4e7d-b2aa-5ea6dd1055c0}">
       <Declaration><![CDATA[METHOD Reset : BOOL
 VAR_INPUT
@@ -221,37 +218,31 @@ END_VAR
         <ST><![CDATA[bReset := TRUE;]]></ST>
       </Implementation>
     </Method>
-    <Method Name="SetAltitudeOffset" Id="{e29d5b84-ac1f-448e-acf5-7d0447f7a37b}">
+    <Property Name="RightAscension" Id="{479a6a93-35a2-4327-9015-03d6802f2b56}">
+      <Declaration><![CDATA[{warning 'add property implementation'}
+PROPERTY RightAscension : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{cd895a36-325d-498a-95c9-5d78816a7d56}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[RightAscension := THIS^.fRightAscensionCurrent;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="Slew" Id="{c9fecd44-6a6f-4a55-81c4-7243946a8163}">
       <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD SetAltitudeOffset : BOOL
+METHOD Slew : BOOL
 VAR_INPUT
-	Offset	: LREAL;
+	fAzimuth		: LREAL;
+	fAltitude		: LREAL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="SetAzimuthOffset" Id="{f712493f-91da-493f-8b0a-2b3b800ea8a2}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD SetAzimuthOffset : BOOL
-VAR_INPUT
-	Offset	: LREAL;
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="SetDerotatorOffset" Id="{510a9ecc-ef30-44b7-b0e4-75c1f6f6b7c2}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD SetDerotatorOffset : BOOL
-VAR_INPUT
-	Offset	: LREAL;
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
+        <ST><![CDATA[THIS^.fAzimuth := fAzimuth;
+THIS^.fElevation := fAltitude;
+bSlew := TRUE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="Stop" Id="{8e159726-2715-4778-83ca-31c01953b46c}">
@@ -259,18 +250,20 @@ END_VAR
 METHOD Stop : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[]]></ST>
+        <ST><![CDATA[bStop := TRUE;]]></ST>
       </Implementation>
     </Method>
-    <Method Name="TrackRaDec" Id="{edf3f645-ab28-47ec-8a4c-398c458de728}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD TrackRaDec : BOOL
+    <Method Name="Track" Id="{edf3f645-ab28-47ec-8a4c-398c458de728}">
+      <Declaration><![CDATA[METHOD Track : BOOL
 VAR_INPUT
-	RaDec	: ST_RaDecCoordinate;
+	fRightAscension	: LREAL;
+	fDeclination	: LREAL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[]]></ST>
+        <ST><![CDATA[THIS^.fRightAscension := fRightAscension;
+THIS^.fDeclination := fDeclination;
+bTrack := TRUE;]]></ST>
       </Implementation>
     </Method>
     <LineIds Name="FB_BaseTelescopeControl">
@@ -307,7 +300,13 @@ END_VAR
     <LineIds Name="FB_BaseTelescopeControl._Track">
       <LineId Id="5" Count="0" />
     </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.AltAz.Get">
+    <LineIds Name="FB_BaseTelescopeControl.Altitude.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl.Azimuth.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl.Declination.Get">
       <LineId Id="2" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.FB_init">
@@ -322,34 +321,24 @@ END_VAR
     <LineIds Name="FB_BaseTelescopeControl.Init">
       <LineId Id="4" Count="0" />
     </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.MoveAltAz">
-      <LineId Id="7" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.MoveRaDec">
-      <LineId Id="7" Count="0" />
-    </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Park">
       <LineId Id="4" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.RaDec.Get">
-      <LineId Id="2" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Reset">
       <LineId Id="5" Count="0" />
     </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.SetAltitudeOffset">
-      <LineId Id="7" Count="0" />
+    <LineIds Name="FB_BaseTelescopeControl.RightAscension.Get">
+      <LineId Id="2" Count="0" />
     </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.SetAzimuthOffset">
+    <LineIds Name="FB_BaseTelescopeControl.Slew">
       <LineId Id="7" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.SetDerotatorOffset">
-      <LineId Id="7" Count="0" />
+      <LineId Id="14" Count="1" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Stop">
       <LineId Id="4" Count="0" />
     </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl.TrackRaDec">
+    <LineIds Name="FB_BaseTelescopeControl.Track">
+      <LineId Id="15" Count="1" />
       <LineId Id="7" Count="0" />
     </LineIds>
   </POU>

@@ -113,6 +113,12 @@
     <Compile Include="POUs\Devices\I_Nasmyth.TcIO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Devices\I_RaDecTelescope.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Devices\I_AltAzTelescope.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Devices\I_Roof.TcIO">
       <SubType>Code</SubType>
     </Compile>

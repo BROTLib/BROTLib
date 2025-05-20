@@ -39,19 +39,13 @@ IF measurement = 'command' THEN
 		Telescope.Home();
 	ELSIF parameter = 'track' AND Telescope <> 0 THEN
 		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
-			Telescope.TrackRaDec(RaDec);
+			Telescope.Track(RaDec.RightAscension, RaDec.Declination);
 		END_IF
 		RaDec.RightAscension := GVL_Math.LREAL_MIN;
 		RaDec.Declination := GVL_Math.LREAL_MIN;
-	ELSIF parameter = 'goto' AND Telescope <> 0 THEN
-		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
-			Telescope.MoveRaDec(RaDec);
-		END_IF
-		RaDec.RightAscension := GVL_Math.LREAL_MIN;
-		RaDec.Declination := GVL_Math.LREAL_MIN;		
 	ELSIF parameter = 'slew' AND Telescope <> 0 THEN
 		IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
-			Telescope.MoveAltAz(AltAz);
+			Telescope.Slew(AltAz.Azimuth, AltAz.Altitude);
 		END_IF
 		AltAz.Azimuth := GVL_Math.LREAL_MIN;
 		AltAz.Altitude := GVL_Math.LREAL_MIN;	
@@ -85,14 +79,14 @@ IF measurement = 'command' THEN
 		Dome.Reset();
 	ELSIF parameter = 'filter' AND Filter <> 0 THEN
 		Filter.SetFilter(STRING_TO_USINT(value));
-	ELSIF parameter = 'derotator' AND Telescope <> 0 THEN
-		Telescope.SetDerotatorOffset(STRING_TO_LREAL(value));
-	ELSIF parameter = 'elevationoffset' AND Telescope <> 0 THEN
-		Telescope.SetAltitudeOffset(STRING_TO_LREAL(value));
-	ELSIF parameter = 'azimuthoffset' AND Telescope <> 0 THEN
-		Telescope.SetAzimuthOffset(STRING_TO_LREAL(value));
-	ELSIF parameter = 'derotatoroffset' AND Telescope <> 0 THEN
-		Telescope.SetDerotatorOffset(STRING_TO_LREAL(value)); 
+	ELSIF parameter = 'derotator' AND AltAzTelescope <> 0 THEN
+		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
+	ELSIF parameter = 'elevationoffset' AND AltAzTelescope <> 0 THEN
+		AltAzTelescope.AltitudeOffset := STRING_TO_LREAL(value);
+	ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
+		AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
+	ELSIF parameter = 'derotatoroffset' AND AltAzTelescope <> 0 THEN
+		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value); 
 	ELSE
 		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
 	END_IF
@@ -188,33 +182,8 @@ published := fbMqttClient.Publish(
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
-      <LineId Id="78" Count="2" />
-      <LineId Id="159" Count="0" />
-      <LineId Id="82" Count="0" />
-      <LineId Id="160" Count="0" />
-      <LineId Id="86" Count="2" />
-      <LineId Id="158" Count="0" />
-      <LineId Id="90" Count="0" />
-      <LineId Id="128" Count="4" />
-      <LineId Id="92" Count="0" />
-      <LineId Id="135" Count="3" />
-      <LineId Id="134" Count="0" />
-      <LineId Id="94" Count="0" />
-      <LineId Id="139" Count="3" />
-      <LineId Id="95" Count="5" />
-      <LineId Id="143" Count="0" />
-      <LineId Id="103" Count="0" />
-      <LineId Id="125" Count="0" />
-      <LineId Id="105" Count="6" />
-      <LineId Id="126" Count="0" />
-      <LineId Id="170" Count="11" />
-      <LineId Id="113" Count="0" />
-      <LineId Id="127" Count="0" />
-      <LineId Id="115" Count="0" />
-      <LineId Id="144" Count="0" />
-      <LineId Id="117" Count="5" />
-      <LineId Id="133" Count="0" />
-      <LineId Id="123" Count="1" />
+      <LineId Id="260" Count="15" />
+      <LineId Id="282" Count="46" />
       <LineId Id="61" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx.Publish">

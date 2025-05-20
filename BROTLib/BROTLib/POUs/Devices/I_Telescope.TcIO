@@ -1,11 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <Itf Name="I_Telescope" Id="{5003d6e3-4b52-4cb8-a028-b0ab2a6b3370}">
     <Declaration><![CDATA[INTERFACE I_Telescope
 ]]></Declaration>
-    <Property Name="AltAz" Id="{a6146940-4650-466d-9ac9-c2c5b727745a}">
-      <Declaration><![CDATA[PROPERTY AltAz : ST_AltAzCoordinate]]></Declaration>
-      <Get Name="Get" Id="{8ad68625-dc7b-4361-8150-63f54617c376}">
+    <Property Name="Altitude" Id="{ce60f76f-3a5f-482f-9275-0897e7d29930}">
+      <Declaration><![CDATA[PROPERTY Altitude : LREAL]]></Declaration>
+      <Get Name="Get" Id="{58c7dbd3-1bf7-4cb4-96b8-f33be68a1ee1}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Azimuth" Id="{32bf6858-c17f-4c7b-8e70-4ffdf9df410d}">
+      <Declaration><![CDATA[PROPERTY Azimuth : LREAL]]></Declaration>
+      <Get Name="Get" Id="{63e5582f-b70a-403e-801b-c0e6f9154192}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="Declination" Id="{a5cf9f3f-1ec9-4cca-8bd9-8121481b9a9f}">
+      <Declaration><![CDATA[PROPERTY Declination : LREAL]]></Declaration>
+      <Get Name="Get" Id="{fcb6c1b5-27f0-4565-aed9-45fc0ce88d7e}">
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
@@ -21,56 +33,29 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="MoveAltAz" Id="{cc0d567e-4a90-40d9-8f8e-e1a94eb43aa2}">
-      <Declaration><![CDATA[METHOD MoveAltAz : BOOL
-VAR_INPUT
-	AltAz	: ST_AltAzCoordinate;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="MoveRaDec" Id="{3fa8011d-980e-4e74-a2b5-1fdb3dd84098}">
-      <Declaration><![CDATA[METHOD MoveRaDec : BOOL
-VAR_INPUT
-	RaDec	: ST_RaDecCoordinate;
-END_VAR
-]]></Declaration>
-    </Method>
     <Method Name="Park" Id="{4989c55f-52d0-4389-8fa2-916073e653f8}">
       <Declaration><![CDATA[METHOD ABSTRACT Park : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Property Name="RaDec" Id="{12c8886c-56f7-4ec9-a493-221526805c02}">
-      <Declaration><![CDATA[PROPERTY RaDec : ST_RaDecCoordinate]]></Declaration>
-      <Get Name="Get" Id="{d3f2ced6-23ed-44bd-a553-0d3cbd87919b}">
-        <Declaration><![CDATA[]]></Declaration>
-      </Get>
-    </Property>
     <Method Name="Reset" Id="{7c6108fb-54b5-48bf-af67-cc7170330ed5}">
       <Declaration><![CDATA[METHOD Reset : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="SetAltitudeOffset" Id="{1a4df7a8-72ea-47ad-923c-f0c163cab97c}">
-      <Declaration><![CDATA[METHOD SetAltitudeOffset : BOOL
+    <Property Name="RightAscension" Id="{0971e0b4-9db1-4a87-a57f-319f62ce77d0}">
+      <Declaration><![CDATA[PROPERTY RightAscension : LREAL]]></Declaration>
+      <Get Name="Get" Id="{137c7751-8023-4049-92ca-329be45aaf37}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Slew" Id="{cc0d567e-4a90-40d9-8f8e-e1a94eb43aa2}">
+      <Declaration><![CDATA[METHOD Slew : BOOL
 VAR_INPUT
-	Offset	: LREAL;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="SetAzimuthOffset" Id="{03e900b7-1d08-4452-a79c-3f3c7fce3a8a}">
-      <Declaration><![CDATA[METHOD SetAzimuthOffset : BOOL
-VAR_INPUT
-	Offset	: LREAL;
-END_VAR
-]]></Declaration>
-    </Method>
-    <Method Name="SetDerotatorOffset" Id="{4321acfd-c2aa-4930-a9a9-411c79360413}">
-      <Declaration><![CDATA[METHOD SetDerotatorOffset : BOOL
-VAR_INPUT
-	Offset	: LREAL;
+	fAzimuth		: LREAL;
+	fAltitude		: LREAL;
 END_VAR
 ]]></Declaration>
     </Method>
@@ -80,10 +65,11 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Method Name="TrackRaDec" Id="{17caa4eb-aef5-4541-b247-843b6eb5de40}">
-      <Declaration><![CDATA[METHOD TrackRaDec : BOOL
+    <Method Name="Track" Id="{17caa4eb-aef5-4541-b247-843b6eb5de40}">
+      <Declaration><![CDATA[METHOD Track : BOOL
 VAR_INPUT
-	RaDec	: ST_RaDecCoordinate;
+	fRightAscension	: LREAL;
+	fDeclination	: LREAL;
 END_VAR
 ]]></Declaration>
     </Method>

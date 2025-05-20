@@ -10,7 +10,7 @@
 		</System>
 		<Plc>
 			<Project GUID="{564FFD9A-1497-4C08-97FE-C383F6EF4E3A}" Name="BROTLib" PrjFilePath="BROTLib\BROTLib.plcproj" TmcFilePath="BROTLib\BROTLib.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcPath="BROTLib\BROTLib.tmc" TmcHash="{6733C5CF-0D90-2C3A-79DE-EDE5542E0CA6}">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcPath="BROTLib\BROTLib.tmc" TmcHash="{1079E35F-027A-0FDA-A386-E9B4D6A95338}">
 					<Name>BROTLib Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Contexts>

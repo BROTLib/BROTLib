@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <Itf Name="I_RaDecTelescope" Id="{fca915a4-38d8-47a2-9bf5-dd2cdf97023e}">
+    <Declaration><![CDATA[INTERFACE I_RaDecTelescope EXTENDS I_Telescope
+]]></Declaration>
+    <Property Name="DeclinationOffset" Id="{a730f447-9940-48ab-863f-161dd001843d}">
+      <Declaration><![CDATA[PROPERTY DeclinationOffset : LREAL]]></Declaration>
+      <Get Name="Get" Id="{56007fc8-4474-49ec-bf47-d026a049fd60}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{0358f7e9-95c3-4de1-8d50-74d0235aa117}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="HourAngleOffset" Id="{777dfd7c-8617-4f6a-b2b2-7aaf194d6ef0}">
+      <Declaration><![CDATA[PROPERTY HourAngleOffset : LREAL]]></Declaration>
+      <Get Name="Get" Id="{5686a4a6-92a0-4f61-9de3-93dbb226119a}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{eefa9c79-1d73-4bf1-be58-dce6831cf612}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+  </Itf>
+</TcPlcObject>

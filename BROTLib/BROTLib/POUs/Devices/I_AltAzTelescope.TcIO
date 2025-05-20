@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <Itf Name="I_AltAzTelescope" Id="{eb5dcaf9-36d8-4298-ac4b-d385d1163408}">
+    <Declaration><![CDATA[INTERFACE I_AltAzTelescope EXTENDS I_Telescope
+]]></Declaration>
+    <Property Name="AltitudeOffset" Id="{6e91580b-f921-4d18-9c5d-04331b1b85ef}">
+      <Declaration><![CDATA[PROPERTY AltitudeOffset : LREAL]]></Declaration>
+      <Get Name="Get" Id="{91ac621a-2b79-4f9c-89d4-00671a3f53a9}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{157ebe42-ab67-47ba-a5c3-03ee2366bfd8}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="AzimuthOffset" Id="{debc5027-17e9-4739-9a0f-661894e12398}">
+      <Declaration><![CDATA[PROPERTY AzimuthOffset : LREAL]]></Declaration>
+      <Get Name="Get" Id="{cfb5cb60-3f07-4c03-ab12-8231c1b5136f}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{f8768d35-0d41-490f-9a32-fbbd9836ff1d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Property Name="DerotatorOffset" Id="{d83deac1-6258-49da-80dc-57a9a51a2246}">
+      <Declaration><![CDATA[PROPERTY DerotatorOffset : LREAL]]></Declaration>
+      <Get Name="Get" Id="{639ab416-a7ff-427f-b645-436c0329fb32}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{f8869cd1-0209-4ae3-9d27-bb92edf312e5}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+  </Itf>
+</TcPlcObject>
