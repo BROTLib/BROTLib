@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <Itf Name="I_Brake" Id="{1ea40e6b-7b15-4224-8327-2c0169da68d6}">
     <Declaration><![CDATA[INTERFACE I_Brake
 ]]></Declaration>

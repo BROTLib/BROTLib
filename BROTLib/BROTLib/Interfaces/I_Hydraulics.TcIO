@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <Itf Name="I_Hydraulics" Id="{98debd9f-1fac-4f33-8ff3-46ce32fb4d2a}">
     <Declaration><![CDATA[INTERFACE I_Hydraulics
 ]]></Declaration>

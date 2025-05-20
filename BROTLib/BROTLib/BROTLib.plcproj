@@ -25,6 +25,45 @@
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Interfaces\I_AltAzTelescope.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Axis.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_BaseAxis.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Brake.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Dome.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Filter.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Focus.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Hydraulics.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_MirrorCovers.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Nasmyth.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_RaDecTelescope.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Roof.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\I_Telescope.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="DUTs\E_Blink.TcDUT">
       <SubType>Code</SubType>
     </Compile>
@@ -84,45 +123,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Debug\FB_InfoGroup.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Axis.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_BaseAxis.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Brake.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Dome.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Filter.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Focus.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Hydraulics.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_MirrorCovers.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Nasmyth.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_RaDecTelescope.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_AltAzTelescope.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Roof.TcIO">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\Devices\I_Telescope.TcIO">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_AstroClock.TcPOU">
@@ -229,12 +229,12 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Interfaces" />
     <Folder Include="DUTs" />
     <Folder Include="GVLs" />
     <Folder Include="Telescope" />
     <Folder Include="POUs\Comm" />
     <Folder Include="POUs\Debug" />
-    <Folder Include="POUs\Devices" />
     <Folder Include="POUs\Tracking" />
     <Folder Include="POUs\Pointing" />
     <Folder Include="Telescope\StateMachine" />
