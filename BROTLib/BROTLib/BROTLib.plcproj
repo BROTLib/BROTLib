@@ -67,7 +67,7 @@
     <Compile Include="DUTs\E_Blink.TcDUT">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="DUTs\E_DomeState.TcDUT">
+    <Compile Include="DUTs\E_DomeRotationState.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\E_Horn.TcDUT">

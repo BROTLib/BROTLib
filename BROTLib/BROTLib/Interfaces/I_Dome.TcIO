@@ -45,11 +45,20 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
-    <Property Name="State" Id="{7210269f-3287-4ee9-b4b6-ea62cb9473cb}">
-      <Declaration><![CDATA[PROPERTY State : E_DomeState]]></Declaration>
+    <Property Name="RotState" Id="{7210269f-3287-4ee9-b4b6-ea62cb9473cb}">
+      <Declaration><![CDATA[PROPERTY RotState : E_DomeRotationState]]></Declaration>
       <Get Name="Get" Id="{bc306067-186a-4fbf-a0b9-cf743eb5905f}">
         <Declaration><![CDATA[]]></Declaration>
       </Get>
+    </Property>
+    <Property Name="ShutterState" Id="{06ad0786-c570-473f-8ca9-4a5d10920604}">
+      <Declaration><![CDATA[PROPERTY ShutterState : E_RoofState]]></Declaration>
+      <Get Name="Get" Id="{2925be68-4591-4226-8720-0f7cd5ff2baf}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{12de55ee-1a05-45b5-ba14-f4fd6b06663b}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
     </Property>
     <Method Name="StopTrack" Id="{db4faf08-b158-4f1f-882a-1c0ed13959f6}">
       <Declaration><![CDATA[METHOD StopTrack : BOOL

@@ -1,14 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
-  <DUT Name="E_DomeState" Id="{c96709e9-bed9-4f1c-b47d-382f9c9b4e8c}">
+  <DUT Name="E_DomeRotationState" Id="{c96709e9-bed9-4f1c-b47d-382f9c9b4e8c}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 {attribute 'strict'}
-TYPE E_DomeState :
+TYPE E_DomeRotationState :
 (
-	closed  := 0,
-	open	:= 1,
+	idle  := 0,
+	parked	:= 1,
 	slewing := 2,
-	error	:= 3
+	error	:= 3,
+	unknown := 4
 );
 END_TYPE
 ]]></Declaration>

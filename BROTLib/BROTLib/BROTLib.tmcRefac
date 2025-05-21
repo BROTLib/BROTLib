@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Refactors>
+  <Renames>
+    <RenamedType>
+      <Type guid="c96709e9-bed9-4f1c-b47d-382f9c9b4e8c">E_DOMESTATE</Type>
+      <From>E_DomeState</From>
+      <To>E_DomeRotationState</To>
+    </RenamedType>
+  </Renames>
+</Refactors>
