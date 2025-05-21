@@ -18,6 +18,7 @@ VAR_INPUT
 	fElevation			: LREAL;
 	
 	telescopeConfig		: ST_TelescopeConfig;
+	sState				: STRING;
 END_VAR
 VAR_OUTPUT
 	bPower				: BOOL;
@@ -66,6 +67,7 @@ fbMachine(
 	bTrack 				:= bTrack,
 	bStop 				:= bStop
 );
+sState := TO_STRING(fbMachine.eState);
 
 bInit	:= FALSE;
 bPark	:= FALSE;
@@ -293,6 +295,7 @@ bTrack := TRUE;]]></ST>
       <LineId Id="26" Count="2" />
       <LineId Id="34" Count="0" />
       <LineId Id="36" Count="0" />
+      <LineId Id="293" Count="0" />
       <LineId Id="30" Count="0" />
       <LineId Id="37" Count="3" />
       <LineId Id="33" Count="0" />

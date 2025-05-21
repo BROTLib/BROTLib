@@ -3,6 +3,7 @@
   <DUT Name="E_TelescopeState" Id="{45b3efdc-7e57-494e-9642-185d9d9047f3}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 {attribute 'strict'}
+{attribute 'to_string'}
 TYPE E_TelescopeState :
 (
 	none := 0,
