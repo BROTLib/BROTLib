@@ -86,7 +86,11 @@ IF measurement = 'command' THEN
 	ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
 		AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'derotatoroffset' AND AltAzTelescope <> 0 THEN
-		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value); 
+		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
+	ELSIF parameter = 'declinationoffset' AND RaDecTelescope <> 0 THEN
+		RaDecTelescope.DeclinationOffset := STRING_TO_LREAL(value);
+	ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
+		RaDecTelescope.HourAngleOffset := STRING_TO_LREAL(value);
 	ELSE
 		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
 	END_IF
@@ -183,7 +187,9 @@ published := fbMqttClient.Publish(
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
       <LineId Id="260" Count="15" />
-      <LineId Id="282" Count="46" />
+      <LineId Id="282" Count="43" />
+      <LineId Id="338" Count="3" />
+      <LineId Id="326" Count="2" />
       <LineId Id="61" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx.Publish">

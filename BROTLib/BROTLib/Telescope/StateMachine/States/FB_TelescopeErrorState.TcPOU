@@ -32,7 +32,9 @@ END_IF
 // 
 
 IF bReset THEN
-	pMachine^.pControl^.Reset();
+	// Run the internal reset routine of the user defined telescope control
+	// -> If that solves the error, the next cyle should go back to idle
+	pMachine^.pControl^._Reset();
 	bReset := FALSE;
 END_IF]]></ST>
       </Implementation>
@@ -41,7 +43,9 @@ END_IF]]></ST>
       <LineId Id="42" Count="0" />
     </LineIds>
     <LineIds Name="FB_TelescopeErrorState.Main">
-      <LineId Id="6" Count="15" />
+      <LineId Id="6" Count="13" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="20" Count="1" />
       <LineId Id="5" Count="0" />
     </LineIds>
   </POU>

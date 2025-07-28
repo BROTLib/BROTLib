@@ -9,6 +9,7 @@ VAR_INPUT
 	bTrack				: BOOL;
 	bStop				: BOOL;
 	bReset				: BOOL;
+	bError				: BOOL;
 END_VAR
 VAR_OUTPUT
 	eState				: E_TelescopeState := E_TelescopeState.parked;
@@ -22,6 +23,7 @@ VAR
 	rtrigTrack			: R_TRIG;
 	rtrigStop			: R_TRIG;
 	rtrigReset			: R_TRIG;
+	rtrigError			: R_TRIG;
 
 	pControl 			: POINTER TO FB_BaseTelescopeControl;
 	comm				: I_Comm;
@@ -50,28 +52,26 @@ END_IF
 // get current state
 THIS^.ipState := THIS^._GetState(eState);
 
-IF rtrigInit.Q THEN
-	ipState.Initialize();
-END_IF
+IF rtrigError.Q THEN
+	ipState.Error();
 
-IF rtrigPark.Q THEN
-	ipState.Park();
-END_IF
-
-IF rtrigSlew.Q THEN
-	ipState.Slew(0, 0);
-END_IF
-
-IF rtrigTrack.Q THEN
-	ipState.Track(0, 0);
-END_IF
-
-IF rtrigStop.Q THEN
+ELSIF rtrigStop.Q THEN
 	ipState.Stop();
-END_IF
-
-IF rtrigReset.Q THEN
+	
+ELSIF rtrigReset.Q THEN
 	ipState.Reset();
+	
+ELSIF rtrigPark.Q THEN
+	ipState.Park();
+	
+ELSIF rtrigInit.Q THEN
+	ipState.Initialize();
+
+ELSIF rtrigSlew.Q THEN
+	ipState.Slew();
+
+ELSIF rtrigTrack.Q THEN
+	ipState.Track();
 END_IF
 
 ipState.Main();]]></ST>
@@ -172,8 +172,21 @@ THIS^.eNextState := E_TelescopeState.none;]]></ST>
       <LineId Id="169" Count="0" />
       <LineId Id="168" Count="0" />
       <LineId Id="170" Count="0" />
-      <LineId Id="41" Count="19" />
-      <LineId Id="94" Count="2" />
+      <LineId Id="206" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="207" Count="0" />
+      <LineId Id="213" Count="0" />
+      <LineId Id="211" Count="1" />
+      <LineId Id="223" Count="0" />
+      <LineId Id="221" Count="0" />
+      <LineId Id="210" Count="0" />
+      <LineId Id="222" Count="0" />
+      <LineId Id="209" Count="0" />
+      <LineId Id="208" Count="0" />
+      <LineId Id="214" Count="0" />
+      <LineId Id="42" Count="1" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="215" Count="4" />
       <LineId Id="93" Count="0" />
       <LineId Id="130" Count="0" />
       <LineId Id="129" Count="0" />

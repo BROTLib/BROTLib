@@ -23,17 +23,17 @@ END_VAR
 // 
 
 IF bPark THEN
-	pMachine^.State := E_TelescopeState.parking;
+	pMachine^.eState := E_TelescopeState.parking;
 	bPark := FALSE;
 END_IF
 
 IF bSlew THEN
-	pMachine^.State := E_TelescopeState.slewing;
+	pMachine^.eState := E_TelescopeState.slewing;
 	bSlew := FALSE;
 END_IF
 
 IF bTrack THEN
-	pMachine^.State := E_TelescopeState.tracking;
+	pMachine^.eState := E_TelescopeState.tracking;
 	bTrack := FALSE;
 END_IF]]></ST>
       </Implementation>

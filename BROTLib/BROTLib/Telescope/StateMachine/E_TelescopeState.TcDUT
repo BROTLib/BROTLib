@@ -14,7 +14,8 @@ TYPE E_TelescopeState :
 	slewing := 5,
 	tracking := 6,
 	referencing := 7,
-	error := 8
+	stopping := 8,
+	error := 9
 );
 END_TYPE
 ]]></Declaration>

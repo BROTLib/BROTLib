@@ -3,6 +3,12 @@
   <Itf Name="I_TelescopeState" Id="{30be2704-c887-44fd-a488-e538e72a724d}">
     <Declaration><![CDATA[INTERFACE I_TelescopeState
 ]]></Declaration>
+    <Method Name="Error" Id="{bebc91e1-4d32-4687-9210-ca69a7062499}">
+      <Declaration><![CDATA[METHOD Error : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
     <Method Name="Initialize" Id="{92a9e4f8-9df0-46bb-9133-f7fe2aebd826}">
       <Declaration><![CDATA[METHOD Initialize : BOOL
 VAR_INPUT

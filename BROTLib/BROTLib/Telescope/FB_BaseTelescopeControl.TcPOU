@@ -54,18 +54,15 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// get the system time
-fbTime();
-fJD := DateTime2JD(fbTime.time_RTCEX2);
-fLST := CT2LST(telescopeConfig.longitude, fJD);
-
-// run the state machine
+      <ST><![CDATA[// run the state machine
 fbMachine(
 	bInit				:= bInit,
 	bPark				:= bPark,
 	bSlew 				:= bSlew,
 	bTrack 				:= bTrack,
-	bStop 				:= bStop
+	bStop 				:= bStop,
+	bReset				:= bReset,
+	bError				:= bError
 );
 sState := TO_STRING(fbMachine.eState);
 
@@ -89,27 +86,9 @@ END_IF
 MQTTTimer(IN:=TRUE);
 IF MQTTTimer.Q THEN // publish new payload every second
 	MQTTTimer(IN:=FALSE);
-	_PublishTelemetry();	
+	_PublishTelemetry();
 END_IF]]></ST>
     </Implementation>
-    <Method Name="_Initialize" Id="{f5caea65-cedf-4c3b-8428-6180ca9de8c7}">
-      <Declaration><![CDATA[METHOD _Initialize : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="_Park" Id="{f5cfd253-b848-4530-8152-490bf96244a1}">
-      <Declaration><![CDATA[METHOD _Park : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
     <Method Name="_PublishTelemetry" Id="{6dec3368-4b87-4c9c-96fd-ac4ed46b70ff}">
       <Declaration><![CDATA[METHOD _PublishTelemetry : BOOL
 VAR_INPUT
@@ -121,33 +100,6 @@ comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.ALT.REALPOS', LREAL_TO_
 comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.RA.REALPOS', LREAL_TO_STRING(fRightAscensionCurrent));
 comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.REALPOS', LREAL_TO_STRING(fDeclinationCurrent));
 ]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="_Slew" Id="{c957e7ca-0ba7-48bf-b704-d815850fcff1}">
-      <Declaration><![CDATA[METHOD _Slew : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="_Stop" Id="{7cad4e81-581c-422c-b1a5-ad091472f55c}">
-      <Declaration><![CDATA[METHOD _Stop : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="_Track" Id="{07ca8c4a-208d-4937-a7e1-d6867043cb82}">
-      <Declaration><![CDATA[METHOD _Track : BOOL
-VAR_INPUT
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[]]></ST>
       </Implementation>
     </Method>
     <Property Name="Altitude" Id="{caafb587-dfec-4075-98b5-4e0c659dd422}">
@@ -286,14 +238,12 @@ bTrack := TRUE;]]></ST>
       </Implementation>
     </Method>
     <LineIds Name="FB_BaseTelescopeControl">
-      <LineId Id="105" Count="2" />
-      <LineId Id="104" Count="0" />
-      <LineId Id="114" Count="0" />
       <LineId Id="108" Count="0" />
       <LineId Id="25" Count="0" />
       <LineId Id="35" Count="0" />
       <LineId Id="26" Count="2" />
       <LineId Id="34" Count="0" />
+      <LineId Id="345" Count="1" />
       <LineId Id="36" Count="0" />
       <LineId Id="293" Count="0" />
       <LineId Id="30" Count="0" />
@@ -308,24 +258,9 @@ bTrack := TRUE;]]></ST>
       <LineId Id="241" Count="0" />
       <LineId Id="233" Count="0" />
     </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl._Initialize">
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl._Park">
-      <LineId Id="5" Count="0" />
-    </LineIds>
     <LineIds Name="FB_BaseTelescopeControl._PublishTelemetry">
       <LineId Id="6" Count="0" />
       <LineId Id="8" Count="2" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl._Slew">
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl._Stop">
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_BaseTelescopeControl._Track">
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Altitude.Get">

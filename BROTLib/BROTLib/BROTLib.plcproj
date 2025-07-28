@@ -200,28 +200,28 @@
     <Compile Include="Telescope\StateMachine\I_TelescopeState.TcIO">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeErrorState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeErrorState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeIdleState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeIdleState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeInitializingState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeInitializingState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeParkedState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeParkedState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeParkingState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeParkingState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeReferencingState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeReferencingState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeSlewingState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeSlewingState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\States\FB_TelescopeTrackingState.TcPOU">
+    <Compile Include="Telescope\StateMachine\States\FB_TelescopeTrackingState.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Telescope\ST_TelescopeConfig.TcDUT">
@@ -238,7 +238,7 @@
     <Folder Include="POUs\Tracking" />
     <Folder Include="POUs\Pointing" />
     <Folder Include="Telescope\StateMachine" />
-    <Folder Include="Telescope\States" />
+    <Folder Include="Telescope\StateMachine\States" />
     <Folder Include="VISUs" />
     <Folder Include="POUs" />
   </ItemGroup>
