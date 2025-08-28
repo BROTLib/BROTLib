@@ -3,6 +3,12 @@
   <Itf Name="I_Dome" Id="{97c41eeb-cc9f-4286-aebb-137faba3b329}">
     <Declaration><![CDATA[INTERFACE I_Dome
 ]]></Declaration>
+    <Property Name="Capabilities" Id="{ce62be83-41b1-484e-96cb-80c465df6602}">
+      <Declaration><![CDATA[PROPERTY Capabilities : INT]]></Declaration>
+      <Get Name="Get" Id="{4f2a8459-f8db-47dc-a316-699a4621e3d7}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
     <Method Name="Close" Id="{324da6d9-cec6-4890-ad47-67782826b0a8}">
       <Declaration><![CDATA[METHOD Close : BOOL
 VAR_INPUT
@@ -38,6 +44,15 @@ END_VAR
       <Get Name="Get" Id="{3d26b278-b164-42c8-ac02-0f45a894de74}">
         <Declaration><![CDATA[]]></Declaration>
       </Get>
+    </Property>
+    <Property Name="Position" Id="{fcad9bb1-0998-4626-b0b3-b366fd66317a}">
+      <Declaration><![CDATA[PROPERTY Position : LREAL]]></Declaration>
+      <Get Name="Get" Id="{2bb94df7-ad12-49df-852c-47e0779ed164}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{2a48082d-c172-4984-bad0-748564b2bd51}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
     </Property>
     <Method Name="Reset" Id="{7cb5034b-2625-4d18-b1cd-4cf4aad842da}">
       <Declaration><![CDATA[METHOD Reset : BOOL
