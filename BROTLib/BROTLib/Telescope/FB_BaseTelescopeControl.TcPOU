@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_BaseTelescopeControl" Id="{eddbf876-a986-4fe1-ba5b-16d782882b92}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK FB_BaseTelescopeControl IMPLEMENTS I_Telescope
+    <Declaration><![CDATA[FUNCTION_BLOCK ABSTRACT FB_BaseTelescopeControl IMPLEMENTS I_Telescope
 VAR_INPUT
 (*
 TCS interface section
@@ -77,7 +77,7 @@ VAR_OUTPUT
 	bHorizonError		: BOOL;		// if TRUE, the set Coordinate is below the Horizon threshold fHorizon
 	nErrorID				: UDINT;	//error id of axis
 	nMotionState		: INT	:= 0;
-	bSliding			: BOOL;		//TRUE, IF telescope is in fast-MOVE phase (includes pole-swap)	
+	bSlewing			: BOOL;		//TRUE, IF telescope is in fast-MOVE phase (includes pole-swap)	
 	bTracking			: BOOL;		//TRUE, IF telescope is on tracking position AND currently tracking.	
 	bStopped			: BOOL;		//TRUE, IF telescope is AT rest.	
 	fHourAngleCurrent	: LREAL;	// true position of the hour angle (without pointing and offset correction)
@@ -99,7 +99,7 @@ END_VAR
     <Implementation>
       <ST><![CDATA[
 // telemetry cadence depends on state
-IF bSliding OR bTracking THEN
+IF bSlewing OR bTracking THEN
 	tonMQTTTimer.PT := T#1000MS;
 ELSE
 	tonMQTTTimer.PT := T#5000MS;
@@ -233,7 +233,7 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[THIS^.comm := comm;
+        <ST><![CDATA[THIS^.fbComm := comm;
 ]]></ST>
       </Implementation>
     </Method>
