@@ -3,44 +3,55 @@
   <POU Name="FB_BaseTelescopeControl" Id="{eddbf876-a986-4fe1-ba5b-16d782882b92}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_BaseTelescopeControl IMPLEMENTS I_Telescope
 VAR_INPUT
-	bInit				: BOOL;
-	bPark				: BOOL;
-	bSlew				: BOOL;
-	bTrack				: BOOL;
-	bStop				: BOOL;
-	bReset				: BOOL;
+(*
+TCS interface section
+see https://gitlab.aip.de/bmk10k/telescope_firmware/snippets/5
+*)
+	bPower				: BOOL;		// true: Power on
+	bGoHome				: BOOL;		// true: go to home position, unset track/goto if active
+	bPark				: BOOL;		// boolean, true: go into park position, ready to stow telescope, unset track/goto
+	bTrack				: BOOL;		// boolean, TRUE: MOVE telescope TO last ra/de AND start tracking. Set 'goto' TO FALSE, IF TRUE. FALSE: Stop tracking as soon as possible
+	bGoto				: BOOL;		// boolean, TRUE: MOVE telescope TO tau/de AND stop there. Set track TO FALSE, IF TRUE. FALSE: no effect.)	
+	bSlew				: BOOL;		// move the telescope to a given az-alt position
+	bStop				: BOOL;		// boolean, TRUE: Stop motion OF telescope immediately, set goto AND track TO FALSE. FALSE: Allow motion OF telescope again via track/goto).	
+	bReset				: BOOL;		// initiates reset on all axis
+	bAutoTrack			: BOOL := TRUE;	// automatic tracking after goto
+	fRightAscension		: LREAL :=  0.0;	// apparent right ascension, degrees, double	
+	fDeclination		: LREAL :=  0.0;	// apparent declination, degrees, double
+	fElevation			: LREAL :=  0.0;	// desired elevation of the telescope pointing
+	fAzimuth			: LREAL :=  0.0;	// desired azimut of the telescope pointing
+	fTimeOffset			: LREAL := 0.0;		// absolute offset for time
+	fHorizon			: LREAL := 1.0;		// ELEVATION below which value the telescope will not go
 	
-	bBrakeClearing		: BOOL	:= TRUE;
-	
-	fRightAscension		: LREAL;	
-	fDeclination		: LREAL;
-	fAzimuth			: LREAL;
-	fElevation			: LREAL;
+	bEstopTriggered		: BOOL	:= FALSE;	// TODO: CHANGE
+	bMainReady			: BOOL	:= TRUE;
 	
 	telescopeConfig		: ST_TelescopeConfig;
-	sState				: STRING;
-END_VAR
-VAR_OUTPUT
-	bPower				: BOOL;
-	bError				: BOOL;
-	
-	fElevationCurrent   : LREAL;	// true position of the elevation
-	fAzimuthCurrent     : LREAL;	// true position of the azimuth
-	fDerotatorCurrent	: LREAL;	// true position of the de-rotator
-	fRightAscensionCurrent	: LREAL;
-	fDeclinationCurrent	: LREAL;
-	fHourAngleCurrent	: LREAL;
 END_VAR
 VAR
-	comm				: I_Comm;
-	fbMachine			: FB_TelescopeMachine(pControl := THIS, comm := comm);
-	bPowerFailure		: BOOL;		// triggers power-failure event
+	fbComm 				: I_Comm;
+	
+	TCS_command			: E_TCSCommand;	// actual command from the TCS
+	fJd					: LREAL;	// current Julian Date calculated from system time
+	fLst				: LREAL;	// local siderial time calculated from Julian date in hours
+	fElevationCalc		: LREAL;	// elevation calulated when ra and dec are set by TCS 
+	fAzimuthCalc		: LREAL;	// azimuth calulated when ra and dec are set by TCS
+	fHourAngle			: LREAL;	// hourangle when ra and dec are set by TCS
+	
+	fRightAscensionCalc	: LREAL;	// right ascension calulated when azimuth and elevation are set by TCS
+	fDeclinationCalc	: LREAL;	// declination calulated when azimuth and elevation are set by TCS
+	fHourAngleCalc		: LREAL;	// hour angle azimuth and elevation are set by TCS
 	
 	fbTime				: FB_AstroClock;	// precise astronomical	time
-	fJD					: LREAL;	// current Julian Date calculated from system time
-	fLST				: LREAL;	// local siderial time calculated from Julian date
-
-	MQTTTimer 			: TON := (PT:=T#5S);
+	
+	rtrigReset			: R_TRIG;
+	bInterrupted		: BOOL;		// If a command is interruped by one with more presedence, the interrupted needs to reset its stage
+	
+	bPowerFailure		: BOOL;		// triggers power-failure event
+	tpPowerOnWarning	: TP;		// triggers power warning
+	tonPowerTimeout		: TON;		// power on timeout
+	tonCommandTimeout	: TON;		// command timeout
+	tonTrackingDelay	: TON;		// tracking delay
 	
 	TCSpowerEvent,
 	TCSgohomeEvent,
@@ -48,44 +59,54 @@ VAR
 	TCSgotoEvent,
 	TCStrackEvent,
 	TCSstopEvent,
-	AltitudeEvent,
+	TCStargetHorizonEvent,
+	TCSaltitudeEvent,
+	TCSnearPoleEvent,
 	TCSreadyEvent,
 	TCSCTOEvent			: FB_Eventlog;
+	tonMQTTTimer 			: TON := (PT:=T#5S);
+	
+	nStatusWord, nLastStatus:	UDINT;
+END_VAR
+VAR_OUTPUT
+	bReady				: BOOL;		// TRUE, IF telescope can be operated 
+	fReadyState 		: LREAL := 0.0; // 0: Shut down, 1 powered on, -1 Error
+	bIsParked			: BOOL := TRUE;		// telescope is parked
+	bIsPowered			: BOOL;		// telescope is powered on
+	bError				: BOOL;		// indicates an error on one of the components
+	bHorizonError		: BOOL;		// if TRUE, the set Coordinate is below the Horizon threshold fHorizon
+	nErrorID				: UDINT;	//error id of axis
+	nMotionState		: INT	:= 0;
+	bSliding			: BOOL;		//TRUE, IF telescope is in fast-MOVE phase (includes pole-swap)	
+	bTracking			: BOOL;		//TRUE, IF telescope is on tracking position AND currently tracking.	
+	bStopped			: BOOL;		//TRUE, IF telescope is AT rest.	
+	fHourAngleCurrent	: LREAL;	// true position of the hour angle (without pointing and offset correction)
+	fDeclinationCurrent	: LREAL;	// true position of the declination (without pointing and offset correction)
+	fRightAscensionCurrent: LREAL;	// true position of the right ascension (without pointing and offset correction)
+	fElevationCurrent	: LREAL;	// current position in elevation (calculated) (without pointing and offset correction)
+	fAzimuthCurrent		: LREAL;	// current position in azimuth (calculated) (without pointing and offset correction)
+	fElevationCurrentSky	: LREAL;	// current position in elevation (calculated)
+	fAzimuthCurrentSky		: LREAL;	// current position in azimuth (calculated)
+	fSlewTime			: LREAL;	//	(time in sec. to reach the goto/track position) 
+	bHomed				: BOOL;		// True: telescope is calibrated
+	bBusy				: BOOL;		// telescope does not accept further commands
+END_VAR
+VAR CONSTANT
+	d2r		: LREAL := PI/180.0;
+	fSiderialVelocity: LREAL := 360.0 / 86164.099;
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// run the state machine
-fbMachine(
-	bInit				:= bInit,
-	bPark				:= bPark,
-	bSlew 				:= bSlew,
-	bTrack 				:= bTrack,
-	bStop 				:= bStop,
-	bReset				:= bReset,
-	bError				:= bError
-);
-sState := TO_STRING(fbMachine.eState);
-
-bInit	:= FALSE;
-bPark	:= FALSE;
-bSlew 	:= FALSE;
-bTrack 	:= FALSE;
-bStop 	:= FALSE;
-
-// has error been reset?
-IF NOT bError THEN
-	bReset := FALSE;
-END_IF
-
+      <ST><![CDATA[
 // telemetry cadence depends on state
-IF fbMachine.State = E_TelescopeState.slewing OR fbMachine.State = E_TelescopeState.tracking THEN
-	MQTTTimer.PT := T#1000MS;
+IF bSliding OR bTracking THEN
+	tonMQTTTimer.PT := T#1000MS;
 ELSE
-	MQTTTimer.PT := T#5000MS;
+	tonMQTTTimer.PT := T#5000MS;
 END_IF
-MQTTTimer(IN:=TRUE);
-IF MQTTTimer.Q THEN // publish new payload every second
-	MQTTTimer(IN:=FALSE);
+tonMQTTTimer(IN:=TRUE);
+IF tonMQTTTimer.Q THEN // publish new payload every second
+	tonMQTTTimer(IN:=FALSE);
 	_PublishTelemetry();
 END_IF]]></ST>
     </Implementation>
@@ -95,10 +116,72 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.AZ.REALPOS', LREAL_TO_STRING(fAzimuthCurrent));
-comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.ALT.REALPOS', LREAL_TO_STRING(fElevationCurrent));
-comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.RA.REALPOS', LREAL_TO_STRING(fRightAscensionCurrent));
-comm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.REALPOS', LREAL_TO_STRING(fDeclinationCurrent));
+        <ST><![CDATA[(* TELESCOPE module*)
+
+//fbComm.Publish('telescope', 'dome', 'TELESCOPE.READY_STATE',	LREAL_TO_STRING(fReadyState));
+//fbComm.Publish('telescope', 'dome', 'TELESCOPE.Motion_STATE',	LREAL_TO_STRING(nMotionState));
+
+// INFO
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.NAME',	'50cm');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER',	'0.5');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.CABINET',	'Beckhoff');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', 'Halfmann, Haidenhain, Beckhoff');
+
+// CONFIG
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', '0');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', 'ALT-AZ');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', 'ALT-AZ');
+
+// STATUS
+IF bEstopTriggered THEN
+	fbComm.Publish('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', '1');
+ELSIF bError THEN
+	fbComm.Publish('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', '2');
+ELSE
+	fbComm.Publish('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', '0');
+END_IF
+(* ERROR LIST: TO BE IMPLEMENTED!!!*)
+
+(* OBJECT Module*)
+
+// INSTRUMENTAL
+// Set Coords from outside | GoTo:RA DEC | Slew:Alt Az
+fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.RA', LREAL_TO_STRING(fRightAscension));
+fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.DEC', LREAL_TO_STRING(fDeclination));
+fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.ALT', LREAL_TO_STRING(fElevation));
+fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.AZ', LREAL_TO_STRING(fAzimuth));
+
+// HORIZONTAL
+IF bSlew THEN
+	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.ALT', LREAL_TO_STRING(fElevation));
+	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.AZ', LREAL_TO_STRING(fAzimuth));
+ELSE
+	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.ALT', LREAL_TO_STRING(fElevationCalc));
+	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.AZ', LREAL_TO_STRING(fAzimuthCalc));
+END_IF
+
+//EQUATORIAL
+fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.EPOCH', 'J2000.0');
+fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.EQUINOX', 'J2000.0');
+fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA_PM', '0.0');
+fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC_PM', '0.0');
+fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA_RATE', '0.0');
+fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC_RATE', '0.0');
+IF bSlew THEN
+	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA', LREAL_TO_STRING(fRightAscensionCalc/15.0));
+	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC', LREAL_TO_STRING(fDeclinationCalc));
+ELSE
+	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA', LREAL_TO_STRING(fRightAscension/15.0));
+	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC', LREAL_TO_STRING(fDeclination));
+END_IF
+
+(*POSITION*)
+//LOCAL
+fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.SIDEREAL_TIME', LREAL_TO_STRING(fLst));
+fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.JD', LREAL_TO_STRING(fJd));
+fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.LATITUDE', LREAL_TO_STRING(telescopeConfig.latitude));
+fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.LONGITUDE', LREAL_TO_STRING(telescopeConfig.longitude));
+fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.HEIGHT', LREAL_TO_STRING(telescopeConfig.altitude));
 ]]></ST>
       </Implementation>
     </Method>
@@ -151,8 +234,6 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[THIS^.comm := comm;
-
-fbMachine.FB_init(bInitRetains := bInitRetains, bInCopyCode := bInCopyCode, pControl := THIS, comm := comm);
 ]]></ST>
       </Implementation>
     </Method>
@@ -238,19 +319,6 @@ bTrack := TRUE;]]></ST>
       </Implementation>
     </Method>
     <LineIds Name="FB_BaseTelescopeControl">
-      <LineId Id="108" Count="0" />
-      <LineId Id="25" Count="0" />
-      <LineId Id="35" Count="0" />
-      <LineId Id="26" Count="2" />
-      <LineId Id="34" Count="0" />
-      <LineId Id="345" Count="1" />
-      <LineId Id="36" Count="0" />
-      <LineId Id="293" Count="0" />
-      <LineId Id="30" Count="0" />
-      <LineId Id="37" Count="3" />
-      <LineId Id="33" Count="0" />
-      <LineId Id="177" Count="0" />
-      <LineId Id="159" Count="3" />
       <LineId Id="178" Count="0" />
       <LineId Id="169" Count="5" />
       <LineId Id="9" Count="0" />
@@ -259,8 +327,8 @@ bTrack := TRUE;]]></ST>
       <LineId Id="233" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl._PublishTelemetry">
-      <LineId Id="6" Count="0" />
-      <LineId Id="8" Count="2" />
+      <LineId Id="14" Count="58" />
+      <LineId Id="78" Count="6" />
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Altitude.Get">
@@ -274,8 +342,6 @@ bTrack := TRUE;]]></ST>
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.FB_init">
       <LineId Id="7" Count="0" />
-      <LineId Id="16" Count="0" />
-      <LineId Id="15" Count="0" />
       <LineId Id="14" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Home">

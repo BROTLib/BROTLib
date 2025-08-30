@@ -191,12 +191,6 @@
     <Compile Include="Telescope\StateMachine\E_TelescopeState.TcDUT">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Telescope\StateMachine\FB_TelescopeMachine.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Telescope\StateMachine\FB_TelescopeState.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="Telescope\StateMachine\I_TelescopeState.TcIO">
       <SubType>Code</SubType>
     </Compile>
