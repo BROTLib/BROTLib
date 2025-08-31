@@ -3,15 +3,18 @@
   <POU Name="FB_AltAzTelescopeControl" Id="{ab7ff9f6-f0dc-473a-bd67-87367819c272}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK ABSTRACT FB_AltAzTelescopeControl EXTENDS FB_BaseTelescopeControl IMPLEMENTS I_AltAzTelescope
 VAR_INPUT
+	fElevationOffset	: LREAL := 0.0;		// absolute offset for elevation
+	fAzimuthOffset 		: LREAL := 0.0;		// absolute offset for azimuth
+	fDerotatorOffset	: LREAL := 0.0;		// offset for the de-rotator
 END_VAR
 VAR_OUTPUT
+	fDerotatorCurrent	: LREAL;	// current position in derotator (calculated) (without pointing and offset correction)
 END_VAR
 VAR
 	eq2hor				: FB_EQ2HOR;
 	hor2eq				: FB_HOR2EQ;
 	
-	fElevationOffset	: LREAL := 0.0;		// absolute offset for elevation
-	fAzimuthOffset 		: LREAL := 0.0;		// absolute offset for azimuth
+	fDerotatorCalc		: LREAL;	// derotator angle calcuilated
 END_VAR
 VAR PERSISTENT
 	EOFF				: LREAL;	// elevation encoder zero offset
@@ -82,6 +85,27 @@ END_VAR
         </Implementation>
       </Set>
     </Property>
+    <Property Name="DerotatorOffset" Id="{da6437af-965e-40c2-8dea-4bf926c328a7}">
+      <Declaration><![CDATA[{warning 'add property implementation'}
+PROPERTY DerotatorOffset : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{340a3d36-9a30-422a-ad59-6bebfad8b2af}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[DerotatorOffset := THIS^.fDerotatorOffset;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{647130f3-7273-4691-ba3d-1e20d8a7157d}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[THIS^.fDerotatorOffset := DerotatorOffset;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
     <LineIds Name="FB_AltAzTelescopeControl">
       <LineId Id="172" Count="0" />
     </LineIds>
@@ -102,6 +126,12 @@ END_VAR
       <LineId Id="2" Count="0" />
     </LineIds>
     <LineIds Name="FB_AltAzTelescopeControl.AzimuthOffset.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AltAzTelescopeControl.DerotatorOffset.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AltAzTelescopeControl.DerotatorOffset.Set">
       <LineId Id="2" Count="0" />
     </LineIds>
   </POU>

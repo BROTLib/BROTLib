@@ -250,7 +250,7 @@ METHOD Home : BOOL
 METHOD Init : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[bInit := TRUE;]]></ST>
+        <ST><![CDATA[bPower := TRUE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="Park" Id="{621c0fc8-dd4d-44e7-85fe-cb7551b9d3ae}">
