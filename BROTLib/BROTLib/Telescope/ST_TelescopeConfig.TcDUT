@@ -18,6 +18,16 @@ STRUCT
 	elevationHome		: LREAL;
 	azimuthHome			: LREAL;
 	derotatorHome		: LREAL;
+	
+	// information about telescope
+	name				: STRING;
+	diameter			: LREAL;
+	cabinet				: STRING;
+	manufacturer		: STRING;
+	
+	// and about the mount
+	mountOptions		: STRING;
+	mount				: STRING;	
 END_STRUCT
 END_TYPE
 ]]></Declaration>
