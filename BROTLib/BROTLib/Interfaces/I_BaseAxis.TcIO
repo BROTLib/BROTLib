@@ -3,6 +3,15 @@
   <Itf Name="I_BaseAxis" Id="{b01d5c4d-03ee-40b2-9a40-3d7abce441f2}">
     <Declaration><![CDATA[INTERFACE I_BaseAxis
 ]]></Declaration>
+    <Property Name="ActualPosition" Id="{0eda8458-a0f4-4030-bbb2-8516eb7dc1fd}">
+      <Declaration><![CDATA[PROPERTY ActualPosition : LREAL]]></Declaration>
+      <Get Name="Get" Id="{27227f52-1004-4bfd-85ce-1b8cf5d1caab}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{70191a9a-9a0d-48b6-845e-aba3d25e1f3e}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
     <Property Name="Busy" Id="{ba5504aa-3dda-42ca-bac2-51c45207c93a}">
       <Declaration><![CDATA[PROPERTY Busy : BOOL]]></Declaration>
       <Get Name="Get" Id="{b9cb56cd-c171-469f-b53d-6f00d1c9714f}">
