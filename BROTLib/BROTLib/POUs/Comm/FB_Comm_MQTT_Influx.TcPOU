@@ -65,10 +65,18 @@ IF measurement = 'command' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.Position := STRING_TO_LREAL(value);
-	ELSIF parameter = 'dome_open' AND Dome <> 0 THEN
-		Dome.Open();
-	ELSIF parameter = 'dome_close' AND Dome <> 0 THEN
-		Dome.Close();
+	ELSIF parameter = 'dome_open' THEN
+		IF Dome <> 0 THEN
+			Dome.Open();
+		ELSIF Roof <> 0 THEN
+			Roof.Open();
+		END_IF
+	ELSIF parameter = 'dome_close' THEN
+		IF Dome <> 0 THEN
+			Dome.Close();
+		ELSIF Roof <> 0 THEN
+			Roof.Close();
+		END_IF
 	ELSIF parameter = 'dome_park' AND Dome <> 0 THEN
 		Dome.Park();
 	ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
@@ -187,7 +195,16 @@ published := fbMqttClient.Publish(
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
       <LineId Id="260" Count="15" />
-      <LineId Id="282" Count="43" />
+      <LineId Id="282" Count="22" />
+      <LineId Id="351" Count="0" />
+      <LineId Id="305" Count="0" />
+      <LineId Id="352" Count="2" />
+      <LineId Id="306" Count="0" />
+      <LineId Id="355" Count="0" />
+      <LineId Id="307" Count="0" />
+      <LineId Id="357" Count="1" />
+      <LineId Id="356" Count="0" />
+      <LineId Id="308" Count="17" />
       <LineId Id="338" Count="3" />
       <LineId Id="326" Count="2" />
       <LineId Id="61" Count="0" />

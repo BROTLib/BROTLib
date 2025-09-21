@@ -16,6 +16,7 @@ VAR_INPUT
 	Filter			: I_Filter;
 	Nasmyth			: I_Nasmyth;
 	Dome			: I_Dome;
+	Roof			: I_Roof;
 END_VAR
 VAR_OUTPUT
 	bConnected    	: BOOL := FALSE;
