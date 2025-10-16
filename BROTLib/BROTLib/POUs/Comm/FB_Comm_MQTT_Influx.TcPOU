@@ -80,9 +80,11 @@ IF measurement = 'command' THEN
 	ELSIF parameter = 'dome_park' AND Dome <> 0 THEN
 		Dome.Park();
 	ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
-		Dome.Track();
-	ELSIF parameter = 'dome_stoptrack' AND Dome <> 0 THEN
-		Dome.StopTrack();
+		IF value = '1'THEN
+			Dome.Track();
+		ELSE
+			Dome.StopTrack();
+		END_IF	
 	ELSIF parameter = 'dome_reset' AND Dome <> 0 THEN
 		Dome.Reset();
 	ELSIF parameter = 'filter' AND Filter <> 0 THEN
@@ -204,7 +206,11 @@ published := fbMqttClient.Publish(
       <LineId Id="307" Count="0" />
       <LineId Id="357" Count="1" />
       <LineId Id="356" Count="0" />
-      <LineId Id="308" Count="17" />
+      <LineId Id="308" Count="2" />
+      <LineId Id="368" Count="1" />
+      <LineId Id="371" Count="1" />
+      <LineId Id="370" Count="0" />
+      <LineId Id="314" Count="11" />
       <LineId Id="338" Count="3" />
       <LineId Id="326" Count="2" />
       <LineId Id="61" Count="0" />
