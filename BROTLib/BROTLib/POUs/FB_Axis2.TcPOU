@@ -122,17 +122,19 @@ Axis_Reset(
 
 IF Tracking THEN
 	PositionDifference := LIMIT(-0.002, Position - ActualPosition, 0.002);
+	(*
 	TrackPosition := Position;//ActualPosition + PositionDifference;
 	IF PositionDifference > 0.01 THEN
 		TrackVelocity := ABS(0.05);
 		TrackAcceleration := 0.05;
 	ELSE
-		TrackVelocity := ABS(LIMIT(0.005, Velocity, 0.005));
+		TrackVelocity := LIMIT(0.0, Velocity, 0.05);
 		TrackAcceleration := 0.005;
 	END_IF
-	//TrackPosition := ActualPosition + PositionDifference;
-	//TrackVelocity := 0.0; // LIMIT(-1.0, 2.0 * Velocity, 1.0);
-	//TrackAcceleration := 0.0;
+	*)
+	TrackPosition := ActualPosition + PositionDifference;
+	TrackVelocity := 0.0; // LIMIT(-1.0, 2.0 * Velocity, 1.0);
+	TrackAcceleration := 0.0;
 ELSE
 	TrackPosition := ActualPosition;
 	TrackVelocity := 0.0;
@@ -340,8 +342,10 @@ Homing :=	Axis_Status.Homing;
       <LineId Id="1620" Count="0" />
       <LineId Id="2028" Count="1" />
       <LineId Id="2600" Count="0" />
+      <LineId Id="2903" Count="0" />
       <LineId Id="2700" Count="6" />
       <LineId Id="2699" Count="0" />
+      <LineId Id="2904" Count="0" />
       <LineId Id="2372" Count="0" />
       <LineId Id="2591" Count="0" />
       <LineId Id="2589" Count="0" />
