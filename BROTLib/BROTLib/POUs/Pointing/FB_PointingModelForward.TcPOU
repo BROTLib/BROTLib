@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_PointingModelForward" Id="{3b34216a-99a1-46fd-aa33-1ded14803937}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_PointingModelForward
+VAR_INPUT
+	fAzimuth		: LREAL;	// current azimuth of telescope in degrees
+	fElevation		: LREAL;	// current elevation of telescope in degrees
+END_VAR
+VAR_OUTPUT
+	fAzimuthOffset	: LREAL;	// calculated azimuth offset of telescope in degrees
+	fElevationOffset	: LREAL;	// calculated elevation offset of telescope in degrees
+END_VAR
+VAR
+	AOFF			: LREAL := 0.0;		// azimuth encoder zero offset
+	BNP				: LREAL := 0.0;		// collimation error of the electromagnetic axis
+	AN_A			: LREAL := 0.0;		// azimuth axis offset/misalignment north-south
+	AE_A			: LREAL := 0.0;		// azimuth axis offset/misalignment east-west,
+	NPAE			: LREAL := 0.0;		// Non-perpendicularity between the mount azimuth and elevation axes	
+	
+	EOFF			: LREAL := 0.0;		// elevation encoder zero offset
+	AN_E			: LREAL := 0.0;		// azimuth axis offset/misalignment north-south
+	AE_E			: LREAL := 0.0;		// azimuth axis offset/misalignment east-west
+	TF				: LREAL := 0.0;		// gravitational flexure correction at the horizon	
+	
+	fTanElevation	: LREAL;
+	fCosElevation	: LREAL;
+END_VAR
+VAR CONSTANT
+	d2r				: LREAL := PI/180.0;
+END_VAR
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF fElevation<89.9 THEN
+	fTanElevation := TAN(fElevation * d2r);
+	fCosElevation := COS(fElevation * d2r);
+ELSE // clamp values so that we do not run into DIV by zero or overflow
+	fTanElevation := 572.9572133543033;
+	fCosElevation := 0.0017453283658982613;
+END_IF
+
+//d(az)=AOFF-BNP/cos(el)+NPAE*tan(el)+AAN*sin(az)*tan(el)-AAE*cos(az)*tan(el)
+fAzimuthOffset := AOFF - BNP/fCosElevation + AN_A*SIN(fAzimuth * d2r)*fTanElevation - AE_A*COS(fAzimuth * d2r)*fTanElevation + NPAE*fTanElevation;
+fElevationOffset := EOFF + AN_E*COS(fAzimuth * d2r) + AE_E*SIN(fAzimuth * d2r) + TF*COS(fAzimuth * d2r);
+]]></ST>
+    </Implementation>
+    <Method Name="FB_init" Id="{59aa3f30-73ef-43c8-b827-2637c4b7f9b2}">
+      <Declaration><![CDATA[METHOD FB_init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
+	bInCopyCode : BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
+	
+	AOFF			: LREAL := 0.0;		// azimuth encoder zero offset
+	BNP				: LREAL := 0.0;		// collimation error of the electromagnetic axis
+	AN_A			: LREAL := 0.0;		// azimuth axis offset/misalignment north-south
+	AE_A			: LREAL := 0.0;		// azimuth axis offset/misalignment east-west,
+	NPAE			: LREAL := 0.0;		// Non-perpendicularity between the mount azimuth and elevation axes	
+	
+	EOFF			: LREAL := 0.0;		// elevation encoder zero offset
+	AN_E			: LREAL := 0.0;		// azimuth axis offset/misalignment north-south
+	AE_E			: LREAL := 0.0;		// azimuth axis offset/misalignment east-west
+	TF				: LREAL := 0.0;		// gravitational flexure correction at the horizon		
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^.AOFF := AOFF;
+THIS^.BNP  := BNP;
+THIS^.AN_A := AN_A;
+THIS^.AE_A := AE_A;
+THIS^.NPAE := NPAE;
+THIS^.EOFF := EOFF;
+THIS^.AN_E := AN_E;
+THIS^.AE_E := AE_E;
+THIS^.TF   := TF;
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_PointingModelForward">
+      <LineId Id="37" Count="8" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="57" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PointingModelForward.FB_init">
+      <LineId Id="7" Count="0" />
+      <LineId Id="20" Count="7" />
+      <LineId Id="19" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_PointingModelInversion" Id="{414de569-9f94-41e7-a3f1-33de06319a3f}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_PointingModelInversion
+VAR_INPUT
+	fAzimuth		: LREAL;	// current azimuth of telescope in degrees
+	fElevation		: LREAL;		// current elevation of telescope in degrees
+END_VAR
+VAR_OUTPUT
+	fAzimuthOffset		: LREAL;	// calculated azimuth offset of telescope in degrees
+	fElevationOffset	: LREAL;	// calculated elevation offset of telescope in degrees
+END_VAR
+VAR
+	i				: UINT;
+	d_el			: LREAL := 0.0;
+	d_az			: LREAL := 0.0;
+	fbPointing		: REFERENCE TO FB_PointingModelForward;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[d_el := 0.0;
+d_az := 0.0;
+
+FOR i:=0 TO 10 BY 1 DO
+	fbPointing(
+		fAzimuth   		 := fAzimuth   - d_az,
+		fElevation 		 := fElevation - d_el,
+		fAzimuthOffset   => d_az,
+		fElevationOffset => d_el,
+	);
+END_FOR;
+
+fAzimuthOffset   := d_az;
+fElevationOffset := d_el;
+]]></ST>
+    </Implementation>
+    <Method Name="FB_init" Id="{c14393e7-a186-4c1a-a2ea-01e9bbbb0b43}">
+      <Declaration><![CDATA[METHOD FB_init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
+	bInCopyCode : BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
+	
+	fbPointing		: REFERENCE TO FB_PointingModelForward;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^.fbPointing REF= fbPointing;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_PointingModelInversion">
+      <LineId Id="87" Count="0" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="106" Count="0" />
+      <LineId Id="105" Count="0" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="99" Count="0" />
+      <LineId Id="101" Count="0" />
+      <LineId Id="111" Count="1" />
+      <LineId Id="96" Count="1" />
+      <LineId Id="109" Count="0" />
+      <LineId Id="108" Count="0" />
+      <LineId Id="110" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PointingModelInversion.FB_init">
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
