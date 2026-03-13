@@ -75,6 +75,12 @@ END_VAR
         <Declaration><![CDATA[]]></Declaration>
       </Set>
     </Property>
+    <Method Name="Stop" Id="{606de154-cb59-41c6-bfba-af948b1ef0cc}">
+      <Declaration><![CDATA[METHOD Stop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
     <Method Name="StopTrack" Id="{db4faf08-b158-4f1f-882a-1c0ed13959f6}">
       <Declaration><![CDATA[METHOD StopTrack : BOOL
 VAR_INPUT

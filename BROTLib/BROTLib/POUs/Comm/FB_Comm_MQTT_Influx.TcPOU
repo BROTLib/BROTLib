@@ -77,6 +77,12 @@ IF measurement = 'command' THEN
 		ELSIF Roof <> 0 THEN
 			Roof.Close();
 		END_IF
+	ELSIF parameter = 'dome_stop' AND Dome <> 0 THEN
+		IF Dome <> 0 THEN
+			Dome.Stop();
+		ELSIF Roof <> 0 THEN
+			Roof.Stop();
+		END_IF		
 	ELSIF parameter = 'dome_park' AND Dome <> 0 THEN
 		Dome.Park();
 	ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
@@ -206,6 +212,8 @@ published := fbMqttClient.Publish(
       <LineId Id="307" Count="0" />
       <LineId Id="357" Count="1" />
       <LineId Id="356" Count="0" />
+      <LineId Id="386" Count="4" />
+      <LineId Id="385" Count="0" />
       <LineId Id="308" Count="2" />
       <LineId Id="368" Count="1" />
       <LineId Id="371" Count="1" />
