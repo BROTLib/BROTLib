@@ -41,7 +41,7 @@ END_IF
 
 //d(az)=AOFF-BNP/cos(el)+NPAE*tan(el)+AAN*sin(az)*tan(el)-AAE*cos(az)*tan(el)
 fAzimuthOffset := AOFF - BNP/fCosElevation + AN_A*SIN(fAzimuth * d2r)*fTanElevation - AE_A*COS(fAzimuth * d2r)*fTanElevation + NPAE*fTanElevation;
-fElevationOffset := EOFF + AN_E*COS(fAzimuth * d2r) + AE_E*SIN(fAzimuth * d2r) + TF*COS(fAzimuth * d2r);
+fElevationOffset := EOFF + AN_E*COS(fAzimuth * d2r) + AE_E*SIN(fAzimuth * d2r) + TF*COS(fElevation * d2r);
 ]]></ST>
     </Implementation>
     <Method Name="FB_init" Id="{59aa3f30-73ef-43c8-b827-2637c4b7f9b2}">
