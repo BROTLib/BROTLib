@@ -77,7 +77,7 @@ IF measurement = 'command' THEN
 		ELSIF Roof <> 0 THEN
 			Roof.Close();
 		END_IF
-	ELSIF parameter = 'dome_stop' AND Dome <> 0 THEN
+	ELSIF parameter = 'dome_stop' AND (Dome <> 0 OR Roof <> 0) THEN
 		IF Dome <> 0 THEN
 			Dome.Stop();
 		ELSIF Roof <> 0 THEN
