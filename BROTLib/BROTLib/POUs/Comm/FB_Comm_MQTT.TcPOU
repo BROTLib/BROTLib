@@ -79,6 +79,15 @@ CASE state OF
 	END_IF
 	
 3:
+	// keep bConnected honest: reflect the live underlying client state
+	bConnected := fbMqttClient.bConnected;
+	
+	// if the broker dropped us, fall back to reconnect
+	IF NOT fbMqttClient.bConnected THEN
+		bConnected := FALSE;
+		state := 1;
+	END_IF
+	
 	// receive queued messages
 	fbMqttClient.Execute(bConnect := TRUE);
 	IF fbMessageQueue.nQueuedMessages > 0 THEN
@@ -135,7 +144,11 @@ END_VAR]]></Declaration>
       </Implementation>
     </Method>
     <LineIds Name="FB_Comm_MQTT">
-      <LineId Id="245" Count="43" />
+      <LineId Id="245" Count="42" />
+      <LineId Id="337" Count="6" />
+      <LineId Id="336" Count="0" />
+      <LineId Id="344" Count="0" />
+      <LineId Id="288" Count="0" />
       <LineId Id="302" Count="0" />
       <LineId Id="289" Count="12" />
       <LineId Id="9" Count="0" />
