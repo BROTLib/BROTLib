@@ -30,7 +30,11 @@ END_VAR]]></Declaration>
         <ST><![CDATA[influxMessage(  sPayload := sPayloadRcv, measurement => measurement, parameter => parameter, value => value);
 IF measurement = 'command' THEN
 	IF parameter = 'power' AND Telescope <> 0 THEN
-		IF STRING_TO_BOOL(value) THEN
+		IF STRING_TO_UINT(value) = 1 THEN
+			Telescope.CoverAutoOpen := TRUE;
+			Telescope.Init();
+		ELSIF STRING_TO_UINT(value) = 2 THEN
+			Telescope.CoverAutoOpen := FALSE;
 			Telescope.Init();
 		END_IF
 	ELSIF parameter = 'park' AND Telescope <> 0 THEN
@@ -68,7 +72,7 @@ IF measurement = 'command' THEN
 	ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
 		MirrorCovers.Open();
 	ELSIF parameter = 'cover_close' AND MirrorCovers <> 0 THEN
-		MirrorCovers.Close();
+		MirrorCovers.Close();	
 	ELSIF parameter = 'dome_open' THEN
 		IF Dome <> 0 THEN
 			Dome.Open();
@@ -206,7 +210,13 @@ published := fbMqttClient.Publish(
       <LineId Id="9" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
-      <LineId Id="260" Count="15" />
+      <LineId Id="260" Count="3" />
+      <LineId Id="410" Count="0" />
+      <LineId Id="264" Count="0" />
+      <LineId Id="407" Count="0" />
+      <LineId Id="409" Count="0" />
+      <LineId Id="411" Count="0" />
+      <LineId Id="265" Count="10" />
       <LineId Id="282" Count="21" />
       <LineId Id="400" Count="3" />
       <LineId Id="304" Count="0" />

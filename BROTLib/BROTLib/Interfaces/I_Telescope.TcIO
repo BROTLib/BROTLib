@@ -15,6 +15,15 @@
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
+    <Property Name="CoverAutoOpen" Id="{f8160a73-8302-45f4-9c7c-d48b30d350e4}">
+      <Declaration><![CDATA[PROPERTY CoverAutoOpen : BOOL]]></Declaration>
+      <Get Name="Get" Id="{d18e5bdf-2192-4bf0-9513-4be35621818a}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{292bc5f3-fb7f-4633-b013-091fb338acaf}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
     <Property Name="Declination" Id="{a5cf9f3f-1ec9-4cca-8bd9-8121481b9a9f}">
       <Declaration><![CDATA[PROPERTY Declination : LREAL]]></Declaration>
       <Get Name="Get" Id="{fcb6c1b5-27f0-4565-aed9-45fc0ce88d7e}">
