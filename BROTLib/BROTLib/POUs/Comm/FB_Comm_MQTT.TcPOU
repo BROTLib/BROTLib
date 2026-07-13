@@ -17,6 +17,7 @@ VAR_INPUT
 	Nasmyth			: I_Nasmyth;
 	Dome			: I_Dome;
 	Roof			: I_Roof;
+	MirrorCovers	: I_MirrorCovers;
 END_VAR
 VAR_OUTPUT
 	bConnected    	: BOOL := FALSE;

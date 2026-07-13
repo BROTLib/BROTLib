@@ -65,6 +65,10 @@ IF measurement = 'command' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.Position := STRING_TO_LREAL(value);
+	ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
+		MirrorCovers.Open();
+	ELSIF parameter = 'cover_close' AND MirrorCovers <> 0 THEN
+		MirrorCovers.Close();
 	ELSIF parameter = 'dome_open' THEN
 		IF Dome <> 0 THEN
 			Dome.Open();
@@ -203,7 +207,9 @@ published := fbMqttClient.Publish(
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx._handleMQTTMessage">
       <LineId Id="260" Count="15" />
-      <LineId Id="282" Count="22" />
+      <LineId Id="282" Count="21" />
+      <LineId Id="400" Count="3" />
+      <LineId Id="304" Count="0" />
       <LineId Id="351" Count="0" />
       <LineId Id="305" Count="0" />
       <LineId Id="352" Count="2" />
