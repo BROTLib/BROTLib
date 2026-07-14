@@ -88,15 +88,19 @@ Byte-identical in both projects. No action needed — already shared.
 
 ## 6. FB_LatchHome
 
-Exists in IAG50cm, referenced (but unused) in `FB_Axis3`'s variable declaration:
-```st
-Axis_HomeLatch: FB_LatchHome;
-```
-Never called in the implementation.
+`FB_LatchHome` (488 lines) is a custom multi-pass touch-probe homing state machine in IAG50cm. It is **actively used** by IAG50cm's equatorial axis controls (`FB_HourAngleControl`, `FB_DeclinationControl`), but **not** through `FB_Axis3`.
 
-**Options:**
-1. Remove the dead reference from the unified `FB_Axis` (cleanest).
-2. Move `FB_LatchHome` into BROTLib if it has future use.
+How it works:
+1. Uses `MC_StepReferencePulseDetection` to find 3 reference markers in one direction
+2. Jogs 2° and finds 3 markers going back
+3. Verifies distances match symmetrically (sanity check)
+4. Computes absolute position offset via `MC_SetPosition`
+
+In the axis controls, `FB_Axis3`'s `HomeAxis` is hardcoded FALSE — `FB_LatchHome` is called separately with `Execute := bHomeAxis`. The `HomingMode := MC_ForceCalibration` passed to `FB_Axis3` is dead code for these axes.
+
+The `Axis_HomeLatch` variable in `FB_Axis3` is the only dead reference — declared but never called.
+
+**Status:** IAG50cm-specific, stays in IAG50cm. Remove dead `Axis_HomeLatch` from unified `FB_Axis`.
 
 ---
 
@@ -154,15 +158,105 @@ These are hardware-specific to the IAG 50cm telescope and have no BROTLib equiva
 
 ---
 
+## 10. Telescope Controls
+
+### Inheritance Hierarchy
+
+```
+I_Telescope (interface)
+├── I_AltAzTelescope (AltAz offsets)
+└── I_RaDecTelescope (HA/Dec offsets)
+
+FB_BaseTelescopeControl (abstract, BROTLib) ─ implements I_Telescope
+├── FB_AltAzTelescopeControl (abstract, BROTLib) ─ implements I_AltAzTelescope
+│   └── FB_MonetTelescopeControl (MONETcommon) ─ concrete, Alt-Az
+└── FB_RaDecTelescopeControl (BROTLib) ─ abstract, implements I_RaDecTelescope
+    (unused — IAG50cm doesn't inherit from it)
+
+FB_TelescopeControl (IAG50cm) ─ standalone, implements I_RaDecTelescope + I_Telescope
+```
+
+**IAG50cm doesn't use BROTLib's hierarchy at all** — it reimplemented everything standalone.
+
+### State Machine Architecture
+
+All projects share the same pattern: **command priority dispatcher** + **stage-based sub-state machines**.
+
+Command priority (identical everywhere):
+```
+Priority 1: bPower  → poweron
+Priority 2: bStop   → stop
+Priority 3: bPark   → park (interrupts goto/slew/gohome)
+Priority 4: bGoHome → gohome (interrupts goto/slew)
+Priority 5: bGoto   → goto (interrupts slew)
+Priority 6: bSlew   → slew
+Priority 7: bTrack  → track
+```
+
+### Key Differences
+
+| Feature | MONET (Alt-Az) | IAG50cm (HA/Dec) |
+|---------|----------------|-------------------|
+| **Axes** | 3 (El, Az, Derotator) + Focus | 2 (HA, Dec) + Focus |
+| **Axis movement** | Simultaneous | **Sequential** (avoids below-horizon) |
+| **Pointing model** | Alt/Az space | HA/Dec space |
+| **Derotator** | Yes (velocity + position) | N/A (equatorial mount) |
+| **Dome integration** | None (via MAIN) | Built into telescope control |
+| **Pole zone protection** | No | Yes (`fPoleZone`, default 3°) |
+| **Slew velocity** | Fixed 10.0 deg/s | Configurable (default 8) |
+| **Tracking stable time** | 5500ms | 1000ms |
+| **Brake/hydraulics** | Handled on park/error | Not handled |
+| **Emergency park** | Close brake, disable, close covers | Disable HA/Dec, close covers, park dome |
+| **Power-on sequence** | Open covers → enable axes → home | Check covers → open → enable → calibrate focus → home |
+| **Ready condition** | homed + covers open + axes enabled + brake open + no error | homed + powered + axes enabled + focus enabled + no error |
+| **fReadyState** | 0=parked, 0.3=parking, 0.7=powering, 1=ready, -1=error, -2=other | 0=parked, 0.7=powering, 1=ready, -1=error |
+| **MQTT telemetry** | `_SendTelemetry()` via `SUPER^._PublishTelemetry()` | `_SendTelemetryEquitorial()` full TSI/TCI standard |
+| **Auto-park timeout** | 12h no-command + not parked | 12h no-command + not parked |
+
+### What CAN Be Shared (in BROTLib)
+
+- `FB_BaseTelescopeControl` already provides the abstract framework
+- Command priority dispatch logic
+- Common patterns: error handling, auto-park timeout, fReadyState, telemetry publishing skeleton
+- `E_TelescopeState` enum and `ST_TelescopeConfig` DUT
+
+### What CANNOT Be Easily Shared
+
+- Axis movement strategy (simultaneous vs sequential) — fundamental mount geometry
+- Derotator handling (Alt-Az only)
+- Pointing model integration (different coordinate spaces)
+- Dome coupling (IAG50cm built-in vs MONET separate)
+- Power-on sequence (different hardware)
+
+### Recommendation
+
+**Flesh out `FB_RaDecTelescopeControl`** in BROTLib as a proper abstract base for IAG50cm to inherit from. Currently it exists but IAG50cm ignores it. If properly abstracted, IAG50cm could inherit:
+
+- Command dispatch and state management
+- Error handling and auto-park timeout
+- Telemetry publishing skeleton
+- `fReadyState` logic
+
+And only override:
+- Axis movement (sequential for equatorial)
+- Pointing model (HA/Dec)
+- Hardware integration (dome, cabinet, covers)
+
+This would require making `FB_BaseTelescopeControl` more configurable (e.g. number of axes, movement strategy, coordinate system) or using template/method patterns for the variable parts.
+
+---
+
 ## Priority Summary
 
 | Priority | Item | Effort |
 |----------|------|--------|
 | **High** | Unify `FB_Axis2` + `FB_Axis3` → `FB_Axis` | Medium |
 | **High** | Unify `FB_BaseAxis` | Low (follows from FB_Axis) |
+| **High** | Flesh out `FB_RaDecTelescopeControl` for IAG50cm inheritance | High |
 | **Medium** | Sync `NCError_TO_STRING` to newer version | Trivial |
 | **Medium** | Evaluate `FB_PointingModelForward` HA/Dec for BROTLib | High (different math) |
 | **Low** | Remove dead `Axis_HomeLatch` ref from unified FB_Axis | Trivial |
 | **Low** | Align IAG50cm interfaces with BROTLib's `I_BaseAxis` | Low |
 | **None** | `MAIN.TcPOU` | Keep separate |
 | **None** | IAG50cm hardware subsystems | Keep separate |
+| **None** | `FB_LatchHome` | Stays in IAG50cm (used by HA/Dec axis controls) |
