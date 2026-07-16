@@ -111,6 +111,19 @@ it's presumably compiling today only because a stale/older MONETcommon library i
 still installed in the TwinCAT library repository on the actual build machine,
 outside of what's tracked in git.
 
+**Correction:** this gap is actually worse than "MONETS can't resolve it" —
+**MONETcommon's own `.plcproj` already had a dangling
+`<Compile Include="FB_MonetCoverControl.TcPOU">`**, and its
+`FB_MonetPendantControl.TcPOU` already declared
+`fbCovers : REFERENCE TO FB_MonetCoverControl;`, referencing a file that never
+existed in MONETcommon's git history (confirmed via `git log --all` — not
+deleted, never present). So MONETcommon's own source was checked in broken on
+this point, not just something that happened to break downstream in MONETS.
+
+**Status: fixed.** MONETN's `FB_MonetCoverControl.TcPOU` has since been pushed
+directly to MONETcommon's `main` (same POU Id `{febe04fb-...}`, byte-identical
+content) — the dangling reference is resolved as of that commit.
+
 HalfBROT does have a generic `FB_CoverControl implements I_MirrorCovers`, but
 it's a different, timer-based sequencing algorithm (open/close ordering driven by
 `TON` delays against limit switches) than MONETN's `FB_MonetCoverControl`, which
@@ -120,8 +133,10 @@ more deterministic sequencing model than HalfBROT's.
 
 **Action:** Promote MONETN's `FB_MonetCoverControl` into MONETcommon as-is (name
 already matches the `FB_Monet*` convention). This simultaneously:
-- fixes MONETS's dangling/unresolved reference, and
-- gives MONETN a shared copy to delete its local one in favor of.
+- fixes MONETS's dangling/unresolved reference, and **(done — see above)**
+- gives MONETN a shared copy to delete its local one in favor of **(still
+  outstanding — MONETN's own local copy hasn't been removed/rewired to
+  reference MONETcommon's yet)**.
 
 Effort: low-medium (needs a compile-and-hardware-test pass on both N and S since
 neither has verifiably built against a real `FB_MonetCoverControl` in
