@@ -45,7 +45,7 @@ $exitCode = 1
 try {
     Write-Host "Creating DTE via ProgID '$DteProgId'..."
     $dte = New-Object -ComObject $DteProgId
-    $dte.MainWindow.Visible = $false
+    try { $dte.MainWindow.Visible = $false } catch { Write-Host "Could not hide MainWindow (non-fatal): $_" }
 
     Write-Host "Opening solution '$SolutionPath'..."
     $dte.Solution.Open($SolutionPath)
