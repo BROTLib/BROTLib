@@ -244,3 +244,62 @@ The only change: tracking becomes **active** instead of passive. With defaults, 
 
 - **BROTLib**: Replace `FB_Axis2` → `FB_Axis`. No interface changes needed for `FB_BaseAxis` or its callers (new inputs have defaults).
 - **IAG50cm**: Replace `FB_Axis3` → `FB_Axis`. Same interface, just a rename.
+
+### FB_BaseAxis
+
+Do this **after** the `FB_Axis` merge above, since `fbAxis`'s type depends on it.
+
+**Target shape**: adopt BROTLib's `FB_BaseAxis` as the base (its `ActualPosition`/`isTracking` already work; IAG50cm's are stubbed/missing). Add IAG50cm's three extra members to it:
+
+| Member | Section | Notes |
+|--------|---------|-------|
+| `bSoEReset` | VAR_INPUT | diagnostic reset |
+| `fbSoEReset` | VAR | `FB_SoEReset` |
+| `axisRef` | VAR | `AXIS_REF` |
+
+Also change `fbAxis`'s type from `FB_Axis2`/`FB_Axis3` to the unified `FB_Axis`.
+
+**Why this is safe to check first:** all 4 places that `EXTENDS FB_BaseAxis` in the repo already reveal how the current gaps are worked around at the subclass level, which tells us what must be cleaned up to avoid duplicate-identifier errors:
+
+- `IAG50cm/POUs/FB_AxisControl.TcPOU` (parent of `FB_HourAngleControl`, `FB_DeclinationControl`, `FB_FocusControl`) locally re-declares `fActualPosition`, and overrides `ActualPosition` and `isTracking` — working around IAG50cm's `FB_BaseAxis` stub/gap. **Remove these three once the merged base supplies them**, or they'll collide with the new inherited members.
+- `HalfBROT/POUs/FB_AxisControl.TcPOU` locally declares `bSoEReset`, `fbSoEReset`, `axisRef` — working around BROTLib's `FB_BaseAxis` missing them. **Remove these three** once the merged base supplies them.
+- `MONETN/.../FB_MonetFocusControl.TcPOU` and `HalfBROT/POUs/FB_FocusControl.TcPOU` also extend `FB_BaseAxis` directly but don't use any of the colliding names (`FB_MonetFocusControl` uses a differently-named local `refAxis`) — unaffected, but worth a compile pass after the change since they're the only other direct subclasses in the repo.
+
+**Migration:**
+1. Merge `FB_Axis2`/`FB_Axis3` → `FB_Axis` (see above).
+2. Add `bSoEReset`/`fbSoEReset`/`axisRef` to BROTLib's `FB_BaseAxis`; retype `fbAxis` to `FB_Axis`.
+3. IAG50cm: delete its local `FB_BaseAxis.TcPOU`, reference BROTLib's (same POU Id already, so it's a content swap not a rename). Strip the now-redundant `fActualPosition`/`ActualPosition`/`isTracking` overrides from IAG50cm's `FB_AxisControl`.
+4. HalfBROT: strip the now-redundant `bSoEReset`/`fbSoEReset`/`axisRef` declarations from `FB_AxisControl`.
+5. Compile all four affected projects (BROTLib, IAG50cm, HalfBROT, MONETN).
+
+## Git Workflow
+
+Four separate repos are touched: **BROTLib**, **IAG50cm**, **HalfBROT**, **MONETN**. Each gets its own branch and its own PR — there's no cross-repo PR mechanism, so the work lands as four independent reviews, ideally merged in the order above (BROTLib first, since IAG50cm/HalfBROT/MONETN all depend on its `FB_Axis`/`FB_BaseAxis`).
+
+Current branch state (checked 2026-07-16):
+
+| Repo | Default branch today | `develop` exists? |
+|------|----------------------|--------------------|
+| BROTLib | `master` | No |
+| IAG50cm | `main` | No |
+| HalfBROT | `main` | No |
+| MONETN | `master` | No |
+
+Steps, per repo:
+
+1. **Rename `master` → `main`** where still needed (BROTLib, MONETN only — IAG50cm and HalfBROT are already on `main`). Rename locally and on the remote, then update the GitHub default-branch setting so PRs target `main` by default:
+   ```
+   git branch -m master main
+   git push -u origin main
+   # then set main as the default branch on GitHub, and delete the old master branch on origin
+   ```
+2. **Fork `develop` from `main`** in all four repos (none currently have one):
+   ```
+   git checkout main
+   git checkout -b develop
+   git push -u origin develop
+   ```
+3. **Fork a feature branch from `develop`** in each repo for this unification work (e.g. `feature/fb-axis-unification`), and implement that repo's piece there.
+4. **Open a PR from the feature branch into `develop`** (not `main`) in each repo.
+
+Repeat step 3–4 independently per repo; step 1–2 is a one-time setup done once per repo before any unification branch is created.
