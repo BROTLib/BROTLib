@@ -72,16 +72,33 @@ try {
 
     $solutionBuild = $dte.Solution.SolutionBuild
 
-    Write-Host "Available solution configurations:"
-    foreach ($cfg in $solutionBuild.SolutionConfigurations) {
-        Write-Host "  - $($cfg.Name) | $($cfg.PlatformName)"
+    # TwinCAT solutions keep loading (parsing the .tsproj/.plcproj tree) in the
+    # background after Solution.Open() already returned, so the configuration
+    # list can come back empty/incomplete for a while. Poll until it's populated.
+    Write-Host "Waiting for solution configurations to be populated..."
+    $target = $null
+    for ($i = 0; $i -lt 180; $i++) {
+        $configs = @($solutionBuild.SolutionConfigurations)
+        $named = $configs | Where-Object { $_.Name }
+        if ($named.Count -gt 0) {
+            foreach ($cfg in $named) {
+                if ($cfg.Name -eq $Configuration -and $cfg.PlatformName -eq $Platform) {
+                    $target = $cfg
+                }
+            }
+            if ($null -ne $target) { break }
+            if ($i -eq 0 -or $i % 15 -eq 0) {
+                Write-Host "  (seen so far, no match yet:)"
+                foreach ($cfg in $named) { Write-Host "    - $($cfg.Name) | $($cfg.PlatformName)" }
+            }
+        }
+        Start-Sleep -Seconds 1
     }
 
-    $target = $null
-    foreach ($cfg in $solutionBuild.SolutionConfigurations) {
-        if ($cfg.Name -eq $Configuration -and $cfg.PlatformName -eq $Platform) {
-            $target = $cfg
-            break
+    if ($null -eq $target) {
+        Write-Host "Final solution configuration list:"
+        foreach ($cfg in @($solutionBuild.SolutionConfigurations)) {
+            Write-Host "  - $($cfg.Name) | $($cfg.PlatformName)"
         }
     }
     if ($null -eq $target) {
