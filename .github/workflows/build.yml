@@ -19,27 +19,29 @@ jobs:
       - name: Build TwinCAT solution
         shell: cmd
         env:
-          # Path to devenv.com (the console build front-end for the
-          # TcXaeShell/Visual Studio install on the runner), e.g.:
-          #   C:\Program Files (x86)\Beckhoff\TwinCAT\3.1\Components\TcXaeShell\Common7\IDE\devenv.com
+          # Path to TcXaeShell.exe (the standalone TwinCAT XAE Shell has no
+          # devenv.com console wrapper - only the .exe), e.g.:
+          #   C:\Program Files (x86)\Beckhoff\TwinCAT\3.1\Components\TcXaeShell\Common7\IDE\TcXaeShell.exe
           # Set this as a repo/org "Variable" (Settings > Secrets and variables
-          # > Actions > Variables) named TWINCAT_DEVENV_PATH.
-          DEVENV_PATH: ${{ vars.TWINCAT_DEVENV_PATH }}
+          # > Actions > Variables) named TWINCAT_SHELL_PATH.
+          SHELL_EXE: ${{ vars.TWINCAT_SHELL_PATH }}
           # Must match one of the Solution Configuration|Platform pairs in
           # BROTLib.sln (see its [SolutionConfigurationPlatforms] section).
           BUILD_CONFIG: ${{ vars.TWINCAT_BUILD_CONFIG || 'Release|TwinCAT RT (x64)' }}
         run: |
-          "%DEVENV_PATH%" "%GITHUB_WORKSPACE%\BROTLib.sln" /rebuild "%BUILD_CONFIG%" /out build.log
+          if exist build.log del build.log
+          "%SHELL_EXE%" "%GITHUB_WORKSPACE%\BROTLib.sln" /rebuild "%BUILD_CONFIG%" /out build.log
           set BUILD_RC=%ERRORLEVEL%
-          type build.log
-          findstr /C:"0 Error(s)" build.log >nul
-          if errorlevel 1 (
-            echo Build log did not report "0 Error(s)" - treating as failure.
-            exit /b 1
-          )
+          if exist build.log type build.log
           if not "%BUILD_RC%"=="0" (
-            echo devenv.com returned exit code %BUILD_RC%.
+            echo TcXaeShell.exe returned exit code %BUILD_RC%.
             exit /b %BUILD_RC%
+          )
+          if exist build.log (
+            for %%A in (build.log) do if %%~zA gtr 0 (
+              echo /out log is non-empty - treating as build errors.
+              exit /b 1
+            )
           )
 
       - name: Upload build log
