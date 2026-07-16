@@ -140,8 +140,15 @@ try {
     }
     Invoke-DteCall { $target.Activate() } | Out-Null
 
-    Write-Host "Building '$Configuration|$Platform'..."
-    Invoke-DteCall { $solutionBuild.Build($true) } | Out-Null  # $true = wait synchronously for build to finish
+    Write-Host "Rebuilding '$Configuration|$Platform'..."
+    # Use a full Rebuild (not the incremental Build) so a stale on-disk build
+    # state from a previous run can't make this look like a no-op success.
+    Invoke-DteCall { $dte.ExecuteCommand("Build.RebuildSolution") } | Out-Null
+    Start-Sleep -Milliseconds 500  # give the command a moment to actually start the build
+    while ((Invoke-DteCall { $solutionBuild.BuildState }) -eq 2) {
+        # 2 = vsBuildStateInProgress (verified against Microsoft's EnvDTE docs)
+        Start-Sleep -Milliseconds 500
+    }
 
     $failedProjects = Invoke-DteCall { $solutionBuild.LastBuildInfo }
     Write-Host "LastBuildInfo (failed project count): $failedProjects"
