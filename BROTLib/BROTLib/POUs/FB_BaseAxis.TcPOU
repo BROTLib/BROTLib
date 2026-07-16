@@ -20,7 +20,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 	fbComm				: I_Comm;	
-	fbAxis				: FB_Axis2;
+	fbAxis				: FB_Axis;
 END_VAR
 ]]></Declaration>
     <Implementation>
