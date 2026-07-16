@@ -17,36 +17,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build TwinCAT solution
-        shell: cmd
-        env:
-          # Path to TcXaeShell.exe (the standalone TwinCAT XAE Shell has no
-          # devenv.com console wrapper - only the .exe), e.g.:
-          #   C:\Program Files (x86)\Beckhoff\TwinCAT\3.1\Components\TcXaeShell\Common7\IDE\TcXaeShell.exe
-          # Set this as a repo/org "Variable" (Settings > Secrets and variables
-          # > Actions > Variables) named TWINCAT_SHELL_PATH.
-          SHELL_EXE: ${{ vars.TWINCAT_SHELL_PATH }}
-          # Must match one of the Solution Configuration|Platform pairs in
-          # BROTLib.sln (see its [SolutionConfigurationPlatforms] section).
-          BUILD_CONFIG: ${{ vars.TWINCAT_BUILD_CONFIG || 'Release|TwinCAT RT (x64)' }}
+        shell: powershell
         run: |
-          if exist build.log del build.log
-          "%SHELL_EXE%" "%GITHUB_WORKSPACE%\BROTLib.sln" /rebuild "%BUILD_CONFIG%" /out build.log
-          set BUILD_RC=%ERRORLEVEL%
-          if exist build.log type build.log
-          if not "%BUILD_RC%"=="0" (
-            echo TcXaeShell.exe returned exit code %BUILD_RC%.
-            exit /b %BUILD_RC%
-          )
-          if exist build.log (
-            for %%A in (build.log) do if %%~zA gtr 0 (
-              echo /out log is non-empty - treating as build errors.
-              exit /b 1
-            )
-          )
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: twincat-build-log
-          path: build.log
+          .\.github\scripts\build.ps1 `
+            -SolutionPath "$env:GITHUB_WORKSPACE\BROTLib.sln" `
+            -Configuration "${{ vars.TWINCAT_BUILD_CONFIGURATION || 'Release' }}" `
+            -Platform "${{ vars.TWINCAT_BUILD_PLATFORM || 'TwinCAT RT (x64)' }}" `
+            -DteProgId "${{ vars.TWINCAT_DTE_PROGID || 'TcXaeShell.DTE.15.0' }}"
