@@ -1,0 +1,50 @@
+name: TwinCAT Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    # Register your self-hosted runner with these labels (or edit to match
+    # whatever labels you actually used when registering it).
+    runs-on: [self-hosted, Windows, TwinCAT]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build TwinCAT solution
+        shell: cmd
+        env:
+          # Path to devenv.com (the console build front-end for the
+          # TcXaeShell/Visual Studio install on the runner), e.g.:
+          #   C:\Program Files (x86)\Beckhoff\TwinCAT\3.1\Components\TcXaeShell\Common7\IDE\devenv.com
+          # Set this as a repo/org "Variable" (Settings > Secrets and variables
+          # > Actions > Variables) named TWINCAT_DEVENV_PATH.
+          DEVENV_PATH: ${{ vars.TWINCAT_DEVENV_PATH }}
+          # Must match one of the Solution Configuration|Platform pairs in
+          # BROTLib.sln (see its [SolutionConfigurationPlatforms] section).
+          BUILD_CONFIG: ${{ vars.TWINCAT_BUILD_CONFIG || 'Release|TwinCAT RT (x64)' }}
+        run: |
+          "%DEVENV_PATH%" "%GITHUB_WORKSPACE%\BROTLib.sln" /rebuild "%BUILD_CONFIG%" /out build.log
+          set BUILD_RC=%ERRORLEVEL%
+          type build.log
+          findstr /C:"0 Error(s)" build.log >nul
+          if errorlevel 1 (
+            echo Build log did not report "0 Error(s)" - treating as failure.
+            exit /b 1
+          )
+          if not "%BUILD_RC%"=="0" (
+            echo devenv.com returned exit code %BUILD_RC%.
+            exit /b %BUILD_RC%
+          )
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: twincat-build-log
+          path: build.log
