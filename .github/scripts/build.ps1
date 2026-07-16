@@ -69,9 +69,15 @@ function Invoke-DteCall {
             # Int64 bitmask instead of a checked [uint32] cast, which throws
             # for any negative Int32 (i.e. almost every real HRESULT).
             $hresultHex = '{0:X8}' -f ([int64]$_.Exception.HResult -band 0xFFFFFFFFL)
-            $isBusy = $busyHResults -contains $hresultHex
-            if (-not $isBusy -or $attempt -ge $MaxAttempts) {
-                Write-Host "DTE call failed (HRESULT 0x$hresultHex): $($_.Exception.Message)"
+            $isBusyHResult = $busyHResults -contains $hresultHex
+            # Also retry on "method called on null" - confirmed by hand that
+            # $dte.Solution can intermittently still be null for a bit even
+            # after our own readiness gate says it's non-null, presumably due
+            # to ongoing background initialization in the shell.
+            $isNullRef = $_.FullyQualifiedErrorId -like '*InvokeMethodOnNull*' -or
+                         $_.FullyQualifiedErrorId -like '*PropertyNotFound*'
+            if ((-not $isBusyHResult -and -not $isNullRef) -or $attempt -ge $MaxAttempts) {
+                Write-Host "DTE call failed (HRESULT 0x$hresultHex, $($_.FullyQualifiedErrorId)): $($_.Exception.Message)"
                 throw
             }
             Start-Sleep -Milliseconds $DelayMs
