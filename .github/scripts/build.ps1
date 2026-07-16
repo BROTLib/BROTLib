@@ -14,6 +14,12 @@
     of failed project compilations) - NOT the ErrorList, which can be
     non-empty even on a successful build (e.g. warnings in unused types).
 
+    Visual Studio/TcXaeShell's COM server is single-threaded and briefly
+    rejects calls (RPC_E_CALL_REJECTED / RPC_E_SERVERCALL_RETRYLATER) while
+    busy with something else - this is expected per Microsoft's own COM
+    automation guidance, so every DTE call here goes through a retry helper
+    instead of failing on the first rejection.
+
 .PARAMETER SolutionPath
     Full path to the .sln file to build.
 
@@ -42,6 +48,34 @@ $ErrorActionPreference = "Stop"
 $dte = $null
 $exitCode = 1
 
+# RPC_E_CALL_REJECTED and RPC_E_SERVERCALL_RETRYLATER: the DTE COM server was
+# busy and rejected the call outright rather than servicing it. Expected and
+# transient per Microsoft's VS automation guidance - just retry.
+$busyHResults = @(0x80010001, 0x8001010A)
+
+function Invoke-DteCall {
+    param(
+        [Parameter(Mandatory = $true)][scriptblock]$Action,
+        [int]$MaxAttempts = 60,
+        [int]$DelayMs = 500
+    )
+    $attempt = 0
+    while ($true) {
+        try {
+            return & $Action
+        }
+        catch {
+            $attempt++
+            $hresult = $_.Exception.HResult
+            $isBusy = $busyHResults -contains ([uint32]$hresult -band 0xFFFFFFFF)
+            if (-not $isBusy -or $attempt -ge $MaxAttempts) {
+                throw
+            }
+            Start-Sleep -Milliseconds $DelayMs
+        }
+    }
+}
+
 try {
     Write-Host "Creating DTE via ProgID '$DteProgId'..."
     $dte = New-Object -ComObject $DteProgId
@@ -56,8 +90,7 @@ try {
             }
         }
         catch {
-            # Not ready yet - COM calls can throw (e.g. RPC_E_CALL_REJECTED) while
-            # the shell is still starting up. Keep retrying.
+            # Not ready yet - keep retrying.
         }
         Start-Sleep -Seconds 1
     }
@@ -68,7 +101,7 @@ try {
     try { $dte.MainWindow.Visible = $false } catch { Write-Host "Could not hide MainWindow (non-fatal): $_" }
 
     Write-Host "Opening solution '$SolutionPath'..."
-    $dte.Solution.Open($SolutionPath)
+    Invoke-DteCall { $dte.Solution.Open($SolutionPath) } | Out-Null
 
     $solutionBuild = $dte.Solution.SolutionBuild
 
@@ -78,7 +111,7 @@ try {
     Write-Host "Waiting for solution configurations to be populated..."
     $target = $null
     for ($i = 0; $i -lt 180; $i++) {
-        $configs = @($solutionBuild.SolutionConfigurations)
+        $configs = Invoke-DteCall { @($solutionBuild.SolutionConfigurations) }
         $named = $configs | Where-Object { $_.Name }
         if ($named.Count -gt 0) {
             foreach ($cfg in $named) {
@@ -97,30 +130,28 @@ try {
 
     if ($null -eq $target) {
         Write-Host "Final solution configuration list:"
-        foreach ($cfg in @($solutionBuild.SolutionConfigurations)) {
+        foreach ($cfg in (Invoke-DteCall { @($solutionBuild.SolutionConfigurations) })) {
             Write-Host "  - $($cfg.Name) | $($cfg.PlatformName)"
         }
-    }
-    if ($null -eq $target) {
         throw "No solution configuration matching Name='$Configuration' Platform='$Platform'. See the list printed above."
     }
-    $target.Activate()
+    Invoke-DteCall { $target.Activate() } | Out-Null
 
     Write-Host "Building '$Configuration|$Platform'..."
-    $solutionBuild.Build($true)  # $true = wait synchronously for build to finish
+    Invoke-DteCall { $solutionBuild.Build($true) } | Out-Null  # $true = wait synchronously for build to finish
 
-    $failedProjects = $solutionBuild.LastBuildInfo
+    $failedProjects = Invoke-DteCall { $solutionBuild.LastBuildInfo }
     Write-Host "LastBuildInfo (failed project count): $failedProjects"
 
     # Diagnostic only - per Beckhoff's own sample, the ErrorList is NOT
     # authoritative for build success/failure, only useful for logging.
-    $errorItems = $dte.ToolWindows.ErrorList.ErrorItems
+    $errorItems = Invoke-DteCall { $dte.ToolWindows.ErrorList.ErrorItems }
     for ($i = 1; $i -le $errorItems.Count; $i++) {
         $item = $errorItems.Item($i)
         Write-Host "[$($item.ErrorLevel)] $($item.Description) ($($item.FileName):$($item.Line))"
     }
 
-    $dte.Solution.Close()
+    Invoke-DteCall { $dte.Solution.Close() } | Out-Null
 
     if ($failedProjects -ne 0) {
         Write-Host "Build FAILED: $failedProjects project(s) failed to compile."
@@ -133,7 +164,7 @@ try {
 }
 finally {
     if ($null -ne $dte) {
-        try { $dte.Quit() } catch { }
+        try { Invoke-DteCall { $dte.Quit() } } catch { }
     }
 }
 
