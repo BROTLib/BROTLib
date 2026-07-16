@@ -42,7 +42,7 @@ Summary:
 
 | | BROTLib | IAG50cm |
 |--|---------|---------|
-| **Iterations** | Fixed 10 | Up to 20, epsilon convergence (arcsec) |
+| **Iterations** | Fixed 11 | Up to 20, epsilon convergence (arcsec) |
 | **Reference** | `REFERENCE TO FB_PointingModelForward` (via FB_Init) | Local `fbpointing : FB_PointingModelForward` instance |
 | **Coordinates** | Az/El | HA/Dec |
 | **Wrap-around** | None | Uses `LMOD` |

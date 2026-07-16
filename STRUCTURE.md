@@ -69,7 +69,7 @@ The central library defining telescope control abstractions, interfaces, coordin
 
 **State Machine (8 states):** Idle, Initializing, Parked, Parking, Slewing, Tracking, Referencing, Error
 
-**Key Interfaces (12):**
+**Key Interfaces (13):**
 `I_Telescope`, `I_AltAzTelescope`, `I_RaDecTelescope`, `I_Axis`, `I_BaseAxis`, `I_Dome`, `I_Roof`, `I_Focus`, `I_Filter`, `I_Brake`, `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics`
 
 **Communication:**
