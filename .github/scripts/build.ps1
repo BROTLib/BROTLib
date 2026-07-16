@@ -51,7 +51,7 @@ $exitCode = 1
 # RPC_E_CALL_REJECTED and RPC_E_SERVERCALL_RETRYLATER: the DTE COM server was
 # busy and rejected the call outright rather than servicing it. Expected and
 # transient per Microsoft's VS automation guidance - just retry.
-$busyHResults = @(0x80010001, 0x8001010A)
+$busyHResults = @('80010001', '8001010A')
 
 function Invoke-DteCall {
     param(
@@ -66,9 +66,12 @@ function Invoke-DteCall {
         }
         catch {
             $attempt++
-            $hresult = $_.Exception.HResult
-            $isBusy = $busyHResults -contains ([uint32]$hresult -band 0xFFFFFFFF)
+            # Int64 bitmask instead of a checked [uint32] cast, which throws
+            # for any negative Int32 (i.e. almost every real HRESULT).
+            $hresultHex = '{0:X8}' -f ([int64]$_.Exception.HResult -band 0xFFFFFFFFL)
+            $isBusy = $busyHResults -contains $hresultHex
             if (-not $isBusy -or $attempt -ge $MaxAttempts) {
+                Write-Host "DTE call failed (HRESULT 0x$hresultHex): $($_.Exception.Message)"
                 throw
             }
             Start-Sleep -Milliseconds $DelayMs
