@@ -45,6 +45,26 @@ $exitCode = 1
 try {
     Write-Host "Creating DTE via ProgID '$DteProgId'..."
     $dte = New-Object -ComObject $DteProgId
+
+    Write-Host "Waiting for DTE to finish initializing..."
+    $ready = $false
+    for ($i = 0; $i -lt 60; $i++) {
+        try {
+            if ($null -ne $dte.Solution) {
+                $ready = $true
+                break
+            }
+        }
+        catch {
+            # Not ready yet - COM calls can throw (e.g. RPC_E_CALL_REJECTED) while
+            # the shell is still starting up. Keep retrying.
+        }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $ready) {
+        throw "DTE.Solution stayed unavailable after 60s - TcXaeShell may not have started correctly."
+    }
+
     try { $dte.MainWindow.Visible = $false } catch { Write-Host "Could not hide MainWindow (non-fatal): $_" }
 
     Write-Host "Opening solution '$SolutionPath'..."
