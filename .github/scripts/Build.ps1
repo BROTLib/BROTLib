@@ -126,6 +126,15 @@ Start-Sleep -Seconds 2
 
 $dte = $null
 
+# Explicit exit codes are essential here - $LASTEXITCODE only reflects
+# external/native command results, never a script's own `throw`, and whether
+# an uncaught terminating error inside a script produces a non-zero PROCESS
+# exit code is inconsistent across PowerShell versions and invocation modes
+# (-File vs -Command, Windows PowerShell vs pwsh). GitHub Actions only checks
+# the process exit code, so we guarantee it explicitly rather than relying on
+# implicit propagation.
+try {
+
 try {
     # ------------------------------------------------------------------
     # Register message filter, then start TwinCAT XAE
@@ -182,15 +191,144 @@ try {
     Write-Host "Waiting for solution to finish loading..."
     Start-Sleep -Seconds 10
 
+
+    # ------------------------------------------------------------------
+    # Build
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Clean, then Build
+    #
+    # TwinCAT's PLC build is incremental - it skips recompiling POUs it
+    # believes are unchanged, based on internal state that isn't necessarily
+    # invalidated by edits made outside the IDE (e.g. a fresh git checkout,
+    # or direct file edits). That's the likely reason a plain Build() missed
+    # real syntax errors that Check All Objects caught. Clean() first to
+    # force a genuine full recompile rather than trusting cached state.
+    # ------------------------------------------------------------------
+
+    $cleaned = $false
+    for ($i = 1; $i -le 15 -and -not $cleaned; $i++) {
+        try {
+            Write-Host "Cleaning (attempt $i)..."
+            $dte.Solution.SolutionBuild.Clean($true)
+            $cleaned = $true
+            Write-Host "Clean finished."
+        }
+        catch {
+            Write-Host "Clean failed: $($_.Exception.Message)"
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    if (-not $cleaned) {
+        throw "Unable to clean before build."
+    }
+
+    $started = $false
+    for ($i = 1; $i -le 15 -and -not $started; $i++) {
+        try {
+            Write-Host "Starting build (attempt $i)..."
+            $dte.Solution.SolutionBuild.Build($true)
+            $started = $true
+            Write-Host "Build started."
+        }
+        catch {
+            Write-Host "Build start failed: $($_.Exception.Message)"
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    if (-not $started) {
+        throw "Unable to start build."
+    }
+
+    # ------------------------------------------------------------------
+    # Wait for build to finish, with a timeout
+    # ------------------------------------------------------------------
+
+    Write-Host "Waiting for build (timeout: ${buildTimeoutSec}s)..."
+
+    $elapsed = 0
+    while ($dte.Solution.SolutionBuild.BuildState -eq 1) {
+        Start-Sleep -Seconds 1
+        $elapsed++
+        if ($elapsed -ge $buildTimeoutSec) {
+            throw "Build timed out after $buildTimeoutSec seconds."
+        }
+    }
+
+    $result = $dte.Solution.SolutionBuild.LastBuildInfo
+    Write-Host "LastBuildInfo = $result"
+
+    # Don't trust LastBuildInfo=0 blindly - it counts FAILED projects, so if the
+    # active solution configuration doesn't have this project's "Build" checkbox
+    # ticked in Configuration Manager, zero projects get attempted and this
+    # reports a trivial, false "success". Read the actual Output Window build
+    # summary line to catch that case.
+    try {
+        $buildPane = $dte.ToolWindows.OutputWindow.OutputWindowPanes.Item("Build")
+        $doc = $buildPane.TextDocument
+        $sel = $doc.Selection
+        $sel.StartOfDocument($false)
+        $sel.EndOfDocument($true)
+        $buildOutputText = $sel.Text
+        Write-Host "----- Build Output Window -----"
+        Write-Host $buildOutputText
+        Write-Host "----- End Build Output -----"
+
+        $summaryLine = ($buildOutputText -split "`r?`n") | Where-Object { $_ -match "==========\s*Build:" } | Select-Object -Last 1
+        if ($summaryLine) {
+            Write-Host "Build summary: $summaryLine"
+            if ($summaryLine -match "(\d+)\s+succeeded" -and [int]$Matches[1] -eq 0) {
+                throw "Build summary shows 0 projects succeeded - the PLC project was likely never actually built (check Configuration Manager 'Build' checkbox for the active configuration). LastBuildInfo=0 was a false positive, not a real success."
+            }
+        }
+        else {
+            Write-Host "Could not find a '========== Build: ...' summary line - unable to confirm the PLC project was actually built."
+        }
+    }
+    catch {
+        if ($_.Exception.Message -like "*Build summary shows 0*") { throw }
+        Write-Host "Could not read Build output pane: $($_.Exception.Message)"
+    }
+
+    # Always dump the Error List for visibility while this is being diagnosed,
+    # not just when LastBuildInfo is nonzero - LastBuildInfo has already proven
+    # unreliable once.
+    Write-Host "Error List (regardless of LastBuildInfo):"
+    try {
+        $errorItems = $dte.ToolWindows.ErrorList.ErrorItems
+        if ($errorItems.Count -eq 0) {
+            Write-Host "  (empty)"
+        }
+        for ($i = 1; $i -le $errorItems.Count; $i++) {
+            $e = $errorItems.Item($i)
+            Write-Host "  $($e.FileName)($($e.Line)): $($e.Description)"
+        }
+    }
+    catch {
+        Write-Host "  (Could not read Error List: $($_.Exception.Message))"
+    }
+
+    if ($result -ne 0) {
+        throw "$result project(s) failed to build."
+    }
+
+    Write-Host "Build succeeded."
+
     # ------------------------------------------------------------------
     # Static check: CheckAllObjects() via the Automation Interface
     #
-    # Fails fast (no full build) if the PLC project doesn't even pass
-    # a static check. Obtained straight from the open solution, no
-    # separate COM session needed.
+    # Runs AFTER the build, not before - moved here because
+    # Build.CheckAllObjects's availability appears to depend on the project
+    # having gone through at least one successful build first. On a truly
+    # fresh checkout (first-ever open, as happens on a CI runner), the
+    # command was unavailable when tried before any build; running it after
+    # a successful build establishes whatever internal state it needs.
     # ------------------------------------------------------------------
 
-    Write-Host "Running static check (CheckAllObjects) - best effort, will not block the build if unavailable..."
+    Write-Host "Running static check (CheckAllObjects) after build - best effort, will not fail the run if unavailable..."
 
     $checkOk = $null  # null = skipped/unavailable, distinct from actual $true/$false results
 
@@ -238,11 +376,49 @@ try {
         # IsAvailable appears to fluctuate with transient IDE state rather
         # than being stable once checked - retry a few times, re-checking
         # freshly each attempt, instead of trusting the earlier check.
+        # Command availability appears tied to the IDE window having actual
+        # OS-level foreground focus, not just being visible - this worked
+        # every time when launched interactively (which naturally puts the
+        # window in the foreground), but failed immediately (IsAvailable=
+        # False from the start) when triggered via the GitHub Actions
+        # runner service, which never explicitly focuses it. Force focus
+        # explicitly via both the DTE API and a raw Win32 call.
+        try {
+            $dte.MainWindow.Activate()
+        }
+        catch {
+            Write-Host "  `$dte.MainWindow.Activate() failed: $($_.Exception.Message)"
+        }
+        if ($tcProcess) {
+            try {
+                Add-Type -Name Win32Focus -Namespace TcAutomation -MemberDefinition @"
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+"@
+                $tcProcess.Refresh()
+                [TcAutomation.Win32Focus]::ShowWindow($tcProcess.MainWindowHandle, 3) | Out-Null  # SW_MAXIMIZE
+                [TcAutomation.Win32Focus]::SetForegroundWindow($tcProcess.MainWindowHandle) | Out-Null
+                Write-Host "  Forced window to foreground via Win32 SetForegroundWindow."
+            }
+            catch {
+                Write-Host "  Win32 SetForegroundWindow failed: $($_.Exception.Message)"
+            }
+        }
+        Start-Sleep -Seconds 1
+
         $dispatched = $false
         for ($a = 1; $a -le 10 -and -not $dispatched; $a++) {
             $stillAvailable = try { $dte.Commands.Item($checkCommandName).IsAvailable } catch { $false }
             if (-not $stillAvailable) {
-                Write-Host "  attempt $a`: command not currently available, waiting..."
+                Write-Host "  attempt $a`: command not currently available, re-activating window and waiting..."
+                try { $dte.MainWindow.Activate() } catch {}
+                if ($tcProcess) {
+                    try {
+                        $tcProcess.Refresh()
+                        [TcAutomation.Win32Focus]::SetForegroundWindow($tcProcess.MainWindowHandle) | Out-Null
+                    }
+                    catch {}
+                }
                 Start-Sleep -Seconds 2
                 continue
             }
@@ -739,131 +915,6 @@ try {
         Write-Warning "Continuing to full build - the build's own Error List remains the authoritative check."
         $checkOk = $null
     }
-
-    # ------------------------------------------------------------------
-    # Build
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # Clean, then Build
-    #
-    # TwinCAT's PLC build is incremental - it skips recompiling POUs it
-    # believes are unchanged, based on internal state that isn't necessarily
-    # invalidated by edits made outside the IDE (e.g. a fresh git checkout,
-    # or direct file edits). That's the likely reason a plain Build() missed
-    # real syntax errors that Check All Objects caught. Clean() first to
-    # force a genuine full recompile rather than trusting cached state.
-    # ------------------------------------------------------------------
-
-    $cleaned = $false
-    for ($i = 1; $i -le 15 -and -not $cleaned; $i++) {
-        try {
-            Write-Host "Cleaning (attempt $i)..."
-            $dte.Solution.SolutionBuild.Clean($true)
-            $cleaned = $true
-            Write-Host "Clean finished."
-        }
-        catch {
-            Write-Host "Clean failed: $($_.Exception.Message)"
-            Start-Sleep -Seconds 2
-        }
-    }
-
-    if (-not $cleaned) {
-        throw "Unable to clean before build."
-    }
-
-    $started = $false
-    for ($i = 1; $i -le 15 -and -not $started; $i++) {
-        try {
-            Write-Host "Starting build (attempt $i)..."
-            $dte.Solution.SolutionBuild.Build($true)
-            $started = $true
-            Write-Host "Build started."
-        }
-        catch {
-            Write-Host "Build start failed: $($_.Exception.Message)"
-            Start-Sleep -Seconds 2
-        }
-    }
-
-    if (-not $started) {
-        throw "Unable to start build."
-    }
-
-    # ------------------------------------------------------------------
-    # Wait for build to finish, with a timeout
-    # ------------------------------------------------------------------
-
-    Write-Host "Waiting for build (timeout: ${buildTimeoutSec}s)..."
-
-    $elapsed = 0
-    while ($dte.Solution.SolutionBuild.BuildState -eq 1) {
-        Start-Sleep -Seconds 1
-        $elapsed++
-        if ($elapsed -ge $buildTimeoutSec) {
-            throw "Build timed out after $buildTimeoutSec seconds."
-        }
-    }
-
-    $result = $dte.Solution.SolutionBuild.LastBuildInfo
-    Write-Host "LastBuildInfo = $result"
-
-    # Don't trust LastBuildInfo=0 blindly - it counts FAILED projects, so if the
-    # active solution configuration doesn't have this project's "Build" checkbox
-    # ticked in Configuration Manager, zero projects get attempted and this
-    # reports a trivial, false "success". Read the actual Output Window build
-    # summary line to catch that case.
-    try {
-        $buildPane = $dte.ToolWindows.OutputWindow.OutputWindowPanes.Item("Build")
-        $doc = $buildPane.TextDocument
-        $sel = $doc.Selection
-        $sel.StartOfDocument($false)
-        $sel.EndOfDocument($true)
-        $buildOutputText = $sel.Text
-        Write-Host "----- Build Output Window -----"
-        Write-Host $buildOutputText
-        Write-Host "----- End Build Output -----"
-
-        $summaryLine = ($buildOutputText -split "`r?`n") | Where-Object { $_ -match "==========\s*Build:" } | Select-Object -Last 1
-        if ($summaryLine) {
-            Write-Host "Build summary: $summaryLine"
-            if ($summaryLine -match "(\d+)\s+succeeded" -and [int]$Matches[1] -eq 0) {
-                throw "Build summary shows 0 projects succeeded - the PLC project was likely never actually built (check Configuration Manager 'Build' checkbox for the active configuration). LastBuildInfo=0 was a false positive, not a real success."
-            }
-        }
-        else {
-            Write-Host "Could not find a '========== Build: ...' summary line - unable to confirm the PLC project was actually built."
-        }
-    }
-    catch {
-        if ($_.Exception.Message -like "*Build summary shows 0*") { throw }
-        Write-Host "Could not read Build output pane: $($_.Exception.Message)"
-    }
-
-    # Always dump the Error List for visibility while this is being diagnosed,
-    # not just when LastBuildInfo is nonzero - LastBuildInfo has already proven
-    # unreliable once.
-    Write-Host "Error List (regardless of LastBuildInfo):"
-    try {
-        $errorItems = $dte.ToolWindows.ErrorList.ErrorItems
-        if ($errorItems.Count -eq 0) {
-            Write-Host "  (empty)"
-        }
-        for ($i = 1; $i -le $errorItems.Count; $i++) {
-            $e = $errorItems.Item($i)
-            Write-Host "  $($e.FileName)($($e.Line)): $($e.Description)"
-        }
-    }
-    catch {
-        Write-Host "  (Could not read Error List: $($_.Exception.Message))"
-    }
-
-    if ($result -ne 0) {
-        throw "$result project(s) failed to build."
-    }
-
-    Write-Host "Build succeeded."
 }
 finally {
     # ------------------------------------------------------------------
@@ -891,3 +942,11 @@ finally {
 
     Write-Host "Done."
 }
+
+}
+catch {
+    Write-Host "FAILED: $($_.Exception.Message)"
+    exit 1
+}
+
+exit 0
