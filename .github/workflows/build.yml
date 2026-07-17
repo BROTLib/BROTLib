@@ -1,0 +1,17 @@
+name: Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: [self-hosted]
+
+    steps:
+      - name: Print information
+        shell: pwsh
+        run: |
+          Write-Host "Runner is working!"
+          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+          hostname
+          whoami
