@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_EscapeInfluxString" Id="{ff214b48-769d-4d62-a9a1-7e9c47cbad0f}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION F_EscapeInfluxString : STRING(255)
+VAR_INPUT
+	sValue		: STRING(255);
+END_VAR
+VAR
+	i, nLen		: INT;
+	c			: STRING(1);
+	sOut		: STRING(255) := '';
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[nLen := LEN(sValue);
+FOR i := 1 TO nLen DO
+	c := MID(sValue, 1, i);
+	IF c = '"' OR c = '\' THEN
+		sOut := CONCAT(sOut, CONCAT('\', c));
+	ELSE
+		sOut := CONCAT(sOut, c);
+	END_IF
+END_FOR
+
+F_EscapeInfluxString := sOut;
+]]></ST>
+    </Implementation>
+    <LineIds Name="F_EscapeInfluxString">
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

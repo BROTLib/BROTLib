@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_IsNumericValue" Id="{162bafbc-45ea-4fd0-9c6e-10ab74542813}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION F_IsNumericValue : BOOL
+VAR_INPUT
+	sValue		: STRING(255);
+END_VAR
+VAR
+	i			: INT;
+	nLen		: INT;
+	bSeenDigit	: BOOL := FALSE;
+	bSeenDot	: BOOL := FALSE;
+	c			: STRING(1);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_IsNumericValue := FALSE;
+nLen := LEN(sValue);
+IF nLen = 0 THEN
+	RETURN;
+END_IF
+
+FOR i := 1 TO nLen DO
+	c := MID(sValue, 1, i);
+	IF (c = '-' OR c = '+') AND i = 1 THEN
+		; // leading sign OK
+	ELSIF c = '.' AND NOT bSeenDot THEN
+		bSeenDot := TRUE;
+	ELSIF c >= '0' AND c <= '9' THEN
+		bSeenDigit := TRUE;
+	ELSE
+		RETURN; // any other char -> not purely numeric
+	END_IF
+END_FOR
+
+F_IsNumericValue := bSeenDigit;
+]]></ST>
+    </Implementation>
+    <LineIds Name="F_IsNumericValue">
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

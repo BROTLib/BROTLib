@@ -138,25 +138,43 @@ VAR
 	bError			: BOOL;
 	nErrID			: UDINT;
 	retain_message	: BOOL := FALSE;
+	bIsBool			: BOOL;
+	bIsNumeric		: BOOL;
+	bIsInteger		: BOOL;
+	sFieldVal		: STRING(255);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
-fbFormat( 
-	sFormat 	:= '%s,location=%s,host=%s %s=%s', 
-	arg1 		:= F_STRING(domain), 
-	arg2 		:= F_STRING(location), 
+// classify the value so it is written as the correct line protocol type
+bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
+bIsNumeric := F_IsNumericValue(value);
+// an integer field has no decimal point; line protocol requires a trailing 'i' for those
+bIsInteger := bIsNumeric AND (FIND(value, '.') = 0);
+
+IF bIsInteger THEN
+	sFieldVal := CONCAT(value, 'i');
+ELSIF bIsBool OR bIsNumeric THEN
+	sFieldVal := value;
+ELSE
+	sFieldVal := CONCAT('"', CONCAT(F_EscapeInfluxString(value), '"'));
+END_IF
+
+fbFormat(
+	sFormat 	:= '%s,location=%s,host=%s %s=%s',
+	arg1 		:= F_STRING(domain),
+	arg2 		:= F_STRING(location),
 	arg3 		:= F_STRING(HostName),
 	arg4 		:= F_STRING(parameter),
-	arg5 		:= F_STRING(value),
+	arg5 		:= F_STRING(sFieldVal),
 	sOut 		=> sPayloadPub,
-	bError 		=> bError, 
-	nErrID 		=> nErrID 
+	bError 		=> bError,
+	nErrID 		=> nErrID
 );
 
 // retain message if value is boolean
-retain_message := value = 'TRUE' OR value = 'FALSE';
+retain_message := bIsBool;
 
-published := fbMqttClient.Publish(	
+published := fbMqttClient.Publish(
 	sTopic			:= sTopicPublish, 
 	pPayload		:= ADR(sPayloadPub), 
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
@@ -185,14 +203,14 @@ VAR_OUTPUT
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
-fbFormat( 
-	sFormat := 'log,host=%s,level=%s message="%s"', 
-	arg1 	:= F_STRING(HostName), 
-	arg2 	:= F_STRING(level), 
-	arg3 	:= F_STRING(message),
+fbFormat(
+	sFormat := 'log,host=%s,level=%s message="%s"',
+	arg1 	:= F_STRING(HostName),
+	arg2 	:= F_STRING(level),
+	arg3 	:= F_STRING(F_EscapeInfluxString(message)),
 	sOut 	=> sPayloadPub,
-	bError 	=> bError, 
-	nErrID 	=> nErrID 
+	bError 	=> bError,
+	nErrID 	=> nErrID
 );
 
 published := fbMqttClient.Publish(	

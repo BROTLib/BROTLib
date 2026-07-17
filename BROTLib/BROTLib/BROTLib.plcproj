@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.3.0</ProjectVersion>
+    <ProjectVersion>0.4.0</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
@@ -111,6 +111,12 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Comm\FB_Comm_MQTT_Influx.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_EscapeInfluxString.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_IsNumericValue.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Comm\I_Comm.TcIO">
