@@ -5,7 +5,7 @@ on:
 
 jobs:
   test:
-    runs-on: [self-hosted, Windows, X64, TwinCAT]
+    runs-on: [self-hosted]
 
     steps:
       - name: Print information
