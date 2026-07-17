@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Print information
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Runner is working!"
           Write-Host "Workspace: $env:GITHUB_WORKSPACE"
