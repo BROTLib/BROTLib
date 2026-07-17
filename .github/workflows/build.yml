@@ -1,17 +1,30 @@
-name: Checkout Test
+name: TwinCAT Build
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch: {}   # allows manual triggering from the Actions tab
+
+# The script kills any existing devenv/TcXaeShell processes at startup and
+# expects exclusive control of the machine - overlapping runs would stomp on
+# each other. Queue them instead of cancelling, since cancelling a run
+# mid-way could leave a TcXaeShell process orphaned for the next one.
+concurrency:
+  group: twincat-build
+  cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: [self-hosted, Windows, X64, TwinCAT]
+  build:
+    # Adjust this label to match whatever label(s) you gave the self-hosted
+    # runner when registering it (Settings > Actions > Runners).
+    runs-on: [self-hosted, windows, twincat]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Show workspace
-        shell: powershell
-        run: |
-          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
-          Get-ChildItem -Recurse $env:GITHUB_WORKSPACE
+      - name: Build and check PLC project
+        shell: powershell   # Windows PowerShell 5.1 - this machine has no pwsh (PowerShell 7) installed
+        run: .\.github\scripts\Build.ps1
