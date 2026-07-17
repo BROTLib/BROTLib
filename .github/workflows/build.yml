@@ -1,17 +1,17 @@
-name: Runner Test
+name: Checkout Test
 
 on:
   workflow_dispatch:
 
 jobs:
   test:
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, Windows, X64, TwinCAT]
 
     steps:
-      - name: Print information
+      - uses: actions/checkout@v4
+
+      - name: Show workspace
         shell: powershell
         run: |
-          Write-Host "Runner is working!"
           Write-Host "Workspace: $env:GITHUB_WORKSPACE"
-          hostname
-          whoami
+          Get-ChildItem -Recurse $env:GITHUB_WORKSPACE
