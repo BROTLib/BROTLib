@@ -45,6 +45,19 @@ $tcSysManagerLibDll = "C:\Program Files (x86)\Beckhoff\TwinCAT\Functions\TE2000-
 Write-Host "Solution: $solution"
 Write-Host "PLC project path: $plcProjectPath"
 
+# Diagnostic: is this script running in a genuinely interactive session, or
+# something else? Compare this output between an interactive manual run and
+# a GitHub-Actions-triggered run to see if they actually differ - would
+# explain why Build.CheckAllObjects.IsAvailable behaves differently between
+# the two even with identical script logic.
+try {
+    $currentProc = [System.Diagnostics.Process]::GetCurrentProcess()
+    Write-Host "Session diagnostic: PID=$($currentProc.Id) SessionId=$($currentProc.SessionId) UserInteractive=$([System.Environment]::UserInteractive) UserName=$([System.Environment]::UserName) MachineName=$([System.Environment]::MachineName)"
+}
+catch {
+    Write-Host "Session diagnostic failed: $($_.Exception.Message)"
+}
+
 # ------------------------------------------------------------------
 # COM Message Filter
 #
@@ -912,7 +925,7 @@ try {
             throw
         }
         Write-Warning "Static check (CheckAllObjects) unavailable or failed on this installation: $($_.Exception.Message)"
-        Write-Warning "Continuing to full build - the build's own Error List remains the authoritative check."
+        Write-Warning "Treating the build's own result (already completed above) as authoritative for this run."
         $checkOk = $null
     }
 }
