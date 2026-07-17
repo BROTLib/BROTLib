@@ -193,21 +193,24 @@ VAR_INPUT
 	message		: STRING(255);
 END_VAR
 VAR
-	sPayloadPub	: STRING(255) := '';
-	fbFormat	: FB_FormatString;
-	bError		: BOOL;
-	nErrID		: UDINT;
+	sPayloadPub		: STRING(255) := '';
+	fbFormat		: FB_FormatString;
+	bError			: BOOL;
+	nErrID			: UDINT;
+	sEscapedMessage	: STRING(255);
 END_VAR
 VAR_OUTPUT
 	published	: BOOL;
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
+sEscapedMessage := F_EscapeInfluxString(message);
+
 fbFormat(
 	sFormat := 'log,host=%s,level=%s message="%s"',
 	arg1 	:= F_STRING(HostName),
 	arg2 	:= F_STRING(level),
-	arg3 	:= F_STRING(F_EscapeInfluxString(message)),
+	arg3 	:= F_STRING(sEscapedMessage),
 	sOut 	=> sPayloadPub,
 	bError 	=> bError,
 	nErrID 	=> nErrID
