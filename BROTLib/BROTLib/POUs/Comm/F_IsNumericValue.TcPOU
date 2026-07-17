@@ -6,10 +6,13 @@ VAR_INPUT
 	sValue		: STRING(255);
 END_VAR
 VAR
-	i			: INT;
-	nLen		: INT;
-	bSeenDigit	: BOOL := FALSE;
-	bSeenDot	: BOOL := FALSE;
+	i				: INT;
+	nLen			: INT;
+	bSeenDigit		: BOOL := FALSE;
+	bSeenDot		: BOOL := FALSE;
+	bSeenExp		: BOOL := FALSE;
+	bSeenExpDigit	: BOOL := FALSE;
+	bPrevWasExp		: BOOL := FALSE;
 	c			: STRING(1);
 END_VAR
 ]]></Declaration>
@@ -22,18 +25,26 @@ END_IF
 
 FOR i := 1 TO nLen DO
 	c := MID(sValue, 1, i);
-	IF (c = '-' OR c = '+') AND i = 1 THEN
-		; // leading sign OK
-	ELSIF c = '.' AND NOT bSeenDot THEN
+	IF (c = '-' OR c = '+') AND (i = 1 OR bPrevWasExp) THEN
+		; // leading sign, or sign right after 'e'/'E', OK
+	ELSIF c = '.' AND NOT bSeenDot AND NOT bSeenExp THEN
 		bSeenDot := TRUE;
+	ELSIF (c = 'e' OR c = 'E') AND NOT bSeenExp AND bSeenDigit THEN
+		bSeenExp := TRUE;
 	ELSIF c >= '0' AND c <= '9' THEN
-		bSeenDigit := TRUE;
+		IF bSeenExp THEN
+			bSeenExpDigit := TRUE;
+		ELSE
+			bSeenDigit := TRUE;
+		END_IF
 	ELSE
 		RETURN; // any other char -> not purely numeric
 	END_IF
+	bPrevWasExp := (c = 'e' OR c = 'E');
 END_FOR
 
-F_IsNumericValue := bSeenDigit;
+// a trailing exponent marker with no digits (e.g. "1e") is not a complete number
+F_IsNumericValue := bSeenDigit AND (NOT bSeenExp OR bSeenExpDigit);
 ]]></ST>
     </Implementation>
     <LineIds Name="F_IsNumericValue">
