@@ -16,6 +16,7 @@ see https://gitlab.aip.de/bmk10k/telescope_firmware/snippets/5
 	bStop				: BOOL;		// boolean, TRUE: Stop motion OF telescope immediately, set goto AND track TO FALSE. FALSE: Allow motion OF telescope again via track/goto).	
 	bReset				: BOOL;		// initiates reset on all axis
 	bAutoTrack			: BOOL := TRUE;	// automatic tracking after goto
+	bCoverAutoOpen		: BOOL := TRUE;	// automatically open the mirror covers on Init/PowerOn
 	fRightAscension		: LREAL :=  0.0;	// apparent right ascension, degrees, double	
 	fDeclination		: LREAL :=  0.0;	// apparent declination, degrees, double
 	fElevation			: LREAL :=  0.0;	// desired elevation of the telescope pointing
@@ -211,6 +212,26 @@ END_VAR
         </Implementation>
       </Get>
     </Property>
+    <Property Name="CoverAutoOpen" Id="{3c28b3ed-e389-4aa6-bf2e-ea34582ac892}">
+      <Declaration><![CDATA[PROPERTY CoverAutoOpen : BOOL
+]]></Declaration>
+      <Get Name="Get" Id="{890ef1c5-180f-4a4d-82f6-339804b8a614}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[CoverAutoOpen := THIS^.bCoverAutoOpen;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{ba214e39-5a4f-40c3-9e98-38c9bb231473}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[THIS^.bCoverAutoOpen := CoverAutoOpen;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
     <Property Name="Declination" Id="{f1005b84-337c-4b64-b7ea-204360ce618d}">
       <Declaration><![CDATA[{warning 'add property implementation'}
 PROPERTY Declination : LREAL
@@ -335,6 +356,12 @@ bTrack := TRUE;]]></ST>
       <LineId Id="2" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Azimuth.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl.CoverAutoOpen.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseTelescopeControl.CoverAutoOpen.Set">
       <LineId Id="2" Count="0" />
     </LineIds>
     <LineIds Name="FB_BaseTelescopeControl.Declination.Get">
