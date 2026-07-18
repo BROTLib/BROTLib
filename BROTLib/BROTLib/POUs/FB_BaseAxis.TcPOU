@@ -5,6 +5,7 @@
 VAR_INPUT
 	bEnable				: BOOL;		// enable the axis and its position control loop
 	bReset				: BOOL;		// reset the axis
+	bSoEReset			: BOOL;		// diagnostic reset
 	bHomeAxis			: BOOL;		// Home the axis
 	fPosition			: LREAL;	// position to move the axis to
 	fVelocity			: LREAL;	// set the Velocity of the axis
@@ -14,13 +15,15 @@ END_VAR
 VAR_OUTPUT
 	fActualPosition		: LREAL;	// actual_position of the axis
 	bCalibrated			: BOOL;		// true if absolute calibration
-	bError				: BOOL;		// true if error	
+	bError				: BOOL;		// true if error
 	nErrorID			: UDINT;	// error ID of the axis
 	bReady				: BOOL;		// drive is ready
 END_VAR
 VAR
-	fbComm				: I_Comm;	
-	fbAxis				: FB_Axis2;
+	fbComm				: I_Comm;
+	fbAxis				: FB_Axis;
+	fbSoEReset			: FB_SoEReset;
+	axisRef				: AXIS_REF;
 END_VAR
 ]]></Declaration>
     <Implementation>
