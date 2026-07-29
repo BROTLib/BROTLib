@@ -9,13 +9,7 @@ END_VAR
 VAR
 	eq2hor				: FB_EQ2HOR;
 	hor2eq				: FB_HOR2EQ;
-	
-	fElevationCalc		: LREAL;	// elevation calulated when ra and dec are set by TCS 
-	fAzimuthCalc		: LREAL;	// azimuth calulated when ra and dec are set by TCS
-	fHourAngleCalc		: LREAL;	// hour angle calulated when ra and dec are set by TCS
-	fRightAscensionCalc	: LREAL;	// right ascension calculated from current Alt/Az
-	fDeclinationCalc	: LREAL;	// declination calculated from current Alt/Az
-	
+
 	fHourAngleOffset	: LREAL := 0.0;		// absolute offset for hour angle
 	fDeclinationOffset	: LREAL := 0.0;		// absolute offset for declination
 	
@@ -81,7 +75,7 @@ eq2hor(
 	JD := fJD,
 	alt => fElevationCalc,
 	az => fAzimuthCalc,
-	ha => fHourAngleCalc)
+	ha => fHourAngleCalc);
 ]]></ST>
     </Implementation>
     <Method Name="_PublishTelemetry" Id="{560c4df5-8843-4b45-8467-c2296981790f}">
