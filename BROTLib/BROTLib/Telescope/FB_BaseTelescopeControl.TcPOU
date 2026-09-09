@@ -187,8 +187,7 @@ fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.HEIGHT', LREAL_TO_STRING(tel
       </Implementation>
     </Method>
     <Property Name="Altitude" Id="{caafb587-dfec-4075-98b5-4e0c659dd422}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY Altitude : LREAL
+      <Declaration><![CDATA[PROPERTY Altitude : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{3eadfa0f-91b9-4d35-b2a2-3995bf1ad272}">
         <Declaration><![CDATA[VAR
@@ -200,8 +199,7 @@ END_VAR
       </Get>
     </Property>
     <Property Name="Azimuth" Id="{4ab08aee-62ef-436f-afb0-a92312153ecc}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY Azimuth : LREAL
+      <Declaration><![CDATA[PROPERTY Azimuth : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{5db7deaa-4ebd-480d-94f2-987ee6c7533c}">
         <Declaration><![CDATA[VAR
@@ -233,8 +231,7 @@ END_VAR
       </Set>
     </Property>
     <Property Name="Declination" Id="{f1005b84-337c-4b64-b7ea-204360ce618d}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY Declination : LREAL
+      <Declaration><![CDATA[PROPERTY Declination : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{f2fb9d57-e433-4c82-b5be-80f2fdab955e}">
         <Declaration><![CDATA[VAR
@@ -267,16 +264,14 @@ METHOD Home : BOOL
       </Implementation>
     </Method>
     <Method Name="Init" Id="{3aef494f-7f4e-4344-8ab1-5311c283fa00}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD Init : BOOL
+      <Declaration><![CDATA[METHOD Init : BOOL
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[bPower := TRUE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="Park" Id="{621c0fc8-dd4d-44e7-85fe-cb7551b9d3ae}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD Park : BOOL
+      <Declaration><![CDATA[METHOD Park : BOOL
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[bPark := TRUE;]]></ST>
@@ -292,8 +287,7 @@ END_VAR
       </Implementation>
     </Method>
     <Property Name="RightAscension" Id="{479a6a93-35a2-4327-9015-03d6802f2b56}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY RightAscension : LREAL
+      <Declaration><![CDATA[PROPERTY RightAscension : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{cd895a36-325d-498a-95c9-5d78816a7d56}">
         <Declaration><![CDATA[VAR
@@ -305,8 +299,7 @@ END_VAR
       </Get>
     </Property>
     <Method Name="Slew" Id="{c9fecd44-6a6f-4a55-81c4-7243946a8163}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD Slew : BOOL
+      <Declaration><![CDATA[METHOD Slew : BOOL
 VAR_INPUT
 	fAzimuth		: LREAL;
 	fAltitude		: LREAL;
@@ -319,8 +312,7 @@ bSlew := TRUE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="Stop" Id="{8e159726-2715-4778-83ca-31c01953b46c}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD Stop : BOOL
+      <Declaration><![CDATA[METHOD Stop : BOOL
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[bStop := TRUE;]]></ST>

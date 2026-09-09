@@ -44,8 +44,7 @@ fbComm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.ALT.OFFSET', LREAL_TO
       </Implementation>
     </Method>
     <Property Name="AltitudeOffset" Id="{61d61b42-3772-48a4-bbf4-c8264f7b8459}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY AltitudeOffset : LREAL
+      <Declaration><![CDATA[PROPERTY AltitudeOffset : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{8a20eda7-7b14-4b00-8989-4e306a01fc43}">
         <Declaration><![CDATA[VAR
@@ -65,8 +64,7 @@ END_VAR
       </Set>
     </Property>
     <Property Name="AzimuthOffset" Id="{580c6b01-71eb-41a5-b2e8-f0166c9039a8}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY AzimuthOffset : LREAL
+      <Declaration><![CDATA[PROPERTY AzimuthOffset : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{ed413719-73e2-4660-85da-efe3c363e7f1}">
         <Declaration><![CDATA[VAR
@@ -86,8 +84,7 @@ END_VAR
       </Set>
     </Property>
     <Property Name="DerotatorOffset" Id="{da6437af-965e-40c2-8dea-4bf926c328a7}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY DerotatorOffset : LREAL
+      <Declaration><![CDATA[PROPERTY DerotatorOffset : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{340a3d36-9a30-422a-ad59-6bebfad8b2af}">
         <Declaration><![CDATA[VAR
