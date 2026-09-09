@@ -123,15 +123,15 @@ END_VAR
 //fbComm.Publish('telescope', 'dome', 'TELESCOPE.Motion_STATE',	LREAL_TO_STRING(nMotionState));
 
 // INFO
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.NAME',	'50cm');
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER',	'0.5');
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.CABINET',	'Beckhoff');
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', 'Halfmann, Haidenhain, Beckhoff');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.NAME',	telescopeConfig.name);
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER',	LREAL_TO_STRING(telescopeConfig.diameter));
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.CABINET',	telescopeConfig.cabinet);
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', telescopeConfig.manufacturer);
 
 // CONFIG
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', '0');
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', 'ALT-AZ');
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', 'ALT-AZ');
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', '0'); // no ST_TelescopeConfig field for this yet
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', telescopeConfig.mountOptions);
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', telescopeConfig.mount);
 
 // STATUS
 IF bEstopTriggered THEN
