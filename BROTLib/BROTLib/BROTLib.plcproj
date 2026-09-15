@@ -17,9 +17,9 @@
     <Implicit_Jitter_Distribution>{e767e672-54fa-4524-92d2-65ea692b6a9f}</Implicit_Jitter_Distribution>
     <LibraryReferences>{2da14b86-3faa-4751-ad60-5d72f48385da}</LibraryReferences>
     <Company>BROT</Company>
-    <Released>false</Released>
+    <Released>true</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.4.1</ProjectVersion>
+    <ProjectVersion>0.4.2</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>

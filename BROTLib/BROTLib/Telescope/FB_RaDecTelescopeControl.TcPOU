@@ -90,8 +90,7 @@ fbComm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.OFFSET', LREAL_TO
       </Implementation>
     </Method>
     <Property Name="DeclinationOffset" Id="{215080a3-42ae-4b14-aacb-d9676be48ca3}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY DeclinationOffset : LREAL
+      <Declaration><![CDATA[PROPERTY DeclinationOffset : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{87710857-794a-401d-93b3-bd7eef10dbb4}">
         <Declaration><![CDATA[VAR
@@ -111,8 +110,7 @@ END_VAR
       </Set>
     </Property>
     <Property Name="HourAngleOffset" Id="{efaf06a9-01bd-4628-be65-b2ee5283ea3f}">
-      <Declaration><![CDATA[{warning 'add property implementation'}
-PROPERTY HourAngleOffset : LREAL
+      <Declaration><![CDATA[PROPERTY HourAngleOffset : LREAL
 ]]></Declaration>
       <Get Name="Get" Id="{cd419ed4-496f-4a4d-8c59-531a86e02332}">
         <Declaration><![CDATA[VAR
