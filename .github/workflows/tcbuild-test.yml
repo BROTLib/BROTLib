@@ -1,0 +1,20 @@
+name: TcBuild test (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, twincat, windows, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build with TcBuild
+        shell: pwsh
+        run: |
+          & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build "${{ github.workspace }}\BROTLib.sln"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "TcBuild failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
