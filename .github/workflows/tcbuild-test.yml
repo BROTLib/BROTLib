@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build with TcBuild
-        shell: pwsh
+        shell: powershell
         run: |
           & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build "${{ github.workspace }}\BROTLib.sln"
           if ($LASTEXITCODE -ne 0) {
