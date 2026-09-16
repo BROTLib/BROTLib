@@ -200,6 +200,10 @@
     <Compile Include="Telescope\ST_TelescopeConfig.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="GVLs\GVL_Version.TcGVL">
+      <SubType>Code</SubType>
+      <LinkAlways>true</LinkAlways>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Interfaces" />
