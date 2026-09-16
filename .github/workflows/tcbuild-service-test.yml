@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, twincat, windows, brotlib]
+    runs-on: [self-hosted, twincat, windows]
     steps:
       - uses: actions/checkout@v4
 
