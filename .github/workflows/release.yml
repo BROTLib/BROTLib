@@ -61,6 +61,7 @@ jobs:
       - name: Open release PR (develop -> main)
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ inputs.version }}
         run: |
           existing=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number // empty')
