@@ -58,25 +58,25 @@ Provides the mathematical backbone for coordinate transformations and astronomic
 ### BROTLib
 **Purpose:** Core reusable library for robotic telescope mount control.
 **Language:** IEC 61131-3 Structured Text (TwinCAT 3)
-**Version:** 0.3.0
+**Version:** 0.4.2
 
-The central library defining telescope control abstractions, interfaces, coordinate types, state machines, pointing models, MQTT communication, and observatory subsystem interfaces. Supports both Alt-Az and RaDec mount types.
+The central library defining telescope control abstractions, interfaces, coordinate types, pointing models, MQTT communication, and observatory subsystem interfaces. Supports both Alt-Az and RaDec mount types. The command state machine is not in this library; each telescope project implements its own (see [telescope-position-tracking.md](telescope-position-tracking.md)).
 
 **Telescope Control:**
-- `FB_BaseTelescopeControl` -- Abstract base for all telescope types (command interface, coordinate calculation, MQTT telemetry)
+- `FB_BaseTelescopeControl` -- Abstract base for all telescope types (command inputs and shared state, MQTT telemetry)
 - `FB_AltAzTelescopeControl` -- Alt-Az specific extension (pointing model, derotator, EOFF/AN/AE/TF error terms)
-- `FB_RaDecTelescopeControl` -- Equatorial mount extension
+- `FB_RaDecTelescopeControl` -- Equatorial mount extension (unfinished, not used by any project)
 
-**State Machine (8 states):** Idle, Initializing, Parked, Parking, Slewing, Tracking, Referencing, Error
+**Command model:** `E_TCSCommand` (`no_command`, `gohome`, `park`, `track`, `goto`, `stop`, `slew`, `poweron`). The 8-state machine that used to be documented here was removed in 2026; the stage-based command handling lives in the consuming projects.
 
 **Key Interfaces (13):**
 `I_Telescope`, `I_AltAzTelescope`, `I_RaDecTelescope`, `I_Axis`, `I_BaseAxis`, `I_Dome`, `I_Roof`, `I_Focus`, `I_Filter`, `I_Brake`, `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics`
 
 **Communication:**
-- `FB_Comm_MQTT` -- Abstract MQTT client (Tc3_IotCommunicator)
+- `FB_Comm_MQTT` -- Abstract MQTT client (Tc3_IotBase)
 - `FB_Comm_MQTT_Influx` -- Concrete MQTT+InfluxDB telemetry publisher
 
-**Other:** FB_AstroClock (sub-ms time sync), FB_PointingModelForward/Inversion (8-term Tpoint-style model), FB_EventLog, FB_InfluxMessage, tracking velocity functions.
+**Other:** FB_AstroClock (RTC synced from the system time every 5 s), FB_PointingModelForward/Inversion (9-term Tpoint-style model), FB_EventLog, FB_InfluxMessage, tracking velocity functions.
 
 **Dependencies:** AstroBROT, Tc2_MC2, Tc2_NC, Tc3_IotBase, Tc3_IotCommunicator, Tc3_Module
 
@@ -200,7 +200,7 @@ Controls two independent roof halves, each driven by 2 motors with position trac
 - Pendant (BCD selector manual control)
 - 11 HMI visualization screens
 
-**MQTT:** Broker at 169.254.146.10:1883 (topics `MONETN/Telescope/SET`, `MONETN/Telemetry`, `MONETN/Log`)
+**MQTT:** Topics `MONETN/Telescope/SET`, `MONETN/Telemetry`, `MONETN/Log`
 **Auto-park:** 12-hour timeout
 
 **Hardware:**
@@ -226,7 +226,7 @@ Nearly identical to MONETN but configured for the Southern Hemisphere site.
 - Weather station HTTP polling (currently disabled)
 - Mirror/cell/flange temperature sensors
 
-**MQTT:** Broker at 192.168.127.10:1883 (topics `MONETS/Telescope/SET`, `MONETS/Telemetry`, `MONETS/Log`)
+**MQTT:** Topics `MONETS/Telescope/SET`, `MONETS/Telemetry`, `MONETS/Log`
 **MQTT Watchdog:** 30s timeout triggers auto-park + roof close
 
 **Hardware:** Same as MONETN (CX-7A03E9, AX5125/AX5206 drives, TMA motors, EL1904/EL2904 safety)
@@ -270,7 +270,7 @@ Nearly identical to MONETN but configured for the Southern Hemisphere site.
 - **All projects** target Beckhoff TwinCAT 3 (IEC 61131-3 Structured Text)
 - **Build targets** include TwinCAT RT (x86/x64), TwinCAT CE7 (ARMv7), and TwinCAT OS (ARM/x64)
 - **MQTT telemetry** is published via `FB_Comm_MQTT_Influx` following an InfluxDB-friendly topic schema
-- **Pointing models** use Tpoint-style parametric coefficients (8-12 terms)
+- **Pointing models** use Tpoint-style parametric coefficients (9-12 terms)
 - **Safety** is handled via TwinSAFE (FSoE over EtherCAT) with EL1904/EL2904 terminals
 - **Event logging** uses `FB_EventLog` blocks publishing structured messages via ADS logging
 - **Manual control** is provided via BCD-selector hand pendants

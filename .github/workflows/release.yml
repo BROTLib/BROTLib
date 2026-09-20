@@ -1,5 +1,8 @@
 name: Cut release
 
+# Bumps the version on develop, then opens a PR develop -> main. Merging that PR (main requires a
+# PR, see the require-pr-main ruleset) triggers tag-release.yml, which tags the merge commit.
+
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
@@ -54,13 +58,18 @@ jobs:
           git commit -m "Bump version to ${{ inputs.version }}"
           git push origin develop
 
-      - name: Fast-forward main
+      - name: Open release PR (develop -> main)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
         run: |
-          git checkout -B main origin/main
-          git merge --ff-only develop
-          git push origin main
-
-      - name: Tag release
-        run: |
-          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
+          existing=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "Release v${VERSION}"
+            echo "Updated existing PR #${existing}"
+          else
+            gh pr create --base main --head develop \
+              --title "Release v${VERSION}" \
+              --body "Version bump to ${VERSION}. Merging this PR tags v${VERSION} on main (tag-release.yml)."
+          fi

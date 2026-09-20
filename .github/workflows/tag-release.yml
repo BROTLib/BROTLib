@@ -1,0 +1,53 @@
+name: Tag release
+
+# Runs on every push to main. Tags v<ProjectVersion> only if the push changed ProjectVersion and
+# the tag does not exist yet, so ordinary merges to main do not create tags.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag if ProjectVersion changed
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          PLCPROJ="BROTLib/BROTLib/BROTLib.plcproj"
+          get_version() { sed -n 's|.*<ProjectVersion>\(.*\)</ProjectVersion>.*|\1|p' | head -n1; }
+
+          NEW=$(get_version < "$PLCPROJ")
+          if ! [[ "$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::warning::ProjectVersion '$NEW' is not Major.Minor.Patch, not tagging"
+            exit 0
+          fi
+
+          if [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "No usable previous commit ($BEFORE), not tagging"
+            exit 0
+          fi
+          OLD=$(git show "$BEFORE:$PLCPROJ" 2>/dev/null | get_version || true)
+          if [ "$OLD" = "$NEW" ]; then
+            echo "ProjectVersion unchanged ($NEW), not tagging"
+            exit 0
+          fi
+
+          if git rev-parse -q --verify "refs/tags/v${NEW}" >/dev/null; then
+            echo "Tag v${NEW} already exists, not tagging"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${NEW}" -m "v${NEW}"
+          git push origin "v${NEW}"
