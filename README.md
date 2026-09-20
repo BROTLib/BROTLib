@@ -83,14 +83,12 @@ BROTLib/
 │   └── _Libraries/              # Resolved library references
 ├── specs/                       # Specification documents (ADR / design / plans)
 │   ├── adrs/index.md            # Architecture decision records
-│   ├── design/index.md          # Design docs (e.g. TwinCAT ScopeView .svdx format)
+│   ├── design/index.md          # Design docs (repository structure, tracking, ScopeView .svdx format, ...)
 │   ├── plans/index.md           # Implementation plans
 │   └── steering/index.md        # Contributor guidance
-├── STRUCTURE.md                 # Overview of the whole BROT repository ecosystem
 ├── UNIFICATION.md               # BROTLib / IAG50cm unification plan
 ├── MONET_Unification.md         # MONETcommon / MONETN / MONETS unification plan
 ├── FB_Axis.md                   # FB_Axis / FB_BaseAxis unification design
-├── TRACKING.md                  # Tracking/pointing notes
 └── README.md
 ```
 
@@ -134,7 +132,7 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
    `FB_MonetTelescopeControl`), with `fReadyState` (0 shutdown … 1 ready, −1
    error), `nMotionState` (0 stopped / 1 moving / 8 tracking) and per-command
    timeouts reported as telemetry. (An earlier 8-state machine described in
-   `STRUCTURE.md` was removed in 2026; no `E_TelescopeState` enum exists in the
+   `specs/design/repository-structure.md` was removed in 2026; no `E_TelescopeState` enum exists in the
    current code.)
 
 3. **Axes** — `FB_Axis2` / `FB_BaseAxis` implement the axis abstraction

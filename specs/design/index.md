@@ -50,3 +50,12 @@ no IAG-private infrastructure/credential/incident details — those stay in IAG'
   usage (which repos, actual bugs found in the deployed script) split out to IAG's own private
   specs 2026-09-20. *verified against a real `RepTool.exe` install* (2026-09-17)
   (Repos: BROTLib)
+- [repository-structure.md](repository-structure.md) — overview of the BROT repositories: the
+  libraries and application projects, what each contains, and the dependency graph. Formerly
+  `STRUCTURE.md` at the repository root. *reference; partly out of date, see the 2026-09-20 code review*
+  (Repos: all)
+- [telescope-position-tracking.md](telescope-position-tracking.md) — how a telescope follows a
+  target: sidereal-time chain, per-cycle tracking loop, velocity and derotator formulas, pointing
+  model, safety limits, and non-sidereal tracking options. Describes the consuming projects'
+  behavior more than BROTLib itself. Formerly `TRACKING.md` at the repository root. *reference*
+  (Repos: BROTLib, MONETcommon, MONETN, IAG50cm)

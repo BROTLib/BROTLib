@@ -6,7 +6,8 @@ Reviewed at `develop` 93b17fe. `origin/main` is 3 commits ahead of `develop` and
 ahead of `main` (see M9).
 
 Scope: all 58 source files under `BROTLib/BROTLib/` (POUs, DUTs, interfaces, GVLs; about 4000 lines
-including XML), `.github/workflows/`, `README.md`, `STRUCTURE.md`, `TRACKING.md`, and the generated
+including XML), `.github/workflows/`, `README.md`, `STRUCTURE.md` and `TRACKING.md` (now `specs/design/repository-structure.md` and
+`specs/design/telescope-position-tracking.md`), and the generated
 `BROTLib.tmc`. Consumers were sampled, not reviewed: `FB_MonetTelescopeControl` (MONETcommon, MONETN),
 `FB_TelescopeControl` (IAG50cm) and the `MAIN` programs, plus greps across all sibling repos for who uses what.
 
