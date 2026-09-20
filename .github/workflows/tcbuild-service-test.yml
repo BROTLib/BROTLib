@@ -1,0 +1,15 @@
+name: TcBuild test (service-mode runner)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, twincat, windows]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build BROTLib.sln
+        shell: powershell
+        run: |
+          & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLib.sln
