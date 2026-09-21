@@ -11,12 +11,11 @@ FUNCTION_BLOCK FB_AstroClockSync
 VAR_INPUT
 	bBusy			: BOOL;				// NT_GetTime.Busy
 	bError			: BOOL;				// NT_GetTime.Err
-	nMaxErrors		: UINT := 3;		// consecutive failed reads after which the time is no longer valid
 END_VAR
 VAR_OUTPUT
 	bSynchronize	: BOOL;				// one cycle: load the RTCs from the time just read
-	bValid			: BOOL;				// TRUE after the first successful read, FALSE again after nMaxErrors failed reads in a row
-	nErrors			: UINT;				// failed reads in a row (saturates at 65535)
+	bValid			: BOOL;				// TRUE from the first successful read on; stays TRUE, the RTC keeps counting
+	nErrors			: UINT;				// failed reads in a row (saturates at 65535), for diagnostics
 END_VAR
 VAR
 	fbBusyDone		: F_TRIG;
@@ -39,8 +38,9 @@ IF fbBusyDone.Q THEN
 	END_IF
 END_IF
 
-// the RTCs keep counting on their own, so one failed read only makes the last sync 5 s older
-bValid := bEverSynchronized AND nErrors < nMaxErrors;
+// After the first sync the RTC keeps counting on its own, so failed reads only make the last sync older (drift is
+// far below a second over minutes). Only the time before the first sync is garbage, so that is all bValid excludes.
+bValid := bEverSynchronized;
 ]]></ST>
     </Implementation>
   </POU>

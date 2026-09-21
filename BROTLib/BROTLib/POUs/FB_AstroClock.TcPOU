@@ -9,8 +9,8 @@ FUNCTION_BLOCK FB_AstroClock
 VAR_INPUT
 END_VAR
 VAR_OUTPUT
-        bValid          : BOOL;         // FALSE until the first successful sync, and after too many failed ones in a row
-        nSyncErrors     : UINT;         // failed syncs in a row
+        bValid          : BOOL;         // FALSE until the first successful sync; stays TRUE afterwards, the RTC keeps counting
+        nSyncErrors     : UINT;         // failed syncs in a row (diagnostics)
         time_RTCEX2     : TIMESTRUCT;
         nMicroseconds   : DWORD;
 END_VAR

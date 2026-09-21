@@ -51,8 +51,8 @@ without any signal.
 
 **M1. `FB_AstroClock` has no validity flag and mishandles errors.** *(#3: fixed on `develop` in 4dddb73 and the
 unused `RTC`/`RTC_EX` blocks removed. `FB_AstroClockSync` syncs only after a successful read and drives the new
-`bValid`/`nSyncErrors` outputs, covered by `FB_AstroClockSync_Tests`. IAG50cm, MONETcommon and MONETN hold the JD and
-refuse goto/slew/track while `bValid` is FALSE. Time zone: `NT_GetTime` returns local Windows time, per the Beckhoff
+`bValid` (TRUE from the first good sync on) and `nSyncErrors` outputs, covered by `FB_AstroClockSync_Tests`. IAG50cm, MONETcommon and MONETN hold the JD and
+refuse goto/slew/track while `bValid` is FALSE, that is only before the first sync. Time zone: `NT_GetTime` returns local Windows time, per the Beckhoff
 docs; the production PCs are set to UTC, and this is now documented on the block and in the README. Not verified on a
 telescope.)* *Read from code. Magnitudes computed,
 not measured.* It is the only time source for pointing and tracking (MONETcommon, MONETN and IAG50cm all call

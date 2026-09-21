@@ -15,7 +15,7 @@ Failed_Read_Does_Not_Synchronize();
 Error_Held_While_Idle_Is_Counted_Once();
 Recovers_After_Failed_First_Read();
 Valid_Survives_Transient_Errors();
-Invalid_After_Too_Many_Errors();
+Stays_Valid_After_Many_Errors();
 Success_Resets_Error_Count();
 ]]></ST>
     </Implementation>
@@ -126,7 +126,7 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Valid_Survives_Transient_Errors');
-// default nMaxErrors is 3: two failed reads after a good one leave the RTCs 10 s old, still good
+// the RTC keeps counting: failed reads after a good one only make the last sync older
 fbSync(bBusy := TRUE, bError := FALSE);
 fbSync(bBusy := FALSE, bError := FALSE);
 fbSync(bBusy := TRUE, bError := FALSE);
@@ -134,29 +134,31 @@ fbSync(bBusy := FALSE, bError := TRUE);
 fbSync(bBusy := TRUE, bError := FALSE);
 fbSync(bBusy := FALSE, bError := TRUE);
 AssertFalse(Condition := fbSync.bSynchronize, Message := 'failed reads do not sync');
-AssertTrue(Condition := fbSync.bValid, Message := 'valid after 2 errors');
+AssertTrue(Condition := fbSync.bValid, Message := 'still valid after 2 errors');
 AssertEquals_UINT(Expected := 2, Actual := fbSync.nErrors, Message := 'two errors counted');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
     </Method>
-    <Method Name="Invalid_After_Too_Many_Errors" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a07}">
-      <Declaration><![CDATA[METHOD PRIVATE Invalid_After_Too_Many_Errors
+    <Method Name="Stays_Valid_After_Many_Errors" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a07}">
+      <Declaration><![CDATA[METHOD PRIVATE Stays_Valid_After_Many_Errors
 VAR
 	fbSync	: BROTLib.FB_AstroClockSync;
 	i		: INT;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[TEST('Invalid_After_Too_Many_Errors');
+        <ST><![CDATA[TEST('Stays_Valid_After_Many_Errors');
 fbSync(bBusy := TRUE, bError := FALSE);
 fbSync(bBusy := FALSE, bError := FALSE);
-FOR i := 1 TO 3 DO
-	fbSync(bBusy := TRUE, bError := FALSE, nMaxErrors := 3);
-	fbSync(bBusy := FALSE, bError := TRUE, nMaxErrors := 3);
+FOR i := 1 TO 20 DO
+	fbSync(bBusy := TRUE, bError := FALSE);
+	fbSync(bBusy := FALSE, bError := TRUE);
+	AssertFalse(Condition := fbSync.bSynchronize, Message := 'failed read: no sync');
 END_FOR
-AssertFalse(Condition := fbSync.bValid, Message := 'not valid after 3 errors in a row');
-AssertEquals_UINT(Expected := 3, Actual := fbSync.nErrors, Message := 'three errors counted');
+// a long outage must not invalidate the time: the RTC is still counting
+AssertTrue(Condition := fbSync.bValid, Message := 'still valid after 20 errors in a row');
+AssertEquals_UINT(Expected := 20, Actual := fbSync.nErrors, Message := 'twenty errors counted');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -176,11 +178,11 @@ FOR i := 1 TO 3 DO
 	fbSync(bBusy := TRUE, bError := FALSE);
 	fbSync(bBusy := FALSE, bError := TRUE);
 END_FOR
-// the link comes back
+// the link comes back after some failures
 fbSync(bBusy := TRUE, bError := FALSE);
 fbSync(bBusy := FALSE, bError := FALSE);
 AssertTrue(Condition := fbSync.bSynchronize, Message := 'sync after recovery');
-AssertTrue(Condition := fbSync.bValid, Message := 'valid again');
+AssertTrue(Condition := fbSync.bValid, Message := 'valid');
 AssertEquals_UINT(Expected := 0, Actual := fbSync.nErrors, Message := 'error count cleared');
 TEST_FINISHED();
 ]]></ST>
