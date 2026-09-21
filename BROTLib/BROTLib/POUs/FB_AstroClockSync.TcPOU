@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+  <POU Name="FB_AstroClockSync" Id="{b7f0f43c-7ead-44a3-815d-4e88e648eb39}" SpecialFunc="None">
+    <Declaration><![CDATA[// Decides when FB_AstroClock may load the RTC blocks and whether the time can be trusted.
+// Separate from FB_AstroClock so that it runs without ADS and can be unit tested.
+//
+// Feed it the Busy and Err outputs of NT_GetTime. The decision is taken at the moment Busy falls, because
+// NT_GetTime raises Err in the same cycle: bSynchronize pulses for one cycle after a successful read only.
+// A failed read must not load the RTCs, because the time structure it returns is stale (zero on the first call).
+FUNCTION_BLOCK FB_AstroClockSync
+VAR_INPUT
+	bBusy			: BOOL;				// NT_GetTime.Busy
+	bError			: BOOL;				// NT_GetTime.Err
+	nMaxErrors		: UINT := 3;		// consecutive failed reads after which the time is no longer valid
+END_VAR
+VAR_OUTPUT
+	bSynchronize	: BOOL;				// one cycle: load the RTCs from the time just read
+	bValid			: BOOL;				// TRUE after the first successful read, FALSE again after nMaxErrors failed reads in a row
+	nErrors			: UINT;				// failed reads in a row (saturates at 65535)
+END_VAR
+VAR
+	fbBusyDone		: F_TRIG;
+	bEverSynchronized	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[fbBusyDone(CLK := bBusy);
+bSynchronize := FALSE;
+
+IF fbBusyDone.Q THEN
+	IF bError THEN
+		IF nErrors < 65535 THEN
+			nErrors := nErrors + 1;
+		END_IF
+	ELSE
+		bSynchronize := TRUE;
+		bEverSynchronized := TRUE;
+		nErrors := 0;
+	END_IF
+END_IF
+
+// the RTCs keep counting on their own, so one failed read only makes the last sync 5 s older
+bValid := bEverSynchronized AND nErrors < nMaxErrors;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

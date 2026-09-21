@@ -1,0 +1,190 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_AstroClockSync_Tests" Id="{89f14be4-ef75-4900-8a31-8ad3704f8581}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_AstroClockSync, the sync and validity logic of FB_AstroClock (BROTLib issue #3).
+//
+// Every test drives the Busy and Err inputs the way NT_GetTime does: Busy is TRUE while the ADS read runs, and
+// falls in the same cycle in which Err rises when the read fails. No ADS and no timers are involved, so all
+// tests finish within a single call.
+FUNCTION_BLOCK FB_AstroClockSync_Tests EXTENDS TcUnit.FB_TestSuite
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Invalid_Before_First_Read();
+Successful_Read_Synchronizes_Once();
+Failed_Read_Does_Not_Synchronize();
+Error_Held_While_Idle_Is_Counted_Once();
+Recovers_After_Failed_First_Read();
+Valid_Survives_Transient_Errors();
+Invalid_After_Too_Many_Errors();
+Success_Resets_Error_Count();
+]]></ST>
+    </Implementation>
+    <Method Name="Invalid_Before_First_Read" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a01}">
+      <Declaration><![CDATA[METHOD PRIVATE Invalid_Before_First_Read
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Invalid_Before_First_Read');
+fbSync(bBusy := FALSE, bError := FALSE);
+AssertFalse(Condition := fbSync.bValid, Message := 'idle: not valid');
+AssertFalse(Condition := fbSync.bSynchronize, Message := 'idle: no sync');
+// read in progress: still nothing to trust
+fbSync(bBusy := TRUE, bError := FALSE);
+AssertFalse(Condition := fbSync.bValid, Message := 'busy: not valid');
+AssertFalse(Condition := fbSync.bSynchronize, Message := 'busy: no sync');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Successful_Read_Synchronizes_Once" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a02}">
+      <Declaration><![CDATA[METHOD PRIVATE Successful_Read_Synchronizes_Once
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Successful_Read_Synchronizes_Once');
+fbSync(bBusy := TRUE, bError := FALSE);
+AssertFalse(Condition := fbSync.bSynchronize, Message := 'while busy: no sync yet');
+fbSync(bBusy := FALSE, bError := FALSE);
+AssertTrue(Condition := fbSync.bSynchronize, Message := 'busy fell without error: sync');
+AssertTrue(Condition := fbSync.bValid, Message := 'busy fell without error: valid');
+AssertEquals_UINT(Expected := 0, Actual := fbSync.nErrors, Message := 'no errors');
+fbSync(bBusy := FALSE, bError := FALSE);
+AssertFalse(Condition := fbSync.bSynchronize, Message := 'sync is a one-cycle pulse');
+AssertTrue(Condition := fbSync.bValid, Message := 'stays valid');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Failed_Read_Does_Not_Synchronize" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a03}">
+      <Declaration><![CDATA[METHOD PRIVATE Failed_Read_Does_Not_Synchronize
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Failed_Read_Does_Not_Synchronize');
+// this is the original bug: Busy falls while Err rises, and the stale time struct was loaded into the RTCs
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := TRUE);
+AssertFalse(Condition := fbSync.bSynchronize, Message := 'failed read: no sync');
+AssertFalse(Condition := fbSync.bValid, Message := 'failed first read: not valid');
+AssertEquals_UINT(Expected := 1, Actual := fbSync.nErrors, Message := 'one error counted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Held_While_Idle_Is_Counted_Once" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a04}">
+      <Declaration><![CDATA[METHOD PRIVATE Error_Held_While_Idle_Is_Counted_Once
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Held_While_Idle_Is_Counted_Once');
+// NT_GetTime keeps Err TRUE until the next start; that must not count as new errors or new syncs
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := TRUE);
+FOR i := 1 TO 10 DO
+	fbSync(bBusy := FALSE, bError := TRUE);
+	AssertFalse(Condition := fbSync.bSynchronize, Message := 'idle with Err held: no sync');
+END_FOR
+AssertEquals_UINT(Expected := 1, Actual := fbSync.nErrors, Message := 'still one error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Recovers_After_Failed_First_Read" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a05}">
+      <Declaration><![CDATA[METHOD PRIVATE Recovers_After_Failed_First_Read
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Recovers_After_Failed_First_Read');
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := TRUE);
+// next read: the start clears Err, the read succeeds
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := FALSE);
+AssertTrue(Condition := fbSync.bSynchronize, Message := 'second read: sync');
+AssertTrue(Condition := fbSync.bValid, Message := 'second read: valid');
+AssertEquals_UINT(Expected := 0, Actual := fbSync.nErrors, Message := 'error count cleared');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Valid_Survives_Transient_Errors" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a06}">
+      <Declaration><![CDATA[METHOD PRIVATE Valid_Survives_Transient_Errors
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Valid_Survives_Transient_Errors');
+// default nMaxErrors is 3: two failed reads after a good one leave the RTCs 10 s old, still good
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := FALSE);
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := TRUE);
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := TRUE);
+AssertFalse(Condition := fbSync.bSynchronize, Message := 'failed reads do not sync');
+AssertTrue(Condition := fbSync.bValid, Message := 'valid after 2 errors');
+AssertEquals_UINT(Expected := 2, Actual := fbSync.nErrors, Message := 'two errors counted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Invalid_After_Too_Many_Errors" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a07}">
+      <Declaration><![CDATA[METHOD PRIVATE Invalid_After_Too_Many_Errors
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Invalid_After_Too_Many_Errors');
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := FALSE);
+FOR i := 1 TO 3 DO
+	fbSync(bBusy := TRUE, bError := FALSE, nMaxErrors := 3);
+	fbSync(bBusy := FALSE, bError := TRUE, nMaxErrors := 3);
+END_FOR
+AssertFalse(Condition := fbSync.bValid, Message := 'not valid after 3 errors in a row');
+AssertEquals_UINT(Expected := 3, Actual := fbSync.nErrors, Message := 'three errors counted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Success_Resets_Error_Count" Id="{6c1d2a10-3f43-4a51-8f0a-0d7e2c0b9a08}">
+      <Declaration><![CDATA[METHOD PRIVATE Success_Resets_Error_Count
+VAR
+	fbSync	: BROTLib.FB_AstroClockSync;
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Success_Resets_Error_Count');
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := FALSE);
+FOR i := 1 TO 3 DO
+	fbSync(bBusy := TRUE, bError := FALSE);
+	fbSync(bBusy := FALSE, bError := TRUE);
+END_FOR
+// the link comes back
+fbSync(bBusy := TRUE, bError := FALSE);
+fbSync(bBusy := FALSE, bError := FALSE);
+AssertTrue(Condition := fbSync.bSynchronize, Message := 'sync after recovery');
+AssertTrue(Condition := fbSync.bValid, Message := 'valid again');
+AssertEquals_UINT(Expected := 0, Actual := fbSync.nErrors, Message := 'error count cleared');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

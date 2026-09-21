@@ -5,6 +5,8 @@
 VAR_INPUT
 END_VAR
 VAR_OUTPUT
+        bValid          : BOOL;         // FALSE until the first successful sync, and after too many failed ones in a row
+        nSyncErrors     : UINT;         // failed syncs in a row
         time_RTCEX      : DT;
         time_RTCEX2     : TIMESTRUCT;
         nMilliseconds   : DWORD;
@@ -18,7 +20,7 @@ VAR
         presetTime      : TIMESTRUCT;
 
         syncTimer       : TON;
-        syncTrigger     : F_TRIG;
+        fbSync          : FB_AstroClockSync;
         bSynchronize    : BOOL;
 
         fbRTC           : RTC;
@@ -56,13 +58,17 @@ fbGetLocalTime(START := syncTimer.Q,
 	ERRID => nErrID,
 	TIMESTR => presetTime);
 
-syncTrigger(CLK := bBusy AND NOT bError, Q => bSynchronize);
+// the RTCs are loaded only after a successful read; bValid tells callers whether time_RTCEX2 can be used
+fbSync(bBusy := bBusy, bError := bError,
+	bSynchronize => bSynchronize,
+	bValid => bValid,
+	nErrors => nSyncErrors);
 
 fbRTC(EN := bSynchronize,
 	PDT := SYSTEMTIME_TO_DT(presetTime),
 	Q => bValid_RTC,
 	CDT => time_RTC);
-	
+
 fbRTC_EX(EN := bSynchronize,
 	PDT := SYSTEMTIME_TO_DT(presetTime),
 	PMSEK := presetTime.wMilliseconds,
@@ -78,8 +84,5 @@ fbRTC_EX2(EN := bSynchronize,
 	CMICRO => nMicroseconds);
 ]]></ST>
     </Implementation>
-    <LineIds Name="FB_AstroClock">
-      <LineId Id="1" Count="43" />
-    </LineIds>
   </POU>
 </TcPlcObject>

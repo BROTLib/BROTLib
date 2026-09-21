@@ -10,6 +10,7 @@ VAR
 	fbTrackingTests			: FB_Tracking_Tests;
 	fbPointingModelTests	: FB_PointingModel_Tests;
 	fbBlinkTests			: FB_Blink_Tests;
+	fbAstroClockSyncTests	: FB_AstroClockSync_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

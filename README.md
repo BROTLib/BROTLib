@@ -208,8 +208,9 @@ published at 1 s while slewing/tracking and 5 s when idle.
 
 ### Utilities and timing
 
-- **`FB_AstroClock`** — sub-millisecond time synchronisation for the PLC
-  (astronomical timing accuracy).
+- **`FB_AstroClock`** — RTC for the PLC, resynchronised from the system time every 5 s over ADS
+  (`FB_AstroClockSync` decides when to sync). `bValid` is FALSE until the first successful sync
+  and after 3 failed syncs in a row; check it before using `time_RTCEX2`.
 - **`FB_BLINK` / `E_Blink`** — lamp/blink pattern generation for HMI lamps.
 - **`FB_ButtonEnable`** — button debounce/enable logic for panels.
 - **`FB_Horn` / `E_Horn`** — warning-horn control.
@@ -283,9 +284,9 @@ TwinCAT OS (ARM/x64) all build on this library.
 
 ## Testing
 
-`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (32 test cases:
+`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (40 test cases:
 Influx value typing and escaping, `F_YREAL`, the tracking velocity and derotator functions, the pointing model and
-its inversion, `FB_BLINK`). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the
+its inversion, `FB_BLINK`, the sync logic of `FB_AstroClock`). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the
 user-mode runtime, because the 4024 real-time runtime does not run there. Setup, the one-command run and the known
 gaps are in [BROTLibTests/README.md](BROTLibTests/README.md). Not yet wired into CI: the runtime needs a license
 that cannot be renewed unattended.
