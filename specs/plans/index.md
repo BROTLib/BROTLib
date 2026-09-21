@@ -8,6 +8,10 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   a live version GVL stamped from git as a secondary win) for the custom TwinCAT libraries; prior
   remote-XAE runner attempt failed on VS automation-interface gaps (why `ironplc` work exists).
   **proposed** — blocked on a dedicated Windows machine
+- [2026-09-21-typed-influx-publishers.md](2026-09-21-typed-influx-publishers.md) —
+  typed Influx publishers (`PublishLREAL`/`INT`/`BOOL`/`String`) to fix the integer/float flip left open in
+  BROTLib#4: survey of about 550 call sites, the constraint of the field types already in InfluxDB, phased migration.
+  **proposed**, nothing implemented
 - [2026-09-20-code-review.md](2026-09-20-code-review.md) —
   full code review of BROTLib (bugs, security, design, CI/release). **draft**, no finding fixed yet;
   `BROTLibTests` added. Checked with Python ports against `erfa` where possible (`testing/`), TcUnit tests
