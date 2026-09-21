@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <FileVersion>1.0.0.0</FileVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{1dfe3da5-898f-4359-98a4-c52a0c3d77e9}</ProjectGuid>
+    <SubObjectsSortedByName>True</SubObjectsSortedByName>
+    <DownloadApplicationInfo>true</DownloadApplicationInfo>
+    <WriteProductVersion>true</WriteProductVersion>
+    <GenerateTpy>false</GenerateTpy>
+    <Name>BROTLibTests</Name>
+    <ProgramVersion>3.1.4024.66</ProgramVersion>
+    <Application>{ef93a0af-1642-4a98-bebf-360494620373}</Application>
+    <TypeSystem>{5948c7ee-1de6-4790-90ca-fe69a31714fe}</TypeSystem>
+    <Implicit_Task_Info>{b4a4a32d-04e5-427d-a443-59573f29cd07}</Implicit_Task_Info>
+    <Implicit_KindOfTask>{a5118b57-c182-442f-a485-e0651ab8c51c}</Implicit_KindOfTask>
+    <Implicit_Jitter_Distribution>{21d31e50-e6ac-4a00-b57f-09044d49f926}</Implicit_Jitter_Distribution>
+    <LibraryReferences>{01fbdffe-d3c1-42c1-a991-3fcf2bae9b9f}</LibraryReferences>
+    <Company>BROT</Company>
+    <Title>BROTLibTests</Title>
+    <ProjectVersion>0.1.0</ProjectVersion>
+    <Released>false</Released>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PlcTask.TcTTO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_Blink_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_BlinkTimingProbe.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_EscapeInfluxString_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_IsNumericValue_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_PointingModel_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_Tracking_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_YREAL_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\MAIN.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="POUs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PlaceholderReference Include="BROTLib">
+      <DefaultResolution>BROTLib, * (BROT)</DefaultResolution>
+      <Namespace>BROTLib</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_Standard">
+      <DefaultResolution>Tc2_Standard, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_Standard</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_System">
+      <DefaultResolution>Tc2_System, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_System</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_Utilities">
+      <DefaultResolution>Tc2_Utilities, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_Utilities</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc3_Module">
+      <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc3_Module</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="TcUnit">
+      <DefaultResolution>TcUnit, * (www.tcunit.org)</DefaultResolution>
+      <Namespace>TcUnit</Namespace>
+      <Parameters>
+        <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
+          <Key>MAXNUMBEROFTESTSUITES</Key>
+          <Value>32</Value>
+        </Parameter>
+        <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
+          <Key>MAXNUMBEROFTESTSFOREACHTESTSUITE</Key>
+          <Value>32</Value>
+        </Parameter>
+        <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
+          <Key>MAXNUMBEROFASSERTSFOREACHTESTSUITE</Key>
+          <Value>256</Value>
+        </Parameter>
+      </Parameters>
+    </PlaceholderReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="BROTLibTests.tmc">
+      <SubType>Content</SubType>
+    </None>
+  </ItemGroup>
+  <ProjectExtensions>
+    <PlcProjectOptions>
+      <XmlArchive>
+        <Data>
+          <o xml:space="preserve" t="OptionKey">
+            <v n="Name">"&lt;ProjectRoot&gt;"</v>
+            <d n="SubKeys" t="Hashtable" ckt="String" cvt="OptionKey">
+              <v>{8F99A816-E488-41E4-9FA3-846536012284}</v>
+              <o>
+                <v n="Name">"{8F99A816-E488-41E4-9FA3-846536012284}"</v>
+                <d n="SubKeys" t="Hashtable" />
+                <d n="Values" t="Hashtable" ckt="String" cvt="String">
+                  <v>DisabledWarningIds</v>
+                  <v>5410</v>
+                </d>
+              </o>
+              <v>{8A0FB252-96EB-4DCC-A5B4-B4804D05E2D6}</v>
+              <o>
+                <v n="Name">"{8A0FB252-96EB-4DCC-A5B4-B4804D05E2D6}"</v>
+                <d n="SubKeys" t="Hashtable" />
+                <d n="Values" t="Hashtable" ckt="String" cvt="Boolean">
+                  <v>WriteLineIDs</v>
+                  <v>True</v>
+                </d>
+              </o>
+            </d>
+            <d n="Values" t="Hashtable" />
+          </o>
+        </Data>
+        <TypeList>
+          <Type n="Boolean">System.Boolean</Type>
+          <Type n="Hashtable">System.Collections.Hashtable</Type>
+          <Type n="OptionKey">{54dd0eac-a6d8-46f2-8c27-2f43c7e49861}</Type>
+          <Type n="String">System.String</Type>
+        </TypeList>
+      </XmlArchive>
+    </PlcProjectOptions>
+  </ProjectExtensions>
+</Project>

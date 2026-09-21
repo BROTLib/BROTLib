@@ -81,6 +81,12 @@ BROTLib/
 │   │                            # FB_BLINK, FB_ButtonEnable, FB_LightTimer,
 │   │                            # FB_TONTP, F_YREAL, NCError_TO_STRING
 │   └── _Libraries/              # Resolved library references
+├── BROTLibTests/                # TcUnit tests (separate solution, see its README)
+│   ├── BROTLibTests.sln
+│   ├── BROTLibTests/            # BROTLibTests.tsproj and the PLC project (POUs/FB_*_Tests)
+│   ├── tools/                   # Install-TcUnit.ps1, Run-Tests.ps1
+│   └── vendor/tcunit.library    # TcUnit 1.2.0.0
+├── testing/                     # Python checks and golden_vectors.py (source of the test values)
 ├── specs/                       # Specification documents (ADR / design / plans)
 │   ├── adrs/index.md            # Architecture decision records
 │   ├── design/index.md          # Design docs (repository structure, tracking, ScopeView .svdx format, ...)
@@ -274,3 +280,12 @@ with 3.1.4026.x — the project was created on Build 4024 and is edited on
 and referenced from the application projects' `_Libraries/` folders.
 Application projects targeting TwinCAT RT (x86/x64), TwinCAT CE7 (ARMv7) and
 TwinCAT OS (ARM/x64) all build on this library.
+
+## Testing
+
+`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (32 test cases:
+Influx value typing and escaping, `F_YREAL`, the tracking velocity and derotator functions, the pointing model and
+its inversion, `FB_BLINK`). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the
+user-mode runtime, because the 4024 real-time runtime does not run there. Setup, the one-command run and the known
+gaps are in [BROTLibTests/README.md](BROTLibTests/README.md). Not yet wired into CI: the runtime needs a license
+that cannot be renewed unattended.

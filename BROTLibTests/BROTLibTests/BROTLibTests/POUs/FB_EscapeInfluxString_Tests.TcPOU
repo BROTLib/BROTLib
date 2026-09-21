@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_EscapeInfluxString_Tests" Id="{4f29c869-5dc6-4218-b00b-4589fd8ef78b}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_EscapeInfluxString: inside a quoted InfluxDB string field only " and \ need escaping.
+FUNCTION_BLOCK FB_EscapeInfluxString_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Leaves_Plain_Text_Unchanged();
+Escapes_Double_Quotes();
+Escapes_Backslashes();
+Doubles_Length_Of_All_Quote_Input();
+]]></ST>
+    </Implementation>
+    <Method Name="Check" Id="{18aac8b6-e713-41ec-a2ef-e1a812599487}">
+      <Declaration><![CDATA[METHOD PRIVATE Check
+VAR_INPUT
+	sInput		: STRING(255);
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_EscapeInfluxString(sValue := sInput),
+	Message := CONCAT('F_EscapeInfluxString on input: ', sInput));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Leaves_Plain_Text_Unchanged" Id="{3fc3e8cd-df86-4460-9a20-5cdbe7683229}">
+      <Declaration><![CDATA[METHOD PRIVATE Leaves_Plain_Text_Unchanged
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Leaves_Plain_Text_Unchanged');
+Check(sInput := '', sExpected := '');
+Check(sInput := 'plain text', sExpected := 'plain text');
+Check(sInput := 'a,b=c d', sExpected := 'a,b=c d');
+Check(sInput := 'temp 21.5 C', sExpected := 'temp 21.5 C');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Escapes_Double_Quotes" Id="{f6adfde5-c44c-4d38-8678-6dc528e65a68}">
+      <Declaration><![CDATA[METHOD PRIVATE Escapes_Double_Quotes
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Escapes_Double_Quotes');
+Check(sInput := '"', sExpected := '\"');
+Check(sInput := 'say "hi"', sExpected := 'say \"hi\"');
+Check(sInput := '""', sExpected := '\"\"');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Escapes_Backslashes" Id="{e4c6f57d-3cf4-497e-bb3e-f2223e0bf0cb}">
+      <Declaration><![CDATA[METHOD PRIVATE Escapes_Backslashes
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Escapes_Backslashes');
+Check(sInput := '\', sExpected := '\\');
+Check(sInput := 'C:\temp', sExpected := 'C:\\temp');
+// a backslash followed by a quote: both characters are escaped independently
+Check(sInput := '\"', sExpected := '\\\"');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Doubles_Length_Of_All_Quote_Input" Id="{a7d1c9f2-5b34-4e08-8c6d-2f9e1b7a3d40}">
+      <Declaration><![CDATA[METHOD PRIVATE Doubles_Length_Of_All_Quote_Input
+VAR
+	sInput	: STRING(255);
+	sOut	: STRING(255);
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Doubles_Length_Of_All_Quote_Input');
+sInput := '';
+FOR i := 1 TO 100 DO
+	sInput := CONCAT(sInput, '"');
+END_FOR
+sOut := BROTLib.F_EscapeInfluxString(sValue := sInput);
+AssertEquals_INT(Expected := 200, Actual := LEN(sOut), Message := '100 quotes must become 100 escaped pairs');
+AssertEquals_STRING(Expected := '\"\"', Actual := LEFT(sOut, 4), Message := 'every quote is preceded by one backslash');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

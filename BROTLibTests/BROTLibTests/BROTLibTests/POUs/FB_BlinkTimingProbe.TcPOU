@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_BlinkTimingProbe" Id="{9c4e2b71-3a58-4d06-b1f7-e82a5d6c0f93}" SpecialFunc="None">
+    <Declaration><![CDATA[// Test helper: drives one FB_BLINK in the given mode and measures, in real time, how long Q stays high after the
+// first call (tHigh) and how long it then stays low (tLow). Call it every cycle; bDone is set when both are known,
+// or when nothing happened within tTimeout (bTimedOut).
+FUNCTION_BLOCK FB_BlinkTimingProbe
+VAR_INPUT
+	eMode		: BROTLib.E_Blink;
+END_VAR
+VAR_OUTPUT
+	bDone		: BOOL;
+	bTimedOut	: BOOL;
+	tHigh		: TIME;
+	tLow		: TIME;
+END_VAR
+VAR
+	fbBlink		: BROTLib.FB_BLINK;
+	nState		: INT := 0;
+	tStart		: TIME;
+	tEdge		: TIME;
+END_VAR
+VAR CONSTANT
+	tTimeout	: TIME := T#4S;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF bDone THEN
+	RETURN;
+END_IF
+
+fbBlink(blink := eMode);
+
+CASE nState OF
+	0:	// first call: Q is high from here on
+		tStart := TIME();
+		nState := 1;
+	1:	// wait for the falling edge
+		IF NOT fbBlink.Q THEN
+			tEdge := TIME();
+			tHigh := tEdge - tStart;
+			nState := 2;
+		END_IF
+	2:	// wait for the next rising edge
+		IF fbBlink.Q THEN
+			tLow := TIME() - tEdge;
+			bDone := TRUE;
+		END_IF
+END_CASE
+
+IF NOT bDone AND (TIME() - tStart) > tTimeout THEN
+	bTimedOut := TRUE;
+	bDone := TRUE;
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

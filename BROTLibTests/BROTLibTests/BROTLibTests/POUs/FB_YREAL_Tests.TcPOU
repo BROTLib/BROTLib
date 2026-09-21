@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_YREAL_Tests" Id="{534bb66f-35c7-4ef4-a63d-6a65ae31c59c}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_YREAL, the linear scaling helper.
+// Not covered on purpose: an inverted output range (fYmin > fYmax) with cut = TRUE, which returns a constant
+// (code review L2). A test asserting the correct mapping would fail until that is fixed.
+FUNCTION_BLOCK FB_YREAL_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Default_Range_Maps_Raw_To_Unit();
+Scales_To_Engineering_Range();
+Clamps_Unless_Cut_Is_False();
+Zero_Width_Input_Range_Returns_Zero();
+]]></ST>
+    </Implementation>
+    <Method Name="CheckNear" Id="{ae40dec4-5f91-4283-b12b-0af297a8bbb3}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckNear
+VAR_INPUT
+	fExpected	: REAL;
+	fActual		: REAL;
+	fDelta		: REAL;
+	sName		: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_REAL(Expected := fExpected, Actual := fActual, Delta := fDelta, Message := sName);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Default_Range_Maps_Raw_To_Unit" Id="{b37e614f-5289-4900-ac78-b2ae1359ea5f}">
+      <Declaration><![CDATA[METHOD PRIVATE Default_Range_Maps_Raw_To_Unit
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Default_Range_Maps_Raw_To_Unit');
+// defaults: 0..32767 -> 0..1
+CheckNear(0.0, BROTLib.F_YREAL(fX := 0.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'raw 0 -> 0');
+CheckNear(1.0, BROTLib.F_YREAL(fX := 32767.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'raw 32767 -> 1');
+CheckNear(0.5, BROTLib.F_YREAL(fX := 16383.5, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'raw mid-scale -> 0.5');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Scales_To_Engineering_Range" Id="{1f87076b-97b8-42b1-b377-96b9a3c839ae}">
+      <Declaration><![CDATA[METHOD PRIVATE Scales_To_Engineering_Range
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Scales_To_Engineering_Range');
+// a 4..20 mA style input
+CheckNear(4.0, BROTLib.F_YREAL(fX := 0.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 4.0, fYmax := 20.0, cut := TRUE), 1.0E-5, '4..20: raw 0 -> 4');
+CheckNear(20.0, BROTLib.F_YREAL(fX := 32767.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 4.0, fYmax := 20.0, cut := TRUE), 1.0E-5, '4..20: raw 32767 -> 20');
+CheckNear(12.0, BROTLib.F_YREAL(fX := 16383.5, fXmin := 0.0, fXmax := 32767.0, fYmin := 4.0, fYmax := 20.0, cut := TRUE), 1.0E-4, '4..20: mid-scale -> 12');
+// symmetric ranges on both sides
+CheckNear(0.0, BROTLib.F_YREAL(fX := 0.0, fXmin := -10.0, fXmax := 10.0, fYmin := -1.0, fYmax := 1.0, cut := TRUE), 1.0E-6, '-10..10 -> -1..1: 0 -> 0');
+CheckNear(0.5, BROTLib.F_YREAL(fX := 5.0, fXmin := -10.0, fXmax := 10.0, fYmin := -1.0, fYmax := 1.0, cut := TRUE), 1.0E-6, '-10..10 -> -1..1: 5 -> 0.5');
+CheckNear(-1.0, BROTLib.F_YREAL(fX := -10.0, fXmin := -10.0, fXmax := 10.0, fYmin := -1.0, fYmax := 1.0, cut := TRUE), 1.0E-6, '-10..10 -> -1..1: -10 -> -1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Clamps_Unless_Cut_Is_False" Id="{7836924e-e853-4b5b-87d4-a34bb938abc4}">
+      <Declaration><![CDATA[METHOD PRIVATE Clamps_Unless_Cut_Is_False
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Clamps_Unless_Cut_Is_False');
+// cut defaults to TRUE
+CheckNear(1.0, BROTLib.F_YREAL(fX := 40000.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'above range is clamped to the maximum');
+CheckNear(0.0, BROTLib.F_YREAL(fX := -100.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'below range is clamped to the minimum');
+CheckNear(20.0, BROTLib.F_YREAL(fX := 40000.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 4.0, fYmax := 20.0, cut := TRUE), 1.0E-5, 'clamping works with an offset range');
+// cut = FALSE extrapolates linearly
+CheckNear(2.0, BROTLib.F_YREAL(fX := 65534.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := FALSE), 1.0E-5, 'unclamped: twice full scale -> 2');
+CheckNear(-1.0, BROTLib.F_YREAL(fX := -32767.0, fXmin := 0.0, fXmax := 32767.0, fYmin := 0.0, fYmax := 1.0, cut := FALSE), 1.0E-5, 'unclamped: minus full scale -> -1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Zero_Width_Input_Range_Returns_Zero" Id="{c2b8e5a1-9d47-4f36-a0e8-71d3f4b6c925}">
+      <Declaration><![CDATA[METHOD PRIVATE Zero_Width_Input_Range_Returns_Zero
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Zero_Width_Input_Range_Returns_Zero');
+// fXmax = fXmin would divide by zero; the function guards against it and leaves the result at 0
+CheckNear(0.0, BROTLib.F_YREAL(fX := 5.0, fXmin := 1.0, fXmax := 1.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'fXmax = fXmin -> 0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
