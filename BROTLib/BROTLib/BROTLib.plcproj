@@ -116,7 +116,16 @@
     <Compile Include="POUs\Comm\F_EscapeInfluxString.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Comm\F_EscapeInfluxTag.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_InfluxFieldValue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Comm\F_IsNumericValue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_TruncateInfluxEscaped.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Comm\I_Comm.TcIO">

@@ -70,7 +70,7 @@ not measured.* It is the only time source for pointing and tracking (MONETcommon
 - README calls this "sub-millisecond synchronisation". It resyncs every 5 s over ADS and copies whatever the
   service returns. It also runs `RTC`, `RTC_EX` and `RTC_EX2` side by side, and only the last is used.
 
-**M2. Influx line-protocol typing loses data.** *Verified (port) for the string logic; what `LREAL_TO_STRING`
+**M2. Influx line-protocol typing loses data.** *(#4, partly fixed: exponents are sent as floats, a line that does not fit the 255 character buffer is no longer published (`Publish` counts it in `dropped`; `PublishLog` shortens the message and keeps the closing quote), and tag values and the field key are escaped. Still open: a field flips between integer and float when its text flips between `15` and `15.5`; that needs typed publishers. Covered by `FB_InfluxLineProtocol_Tests`.)* *Verified (port) for the string logic; what `LREAL_TO_STRING`
 prints is from memory.* Every telemetry value is converted to a string and re-classified in `Publish` by
 `F_IsNumericValue` and "has no `.`, so append `i`".
 - The same field flips between integer and float depending on its value. `LREAL_TO_STRING(15.0)` prints `15`

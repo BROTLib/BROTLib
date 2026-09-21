@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_EscapeInfluxTag" Id="{3bd8e8e0-1293-46f2-89f3-1d4c56151815}" SpecialFunc="None">
+    <Declaration><![CDATA[// Escapes a tag value or a field key for InfluxDB line protocol: a comma, a space and (unless it is a measurement
+// name, where '=' needs no escape) an equals sign get a leading backslash. Without it a space in e.g. the host
+// name ends the tag set and breaks the line.
+FUNCTION F_EscapeInfluxTag : STRING(255)
+VAR_INPUT
+	sValue			: STRING(255);
+	bEscapeEquals	: BOOL;		// TRUE for tag values and field keys, FALSE for a measurement name
+END_VAR
+VAR
+	i, nLen		: INT;
+	c			: STRING(1);
+	sOut		: STRING(255) := '';
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[nLen := LEN(sValue);
+FOR i := 1 TO nLen DO
+	c := MID(sValue, 1, i);
+	IF c = ',' OR c = ' ' OR (c = '=' AND bEscapeEquals) THEN
+		sOut := CONCAT(sOut, CONCAT('\', c));
+	ELSE
+		sOut := CONCAT(sOut, c);
+	END_IF
+END_FOR
+
+F_EscapeInfluxTag := sOut;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

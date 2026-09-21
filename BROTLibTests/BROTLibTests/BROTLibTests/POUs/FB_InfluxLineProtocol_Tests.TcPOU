@@ -1,0 +1,247 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_InfluxLineProtocol_Tests" Id="{ea30723a-cebb-49b0-9f80-d4500a2c4800}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for the InfluxDB line protocol helpers behind FB_Comm_MQTT_Influx.Publish / PublishLog (BROTLib issue #4):
+// F_InfluxFieldValue (integer / float / boolean / quoted string), F_EscapeInfluxTag (tag values, field keys, measurement
+// names) and F_TruncateInfluxEscaped (cut an escaped string without splitting an escape pair).
+FUNCTION_BLOCK FB_InfluxLineProtocol_Tests EXTENDS TcUnit.FB_TestSuite
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Integers_Get_Trailing_i();
+Decimals_Stay_Floats();
+Exponents_Are_Floats_Not_Integers();
+Booleans_Are_Not_Quoted();
+Text_Is_Quoted_And_Escaped();
+Near_Numbers_Are_Text();
+Tag_Plain_Text_Unchanged();
+Tag_Escapes_Space_Comma_And_Equals();
+Measurement_Name_Keeps_Equals();
+Truncate_Leaves_Short_Input();
+Truncate_Cuts_Plain_Text();
+Truncate_Does_Not_Split_Escape_Pairs();
+]]></ST>
+    </Implementation>
+    <Method Name="CheckValue" Id="{e7b124b1-8beb-4aa5-b737-6b188a6c52e4}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckValue
+VAR_INPUT
+	sInput		: STRING(255);
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_InfluxFieldValue(sValue := sInput),
+	Message := CONCAT('F_InfluxFieldValue on input: ', sInput));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckTag" Id="{ee0a812f-1503-4798-a09c-e3db1c4e1244}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckTag
+VAR_INPUT
+	sInput		: STRING(255);
+	bEquals		: BOOL;
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_EscapeInfluxTag(sValue := sInput, bEscapeEquals := bEquals),
+	Message := CONCAT('F_EscapeInfluxTag on input: ', sInput));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckTruncate" Id="{9a0840da-86f5-4bef-ad9d-fde9767d3c78}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckTruncate
+VAR_INPUT
+	sInput		: STRING(255);
+	nMax		: INT;
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_TruncateInfluxEscaped(sEscaped := sInput, nMaxLen := nMax),
+	Message := CONCAT('F_TruncateInfluxEscaped on input: ', sInput));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Integers_Get_Trailing_i" Id="{7c72d170-eb4c-44d6-b065-a597b9516bea}">
+      <Declaration><![CDATA[METHOD PRIVATE Integers_Get_Trailing_i
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Integers_Get_Trailing_i');
+CheckValue(sInput := '15', sExpected := '15i');
+CheckValue(sInput := '0', sExpected := '0i');
+CheckValue(sInput := '-3', sExpected := '-3i');
+CheckValue(sInput := '+7', sExpected := '+7i');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Decimals_Stay_Floats" Id="{c42bdd9b-2d6c-40d7-842e-e2454ee3ab9e}">
+      <Declaration><![CDATA[METHOD PRIVATE Decimals_Stay_Floats
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Decimals_Stay_Floats');
+CheckValue(sInput := '15.5', sExpected := '15.5');
+CheckValue(sInput := '-0.25', sExpected := '-0.25');
+CheckValue(sInput := '15.0', sExpected := '15.0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Exponents_Are_Floats_Not_Integers" Id="{89050e6a-d037-4cde-8ea2-d677a931f617}">
+      <Declaration><![CDATA[METHOD PRIVATE Exponents_Are_Floats_Not_Integers
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Exponents_Are_Floats_Not_Integers');
+// 1e5 has no '.', but '1e5i' is invalid line protocol (BROTLib issue #4)
+CheckValue(sInput := '1e5', sExpected := '1e5');
+CheckValue(sInput := '1E-05', sExpected := '1E-05');
+CheckValue(sInput := '2.5e3', sExpected := '2.5e3');
+CheckValue(sInput := '-4e+2', sExpected := '-4e+2');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Booleans_Are_Not_Quoted" Id="{092970a0-6bcd-4ee9-b7d2-0bc5e24b973a}">
+      <Declaration><![CDATA[METHOD PRIVATE Booleans_Are_Not_Quoted
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Booleans_Are_Not_Quoted');
+CheckValue(sInput := 'TRUE', sExpected := 'TRUE');
+CheckValue(sInput := 'false', sExpected := 'false');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Text_Is_Quoted_And_Escaped" Id="{c7a2c3b1-4396-43a1-9e32-58634e9998cf}">
+      <Declaration><![CDATA[METHOD PRIVATE Text_Is_Quoted_And_Escaped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Text_Is_Quoted_And_Escaped');
+CheckValue(sInput := 'abc', sExpected := '"abc"');
+CheckValue(sInput := '', sExpected := '""');
+CheckValue(sInput := 'say "hi"', sExpected := '"say \"hi\""');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Near_Numbers_Are_Text" Id="{693714ca-2bdc-41dc-b758-4f3108a4545f}">
+      <Declaration><![CDATA[METHOD PRIVATE Near_Numbers_Are_Text
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Near_Numbers_Are_Text');
+CheckValue(sInput := '1e', sExpected := '"1e"');
+CheckValue(sInput := '12abc', sExpected := '"12abc"');
+CheckValue(sInput := 'NaN', sExpected := '"NaN"');
+CheckValue(sInput := '1.2.3', sExpected := '"1.2.3"');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Tag_Plain_Text_Unchanged" Id="{5f640cf2-38cb-4e23-ae82-fb6ebebcb9a2}">
+      <Declaration><![CDATA[METHOD PRIVATE Tag_Plain_Text_Unchanged
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Tag_Plain_Text_Unchanged');
+CheckTag(sInput := '', bEquals := TRUE, sExpected := '');
+CheckTag(sInput := 'CX-4E6032', bEquals := TRUE, sExpected := 'CX-4E6032');
+CheckTag(sInput := 'environment', bEquals := FALSE, sExpected := 'environment');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Tag_Escapes_Space_Comma_And_Equals" Id="{ff3b244a-2347-468c-aead-17fcb19c00da}">
+      <Declaration><![CDATA[METHOD PRIVATE Tag_Escapes_Space_Comma_And_Equals
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Tag_Escapes_Space_Comma_And_Equals');
+CheckTag(sInput := 'CX 4E', bEquals := TRUE, sExpected := 'CX\ 4E');
+CheckTag(sInput := 'a,b', bEquals := TRUE, sExpected := 'a\,b');
+CheckTag(sInput := 'k=v', bEquals := TRUE, sExpected := 'k\=v');
+CheckTag(sInput := 'CX 4E,60=32', bEquals := TRUE, sExpected := 'CX\ 4E\,60\=32');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Measurement_Name_Keeps_Equals" Id="{ddfddb52-2846-4f6d-b275-785c1070990f}">
+      <Declaration><![CDATA[METHOD PRIVATE Measurement_Name_Keeps_Equals
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Measurement_Name_Keeps_Equals');
+// a measurement name only needs its space and comma escaped
+CheckTag(sInput := 'a=b c,d', bEquals := FALSE, sExpected := 'a=b\ c\,d');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Truncate_Leaves_Short_Input" Id="{b85b9e6a-c8ff-402a-9286-ff7273f74ef4}">
+      <Declaration><![CDATA[METHOD PRIVATE Truncate_Leaves_Short_Input
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Truncate_Leaves_Short_Input');
+CheckTruncate(sInput := 'abc', nMax := 3, sExpected := 'abc');
+CheckTruncate(sInput := 'abc', nMax := 10, sExpected := 'abc');
+CheckTruncate(sInput := '', nMax := 5, sExpected := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Truncate_Cuts_Plain_Text" Id="{b08d8163-e0d3-4cea-bd9d-6807e2c405c7}">
+      <Declaration><![CDATA[METHOD PRIVATE Truncate_Cuts_Plain_Text
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Truncate_Cuts_Plain_Text');
+CheckTruncate(sInput := 'abcdef', nMax := 4, sExpected := 'abcd');
+CheckTruncate(sInput := 'abcdef', nMax := 0, sExpected := '');
+CheckTruncate(sInput := 'abcdef', nMax := -2, sExpected := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Truncate_Does_Not_Split_Escape_Pairs" Id="{d5ec6476-4783-4471-9593-d0649d112aac}">
+      <Declaration><![CDATA[METHOD PRIVATE Truncate_Does_Not_Split_Escape_Pairs
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Truncate_Does_Not_Split_Escape_Pairs');
+// a lone trailing backslash would escape the closing quote of the string field
+CheckTruncate(sInput := 'ab\"cd', nMax := 3, sExpected := 'ab');
+CheckTruncate(sInput := 'ab\"cd', nMax := 4, sExpected := 'ab\"');
+CheckTruncate(sInput := 'a\\b', nMax := 2, sExpected := 'a');
+CheckTruncate(sInput := 'a\\b', nMax := 3, sExpected := 'a\\');
+// three backslashes: an escaped backslash and the start of an escaped quote
+CheckTruncate(sInput := 'x\\\"y', nMax := 4, sExpected := 'x\\');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -10,6 +10,7 @@ VAR
 	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
 	sent		: INT := 0;
+	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -139,39 +140,48 @@ VAR
 	nErrID			: UDINT;
 	retain_message	: BOOL := FALSE;
 	bIsBool			: BOOL;
-	bIsNumeric		: BOOL;
-	bIsInteger		: BOOL;
+	sDomain			: STRING(255);
+	sLocation		: STRING(255);
+	sHost			: STRING(255);
+	sKey			: STRING(255);
 	sFieldVal		: STRING(255);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
-// classify the value so it is written as the correct line protocol type
-bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
-bIsNumeric := F_IsNumericValue(value);
-// an integer field has no decimal point; line protocol requires a trailing 'i' for those
-bIsInteger := bIsNumeric AND (FIND(value, '.') = 0);
-
-IF bIsInteger THEN
-	sFieldVal := CONCAT(value, 'i');
-ELSIF bIsBool OR bIsNumeric THEN
-	sFieldVal := value;
-ELSE
-	sFieldVal := CONCAT('"', CONCAT(F_EscapeInfluxString(value), '"'));
-END_IF
+// tag values and the field key are escaped (a space or comma in the host name would break the line); the field
+// value is typed by F_InfluxFieldValue: integer 'i', float, boolean or quoted string
+sDomain := F_EscapeInfluxTag(domain, FALSE);
+sLocation := F_EscapeInfluxTag(location, TRUE);
+sHost := F_EscapeInfluxTag(HostName, TRUE);
+sKey := F_EscapeInfluxTag(parameter, TRUE);
+sFieldVal := F_InfluxFieldValue(value);
 
 fbFormat(
 	sFormat 	:= '%s,location=%s,host=%s %s=%s',
-	arg1 		:= F_STRING(domain),
-	arg2 		:= F_STRING(location),
-	arg3 		:= F_STRING(HostName),
-	arg4 		:= F_STRING(parameter),
+	arg1 		:= F_STRING(sDomain),
+	arg2 		:= F_STRING(sLocation),
+	arg3 		:= F_STRING(sHost),
+	arg4 		:= F_STRING(sKey),
 	arg5 		:= F_STRING(sFieldVal),
 	sOut 		=> sPayloadPub,
 	bError 		=> bError,
 	nErrID 		=> nErrID
 );
 
+// a line that did not fit the buffer is cut off and would be invalid (or wrong): do not publish it
+IF bError OR LEN(sPayloadPub) >= 255 THEN
+	published := FALSE;
+	IF dropped < 32767 THEN
+		dropped := dropped + 1;
+	END_IF
+	IF dropped = 1 OR (dropped MOD 100) = 0 THEN
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'Influx line too long, not published: %s', parameter);
+	END_IF
+	RETURN;
+END_IF
+
 // retain message if value is boolean
+bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
 retain_message := bIsBool;
 
 published := fbMqttClient.Publish(
@@ -198,23 +208,39 @@ VAR
 	bError			: BOOL;
 	nErrID			: UDINT;
 	sEscapedMessage	: STRING(255);
+	sHost			: STRING(255);
+	sLevel			: STRING(255);
+	nMaxMessage		: INT;
 END_VAR
 VAR_OUTPUT
 	published	: BOOL;
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
+sHost := F_EscapeInfluxTag(HostName, TRUE);
+sLevel := F_EscapeInfluxTag(level, TRUE);
 sEscapedMessage := F_EscapeInfluxString(message);
+
+// a long message is shortened so that the line fits the 255 character buffer and its closing quote is kept:
+// 255 minus 'log,host=' (9), ',level=' (7), ' message="' (10) and the closing '"' (1)
+nMaxMessage := 255 - 27 - LEN(sHost) - LEN(sLevel);
+sEscapedMessage := F_TruncateInfluxEscaped(sEscapedMessage, nMaxMessage);
 
 fbFormat(
 	sFormat := 'log,host=%s,level=%s message="%s"',
-	arg1 	:= F_STRING(HostName),
-	arg2 	:= F_STRING(level),
+	arg1 	:= F_STRING(sHost),
+	arg2 	:= F_STRING(sLevel),
 	arg3 	:= F_STRING(sEscapedMessage),
 	sOut 	=> sPayloadPub,
 	bError 	=> bError,
 	nErrID 	=> nErrID
 );
+
+// still too long (very long host name or level): publish nothing rather than a broken line
+IF bError OR LEN(sPayloadPub) >= 255 THEN
+	published := FALSE;
+	RETURN;
+END_IF
 
 published := fbMqttClient.Publish(	
 	sTopic			:= sTopicLog, 

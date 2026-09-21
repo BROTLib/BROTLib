@@ -286,9 +286,9 @@ TwinCAT OS (ARM/x64) all build on this library.
 
 ## Testing
 
-`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (40 test cases:
+`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (52 test cases:
 Influx value typing and escaping, `F_YREAL`, the tracking velocity and derotator functions, the pointing model and
-its inversion, `FB_BLINK`, the sync logic of `FB_AstroClock`). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the
+its inversion, `FB_BLINK`, the sync logic of `FB_AstroClock`, the Influx line protocol helpers). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the
 user-mode runtime, because the 4024 real-time runtime does not run there. Setup, the one-command run and the known
 gaps are in [BROTLibTests/README.md](BROTLibTests/README.md). Not yet wired into CI: the runtime needs a license
 that cannot be renewed unattended.

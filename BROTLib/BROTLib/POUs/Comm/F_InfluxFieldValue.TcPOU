@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_InfluxFieldValue" Id="{a929eee7-5d0e-4386-9013-be1b1d82d107}" SpecialFunc="None">
+    <Declaration><![CDATA[// Field value as it is written in an InfluxDB line protocol line, decided from the text of the value:
+//   integer (no '.', no exponent)  -> trailing 'i'       15    -> 15i
+//   number with '.' or exponent    -> float, as is        15.5  -> 15.5,  1e5 -> 1e5
+//   TRUE / FALSE / true / false    -> boolean, as is
+//   anything else                  -> quoted, with " and \ escaped
+// Note that the same field flips between integer and float if its text flips between '15' and '15.5' (see
+// F_IsNumericValue); only a typed publisher would fix that.
+FUNCTION F_InfluxFieldValue : STRING(255)
+VAR_INPUT
+	sValue		: STRING(255);
+END_VAR
+VAR
+	bIsBool		: BOOL;
+	bIsNumeric	: BOOL;
+	bIsInteger	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[bIsBool := (sValue = 'TRUE') OR (sValue = 'FALSE') OR (sValue = 'true') OR (sValue = 'false');
+bIsNumeric := F_IsNumericValue(sValue);
+// 1e5 has no '.', but appending 'i' to it is invalid line protocol: a number with an exponent is a float
+bIsInteger := bIsNumeric AND (FIND(sValue, '.') = 0) AND (FIND(sValue, 'e') = 0) AND (FIND(sValue, 'E') = 0);
+
+IF bIsInteger THEN
+	F_InfluxFieldValue := CONCAT(sValue, 'i');
+ELSIF bIsBool OR bIsNumeric THEN
+	F_InfluxFieldValue := sValue;
+ELSE
+	F_InfluxFieldValue := CONCAT('"', CONCAT(F_EscapeInfluxString(sValue), '"'));
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
