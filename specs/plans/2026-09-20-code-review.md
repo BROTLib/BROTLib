@@ -1,6 +1,6 @@
 # Code review of BROTLib (develop @ 93b17fe)
 
-**Status: draft. Review finished, no fixes applied. Nothing here has been run on a PLC.**
+**Status: draft. Review finished; the body below describes `develop` at the review commit. No finding has been fixed yet. Since then generated build outputs stopped being tracked (`22cbc40`) and `BROTLibTests` (32 TcUnit cases for the pure functions, pointing model and `FB_BLINK`, `fd50848`) was added; it passes on the user-mode runtime. Nothing has been verified on a telescope. Open items: GitHub issues.**
 
 Reviewed at `develop` 93b17fe. `origin/main` is 3 commits ahead of `develop` and `develop` is 1 commit
 ahead of `main` (see M9).
