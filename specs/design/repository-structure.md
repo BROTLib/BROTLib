@@ -46,7 +46,6 @@ Provides the mathematical backbone for coordinate transformations and astronomic
 | `CT2LST` | Civil Time to Local Mean Sidereal Time |
 | `DateTime2JD` | TwinCAT TIMESTRUCT to Julian Date |
 | `ATAN2` | Four-quadrant arctangent |
-| `POLY` | Polynomial evaluation (4 coefficients) |
 | `TEN` | DMS to decimal degrees |
 | `CO_REFRACT_FORWARD` | Forward atmospheric refraction model |
 
