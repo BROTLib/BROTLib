@@ -9,11 +9,11 @@ VAR_GLOBAL CONSTANT
 	// Kept in sync with <ProjectVersion> in BROTLib.plcproj at release time.
 	stLibVersion_BROTLib : ST_LibVersion := (
 		iMajor := 0,
-		iMinor := 4,
-		iBuild := 2,
+		iMinor := 5,
+		iBuild := 0,
 		iRevision := 0,
 		nFlags := 1,
-		sVersion := '0.4.2'
+		sVersion := '0.5.0'
 	);
 END_VAR]]></Declaration>
   </GVL>
