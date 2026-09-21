@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_Blink_Tests" Id="{1d94b069-c195-418b-8198-58f5628736bf}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_BLINK (lamp/indicator flasher built from two TOF timers).
+//
+// The single-cycle tests check the mode logic. Timing_Follows_Mode runs all four blink modes side by side for
+// about a second and compares the measured high/low durations with a simulation of the exact TOF chain
+// (BROTLib/testing/check_blink_horn.py): at a 10 ms task cycle the steady state is ON + 10 ms high and
+// OFF + 20 ms low. The tolerance covers task jitter, which is larger on the user-mode runtime.
+//
+// FB_Horn is not covered: it never pauses (code review L1).
+FUNCTION_BLOCK FB_Blink_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	fbProbeSlow		: FB_BlinkTimingProbe;
+	fbProbeFast		: FB_BlinkTimingProbe;
+	fbProbeShort	: FB_BlinkTimingProbe;
+	fbProbeLong		: FB_BlinkTimingProbe;
+	bTimingChecked	: BOOL;
+END_VAR
+VAR CONSTANT
+	tTolerance		: TIME := T#60MS;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Off_And_On_Modes();
+Mode_Selects_On_And_Off_Times();
+Blink_Modes_Start_High();
+Timing_Follows_Mode();
+]]></ST>
+    </Implementation>
+    <Method Name="CheckTime" Id="{fec83e67-0985-42ce-81da-e08d5a83ead4}">
+      <Declaration><![CDATA[// Asserts that tActual is within tTolerance of tExpected; the failure message shows the measured value.
+METHOD PRIVATE CheckTime
+VAR_INPUT
+	tExpected	: TIME;
+	tActual		: TIME;
+	sName		: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertTrue(
+	Condition := (tActual + tTolerance >= tExpected) AND (tActual <= tExpected + tTolerance),
+	Message := CONCAT(CONCAT(sName, ': measured '), TIME_TO_STRING(tActual)));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Off_And_On_Modes" Id="{28fa12ec-f7e6-444e-aa1d-057d6a6bbfd6}">
+      <Declaration><![CDATA[METHOD PRIVATE Off_And_On_Modes
+VAR
+	fbOff	: BROTLib.FB_BLINK;
+	fbOn	: BROTLib.FB_BLINK;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Off_And_On_Modes');
+fbOff(blink := BROTLib.E_Blink.off);
+fbOn(blink := BROTLib.E_Blink.on);
+AssertFalse(Condition := fbOff.Q, Message := 'off: Q is FALSE');
+AssertTrue(Condition := fbOn.Q, Message := 'on: Q is TRUE');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Mode_Selects_On_And_Off_Times" Id="{04dfd951-cb71-46ab-9c3a-4e766cb79c79}">
+      <Declaration><![CDATA[METHOD PRIVATE Mode_Selects_On_And_Off_Times
+VAR
+	fbSlow, fbFast, fbShort, fbLong	: BROTLib.FB_BLINK;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Mode_Selects_On_And_Off_Times');
+fbSlow(blink := BROTLib.E_Blink.slow);
+fbFast(blink := BROTLib.E_Blink.fast);
+fbShort(blink := BROTLib.E_Blink.short);
+fbLong(blink := BROTLib.E_Blink.long);
+AssertEquals_TIME(Expected := T#500MS, Actual := fbSlow.ON_TIME, Message := 'slow: ON_TIME');
+AssertEquals_TIME(Expected := T#500MS, Actual := fbSlow.OFF_TIME, Message := 'slow: OFF_TIME');
+AssertEquals_TIME(Expected := T#250MS, Actual := fbFast.ON_TIME, Message := 'fast: ON_TIME');
+AssertEquals_TIME(Expected := T#250MS, Actual := fbFast.OFF_TIME, Message := 'fast: OFF_TIME');
+AssertEquals_TIME(Expected := T#100MS, Actual := fbShort.ON_TIME, Message := 'short: ON_TIME');
+AssertEquals_TIME(Expected := T#900MS, Actual := fbShort.OFF_TIME, Message := 'short: OFF_TIME');
+AssertEquals_TIME(Expected := T#900MS, Actual := fbLong.ON_TIME, Message := 'long: ON_TIME');
+AssertEquals_TIME(Expected := T#100MS, Actual := fbLong.OFF_TIME, Message := 'long: OFF_TIME');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Blink_Modes_Start_High" Id="{d3256b5c-81a5-44e2-a61e-f08e01758d48}">
+      <Declaration><![CDATA[METHOD PRIVATE Blink_Modes_Start_High
+VAR
+	fbSlow, fbFast, fbShort, fbLong	: BROTLib.FB_BLINK;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Blink_Modes_Start_High');
+fbSlow(blink := BROTLib.E_Blink.slow);
+fbFast(blink := BROTLib.E_Blink.fast);
+fbShort(blink := BROTLib.E_Blink.short);
+fbLong(blink := BROTLib.E_Blink.long);
+AssertTrue(Condition := fbSlow.Q, Message := 'slow: Q is TRUE on the first call');
+AssertTrue(Condition := fbFast.Q, Message := 'fast: Q is TRUE on the first call');
+AssertTrue(Condition := fbShort.Q, Message := 'short: Q is TRUE on the first call');
+AssertTrue(Condition := fbLong.Q, Message := 'long: Q is TRUE on the first call');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timing_Follows_Mode" Id="{90475c42-4bcc-466d-a514-b0dbd9ae471c}">
+      <Declaration><![CDATA[METHOD PRIVATE Timing_Follows_Mode
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timing_Follows_Mode');
+// this test spans many PLC cycles: the probes run every cycle and are evaluated once they are all done
+fbProbeSlow(eMode := BROTLib.E_Blink.slow);
+fbProbeFast(eMode := BROTLib.E_Blink.fast);
+fbProbeShort(eMode := BROTLib.E_Blink.short);
+fbProbeLong(eMode := BROTLib.E_Blink.long);
+
+IF fbProbeSlow.bDone AND fbProbeFast.bDone AND fbProbeShort.bDone AND fbProbeLong.bDone AND NOT bTimingChecked THEN
+	bTimingChecked := TRUE;
+	AssertFalse(Condition := fbProbeSlow.bTimedOut OR fbProbeFast.bTimedOut OR fbProbeShort.bTimedOut OR fbProbeLong.bTimedOut,
+		Message := 'every mode completed one high/low period within 4 s');
+
+	CheckTime(T#510MS, fbProbeSlow.tHigh, 'slow: high time');
+	CheckTime(T#520MS, fbProbeSlow.tLow, 'slow: low time');
+	CheckTime(T#260MS, fbProbeFast.tHigh, 'fast: high time');
+	CheckTime(T#270MS, fbProbeFast.tLow, 'fast: low time');
+	CheckTime(T#110MS, fbProbeShort.tHigh, 'short: high time');
+	CheckTime(T#920MS, fbProbeShort.tLow, 'short: low time');
+	CheckTime(T#910MS, fbProbeLong.tHigh, 'long: high time');
+	CheckTime(T#120MS, fbProbeLong.tLow, 'long: low time');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="MAIN" Id="{cff6a572-fd5e-4250-bf6d-4eb47ba9e04d}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+	// TcUnit finds every FB_TestSuite instance by itself; it is enough to declare them here.
+	fbIsNumericValueTests	: FB_IsNumericValue_Tests;
+	fbEscapeInfluxTests		: FB_EscapeInfluxString_Tests;
+	fbYRealTests			: FB_YREAL_Tests;
+	fbTrackingTests			: FB_Tracking_Tests;
+	fbPointingModelTests	: FB_PointingModel_Tests;
+	fbBlinkTests			: FB_Blink_Tests;
+	fbAstroClockSyncTests	: FB_AstroClockSync_Tests;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[TcUnit.RUN();
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

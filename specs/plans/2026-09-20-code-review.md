@@ -1,6 +1,6 @@
 # Code review of BROTLib (develop @ 93b17fe)
 
-**Status: draft. Review finished, no fixes applied. Nothing here has been run on a PLC.**
+**Status: draft. Review finished; the body below describes `develop` at the review commit. Only M1 has been fixed so far. Since then generated build outputs stopped being tracked (`22cbc40`) and `BROTLibTests` (32 TcUnit cases for the pure functions, pointing model and `FB_BLINK`, `fd50848`, plus 8 for `FB_AstroClockSync`) was added; it passes on the user-mode runtime. M1 is fixed (see below). Nothing has been verified on a telescope. Open items: GitHub issues.**
 
 Reviewed at `develop` 93b17fe. `origin/main` is 3 commits ahead of `develop` and `develop` is 1 commit
 ahead of `main` (see M9).
@@ -49,7 +49,12 @@ without any signal.
 
 ### Medium
 
-**M1. `FB_AstroClock` has no validity flag and mishandles errors.** *Read from code. Magnitudes computed,
+**M1. `FB_AstroClock` has no validity flag and mishandles errors.** *(#3: fixed on `develop` in 4dddb73 and the
+unused `RTC`/`RTC_EX` blocks removed. `FB_AstroClockSync` syncs only after a successful read and drives the new
+`bValid` (TRUE from the first good sync on) and `nSyncErrors` outputs, covered by `FB_AstroClockSync_Tests`. IAG50cm, MONETcommon and MONETN hold the JD and
+refuse goto/slew/track while `bValid` is FALSE, that is only before the first sync. Time zone: `NT_GetTime` returns local Windows time, per the Beckhoff
+docs; the production PCs are set to UTC, and this is now documented on the block and in the README. Not verified on a
+telescope.)* *Read from code. Magnitudes computed,
 not measured.* It is the only time source for pointing and tracking (MONETcommon, MONETN and IAG50cm all call
 `fJd := DateTime2JD(fbTime.time_RTCEX2)` unconditionally).
 - The three RTC blocks only start after the first sync. `syncTimer` has `PT := T#5S`, so the first sync

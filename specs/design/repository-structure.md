@@ -32,7 +32,6 @@ Provides the mathematical backbone for coordinate transformations and astronomic
 | `FB_RADEC2HADEC` | ICRS RA/Dec to apparent Hour Angle/Declination |
 | `FB_HADEC2RADEC` | Apparent HA/Dec back to ICRS RA/Dec |
 | `FB_PRECESS` | Precession between epochs (Capitaine et al. 2003) |
-| `FB_NUTATE` | IAU 1980 nutation theory (63 terms) |
 | `FB_IAU2000B` | IAU 2000B nutation model (~1 mas accuracy) |
 | `FB_SUNPOS` | Apparent solar position from Julian Date |
 | `FB_HADEC2ALTAZ` | HA/Dec to Alt/Az via spherical trigonometry |
@@ -47,7 +46,6 @@ Provides the mathematical backbone for coordinate transformations and astronomic
 | `CT2LST` | Civil Time to Local Mean Sidereal Time |
 | `DateTime2JD` | TwinCAT TIMESTRUCT to Julian Date |
 | `ATAN2` | Four-quadrant arctangent |
-| `POLY` | Polynomial evaluation (4 coefficients) |
 | `TEN` | DMS to decimal degrees |
 | `CO_REFRACT_FORWARD` | Forward atmospheric refraction model |
 

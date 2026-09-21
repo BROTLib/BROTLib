@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_PointingModel_Tests" Id="{d69f757c-b3dd-46d2-8479-6bd6da40be3e}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_PointingModelForward and FB_PointingModelInversion (9-term Tpoint-style model).
+//
+//   d(az) = AOFF - BNP/cos(el) + AN_A*sin(az)*tan(el) - AE_A*cos(az)*tan(el) + NPAE*tan(el)
+//   d(el) = EOFF + AN_E*cos(az) + AE_E*sin(az) + TF*cos(el)
+//
+// Each term gets its own test at an (az, el) where the expected value follows from sin/cos/tan of 0, 45, 60,
+// 90 or 180 degrees. The combined and zenith values come from BROTLib/testing/golden_vectors.py.
+FUNCTION_BLOCK FB_PointingModel_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Zero_Coefficients_Give_Zero_Offsets();
+AOFF_Is_A_Constant_Azimuth_Offset();
+EOFF_Is_A_Constant_Elevation_Offset();
+BNP_Scales_With_Secant_Of_Elevation();
+NPAE_Scales_With_Tangent_Of_Elevation();
+Azimuth_Axis_Tilt_Terms();
+Elevation_Terms();
+Zenith_Is_Clamped();
+Combined_Model_Golden_Vector();
+Inversion_Round_Trip();
+]]></ST>
+    </Implementation>
+    <Method Name="CheckNear" Id="{5b2e68a8-941c-401a-95e4-76b85e2d00d1}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckNear
+VAR_INPUT
+	fExpected	: LREAL;
+	fActual		: LREAL;
+	fDelta		: LREAL;
+	sName		: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_LREAL(Expected := fExpected, Actual := fActual, Delta := fDelta, Message := sName);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Zero_Coefficients_Give_Zero_Offsets" Id="{e44937ce-0a5f-4df4-b6af-434e0bd76c02}">
+      <Declaration><![CDATA[METHOD PRIVATE Zero_Coefficients_Give_Zero_Offsets
+VAR
+	fbModel	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Zero_Coefficients_Give_Zero_Offsets');
+fbModel(fAzimuth := 123.4, fElevation := 45.6);
+CheckNear(0.0, fbModel.fAzimuthOffset, 1.0E-15, 'azimuth offset at el 45.6');
+CheckNear(0.0, fbModel.fElevationOffset, 1.0E-15, 'elevation offset at el 45.6');
+// near the zenith the model divides by cos(el); with all coefficients zero that must still give 0, not NaN
+fbModel(fAzimuth := 10.0, fElevation := 90.0);
+CheckNear(0.0, fbModel.fAzimuthOffset, 1.0E-15, 'azimuth offset at the zenith');
+CheckNear(0.0, fbModel.fElevationOffset, 1.0E-15, 'elevation offset at the zenith');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="AOFF_Is_A_Constant_Azimuth_Offset" Id="{8b077d59-6cd8-4bf4-a3fe-30e3ddc3a4d7}">
+      <Declaration><![CDATA[METHOD PRIVATE AOFF_Is_A_Constant_Azimuth_Offset
+VAR
+	fbModel	: BROTLib.FB_PointingModelForward(AOFF := 0.25, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('AOFF_Is_A_Constant_Azimuth_Offset');
+fbModel(fAzimuth := 10.0, fElevation := 20.0);
+CheckNear(0.25, fbModel.fAzimuthOffset, 1.0E-12, 'azimuth offset at az 10, el 20');
+CheckNear(0.0, fbModel.fElevationOffset, 1.0E-15, 'elevation is not affected');
+fbModel(fAzimuth := 250.0, fElevation := 70.0);
+CheckNear(0.25, fbModel.fAzimuthOffset, 1.0E-12, 'same offset at az 250, el 70');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EOFF_Is_A_Constant_Elevation_Offset" Id="{85998841-02e0-44d3-9de9-ff60ef52c5f6}">
+      <Declaration><![CDATA[METHOD PRIVATE EOFF_Is_A_Constant_Elevation_Offset
+VAR
+	fbModel	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := -0.125, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('EOFF_Is_A_Constant_Elevation_Offset');
+fbModel(fAzimuth := 10.0, fElevation := 20.0);
+CheckNear(-0.125, fbModel.fElevationOffset, 1.0E-12, 'elevation offset at az 10, el 20');
+CheckNear(0.0, fbModel.fAzimuthOffset, 1.0E-15, 'azimuth is not affected');
+fbModel(fAzimuth := 250.0, fElevation := 70.0);
+CheckNear(-0.125, fbModel.fElevationOffset, 1.0E-12, 'same offset at az 250, el 70');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="BNP_Scales_With_Secant_Of_Elevation" Id="{944bcee5-6bf4-4c10-acfe-ef489dd74c06}">
+      <Declaration><![CDATA[METHOD PRIVATE BNP_Scales_With_Secant_Of_Elevation
+VAR
+	fbModel	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.01, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('BNP_Scales_With_Secant_Of_Elevation');
+fbModel(fAzimuth := 37.0, fElevation := 0.0);
+CheckNear(-0.01, fbModel.fAzimuthOffset, 1.0E-12, 'el 0: -BNP / cos(0)');
+fbModel(fAzimuth := 37.0, fElevation := 60.0);
+CheckNear(-0.02, fbModel.fAzimuthOffset, 1.0E-12, 'el 60: -BNP / 0.5');
+CheckNear(0.0, fbModel.fElevationOffset, 1.0E-15, 'elevation is not affected');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NPAE_Scales_With_Tangent_Of_Elevation" Id="{6726c7af-8f5f-44d8-9057-b7b124273ad5}">
+      <Declaration><![CDATA[METHOD PRIVATE NPAE_Scales_With_Tangent_Of_Elevation
+VAR
+	fbModel	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.01, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('NPAE_Scales_With_Tangent_Of_Elevation');
+fbModel(fAzimuth := 37.0, fElevation := 0.0);
+CheckNear(0.0, fbModel.fAzimuthOffset, 1.0E-15, 'el 0: NPAE * tan(0)');
+fbModel(fAzimuth := 37.0, fElevation := 45.0);
+CheckNear(0.01, fbModel.fAzimuthOffset, 1.0E-12, 'el 45: NPAE * tan(45)');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Azimuth_Axis_Tilt_Terms" Id="{8a21d7c3-ab2f-4670-80b5-a3d988341d27}">
+      <Declaration><![CDATA[METHOD PRIVATE Azimuth_Axis_Tilt_Terms
+VAR
+	fbNorthSouth	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.02, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+	fbEastWest		: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.03, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Azimuth_Axis_Tilt_Terms');
+// AN_A * sin(az) * tan(el): largest towards east/west
+fbNorthSouth(fAzimuth := 90.0, fElevation := 45.0);
+CheckNear(0.02, fbNorthSouth.fAzimuthOffset, 1.0E-12, 'AN_A at az 90, el 45');
+fbNorthSouth(fAzimuth := 0.0, fElevation := 45.0);
+CheckNear(0.0, fbNorthSouth.fAzimuthOffset, 1.0E-12, 'AN_A vanishes at az 0');
+fbNorthSouth(fAzimuth := 270.0, fElevation := 45.0);
+CheckNear(-0.02, fbNorthSouth.fAzimuthOffset, 1.0E-12, 'AN_A changes sign at az 270');
+// -AE_A * cos(az) * tan(el): largest towards north/south, with a leading minus
+fbEastWest(fAzimuth := 180.0, fElevation := 45.0);
+CheckNear(0.03, fbEastWest.fAzimuthOffset, 1.0E-12, 'AE_A at az 180, el 45');
+fbEastWest(fAzimuth := 0.0, fElevation := 45.0);
+CheckNear(-0.03, fbEastWest.fAzimuthOffset, 1.0E-12, 'AE_A at az 0, el 45');
+fbEastWest(fAzimuth := 90.0, fElevation := 45.0);
+CheckNear(0.0, fbEastWest.fAzimuthOffset, 1.0E-12, 'AE_A vanishes at az 90');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Elevation_Terms" Id="{55c4726a-5ef4-47f4-a18d-6268ba824b4b}">
+      <Declaration><![CDATA[METHOD PRIVATE Elevation_Terms
+VAR
+	fbAnE	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.04, AE_E := 0.0, TF := 0.0);
+	fbAeE	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.05, TF := 0.0);
+	fbTF	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.06);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Elevation_Terms');
+// AN_E * cos(az)
+fbAnE(fAzimuth := 0.0, fElevation := 30.0);
+CheckNear(0.04, fbAnE.fElevationOffset, 1.0E-12, 'AN_E at az 0');
+fbAnE(fAzimuth := 90.0, fElevation := 30.0);
+CheckNear(0.0, fbAnE.fElevationOffset, 1.0E-12, 'AN_E vanishes at az 90');
+// AE_E * sin(az)
+fbAeE(fAzimuth := 90.0, fElevation := 30.0);
+CheckNear(0.05, fbAeE.fElevationOffset, 1.0E-12, 'AE_E at az 90');
+fbAeE(fAzimuth := 0.0, fElevation := 30.0);
+CheckNear(0.0, fbAeE.fElevationOffset, 1.0E-12, 'AE_E vanishes at az 0');
+// TF * cos(el): gravitational flexure, largest at the horizon
+fbTF(fAzimuth := 200.0, fElevation := 0.0);
+CheckNear(0.06, fbTF.fElevationOffset, 1.0E-12, 'TF at the horizon');
+fbTF(fAzimuth := 200.0, fElevation := 60.0);
+CheckNear(0.03, fbTF.fElevationOffset, 1.0E-12, 'TF at el 60: cos(60) = 0.5');
+fbTF(fAzimuth := 200.0, fElevation := 90.0);
+CheckNear(0.0, fbTF.fElevationOffset, 1.0E-12, 'TF vanishes at the zenith');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Zenith_Is_Clamped" Id="{ff1b36ac-a5f7-4e9b-8e04-08f28022f624}">
+      <Declaration><![CDATA[METHOD PRIVATE Zenith_Is_Clamped
+VAR
+	fbNpae	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.0, AN_A := 0.0, AE_A := 0.0, NPAE := 0.001, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+	fbBnp	: BROTLib.FB_PointingModelForward(AOFF := 0.0, BNP := 0.001, AN_A := 0.0, AE_A := 0.0, NPAE := 0.0, EOFF := 0.0, AN_E := 0.0, AE_E := 0.0, TF := 0.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Zenith_Is_Clamped');
+// From el = 89.9 the model uses fixed tan = 572.957... and cos = 0.001745... so that it never divides by ~0.
+fbNpae(fAzimuth := 10.0, fElevation := 89.95);
+CheckNear(0.57295721335430339, fbNpae.fAzimuthOffset, 1.0E-9, 'NPAE at el 89.95 uses the clamped tangent');
+fbBnp(fAzimuth := 10.0, fElevation := 89.95);
+CheckNear(-0.57295808601915088, fbBnp.fAzimuthOffset, 1.0E-9, 'BNP at el 89.95 uses the clamped cosine');
+fbBnp(fAzimuth := 10.0, fElevation := 90.0);
+CheckNear(-0.57295808601915088, fbBnp.fAzimuthOffset, 1.0E-9, 'BNP at el 90 gives the same clamped value');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Combined_Model_Golden_Vector" Id="{633544f2-8ed1-4245-b072-4448ae96f739}">
+      <Declaration><![CDATA[METHOD PRIVATE Combined_Model_Golden_Vector
+VAR
+	fbModel	: BROTLib.FB_PointingModelForward(
+				AOFF := 0.1, BNP := 0.02, AN_A := 0.03, AE_A := -0.04, NPAE := 0.05,
+				EOFF := -0.06, AN_E := 0.07, AE_E := -0.08, TF := 0.09);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Combined_Model_Golden_Vector');
+fbModel(fAzimuth := 123.4, fElevation := 56.7);
+CheckNear(0.14429632570655807, fbModel.fAzimuthOffset, 1.0E-12, 'azimuth offset with all nine terms');
+CheckNear(-0.11590942724719037, fbModel.fElevationOffset, 1.0E-12, 'elevation offset with all nine terms');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Inversion_Round_Trip" Id="{ac295483-f4fb-4ba4-8e45-65bdb85b3c9b}">
+      <Declaration><![CDATA[METHOD PRIVATE Inversion_Round_Trip
+VAR
+	fbModel		: BROTLib.FB_PointingModelForward(
+					AOFF := 0.1, BNP := 0.02, AN_A := 0.03, AE_A := -0.04, NPAE := 0.05,
+					EOFF := -0.06, AN_E := 0.07, AE_E := -0.08, TF := 0.09);
+	fbInverse	: BROTLib.FB_PointingModelInversion(fbPointing := fbModel);
+	aAz			: ARRAY[1..4] OF LREAL := [15.0, 100.0, 200.0, 330.0];
+	aEl			: ARRAY[1..3] OF LREAL := [10.0, 45.0, 80.0];
+	iAz, iEl	: INT;
+	fdAz, fdEl	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Inversion_Round_Trip');
+// The inversion solves d = model(pos - d) by fixed-point iteration. So evaluating the forward model at the
+// corrected position must give back exactly the offsets the inversion reported.
+FOR iAz := 1 TO 4 DO
+	FOR iEl := 1 TO 3 DO
+		fbInverse(fAzimuth := aAz[iAz], fElevation := aEl[iEl]);
+		fdAz := fbInverse.fAzimuthOffset;
+		fdEl := fbInverse.fElevationOffset;
+		fbModel(fAzimuth := aAz[iAz] - fdAz, fElevation := aEl[iEl] - fdEl);
+		CheckNear(fdAz, fbModel.fAzimuthOffset, 1.0E-9, 'azimuth offset is a fixed point of the model');
+		CheckNear(fdEl, fbModel.fElevationOffset, 1.0E-9, 'elevation offset is a fixed point of the model');
+	END_FOR
+END_FOR
+// and the offsets are non-trivial, so the loop above is not comparing zeros
+fbInverse(fAzimuth := 100.0, fElevation := 45.0);
+AssertTrue(Condition := ABS(fbInverse.fAzimuthOffset) > 0.01, Message := 'inversion returned a non-trivial azimuth offset');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_IsNumericValue_Tests" Id="{b203cf96-1dfe-42b6-b64d-cfa4b9fa5541}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_IsNumericValue, which decides whether an Influx field value is written as a number.
+FUNCTION_BLOCK FB_IsNumericValue_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Accepts_Plain_Numbers();
+Accepts_Signs_And_Exponents();
+Rejects_Malformed_Numbers();
+Rejects_Non_Numeric_Text();
+]]></ST>
+    </Implementation>
+    <Method Name="Check" Id="{26104ec6-03d2-4b36-8a37-cf4dfd5a1331}">
+      <Declaration><![CDATA[// Asserts F_IsNumericValue(sValue) = bExpected; the failure message names the offending input.
+METHOD PRIVATE Check
+VAR_INPUT
+	sValue		: STRING(255);
+	bExpected	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_BOOL(
+	Expected := bExpected,
+	Actual := BROTLib.F_IsNumericValue(sValue := sValue),
+	Message := CONCAT('F_IsNumericValue on input: ', sValue));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Accepts_Plain_Numbers" Id="{da5c114f-9037-4193-8968-54096c169ca3}">
+      <Declaration><![CDATA[METHOD PRIVATE Accepts_Plain_Numbers
+VAR
+	aCases	: ARRAY[1..6] OF STRING(255) := ['0', '15', '15.5', '007', '0.001', '123456789012345678'];
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Accepts_Plain_Numbers');
+FOR i := 1 TO 6 DO
+	Check(sValue := aCases[i], bExpected := TRUE);
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Accepts_Signs_And_Exponents" Id="{6beb5127-b406-496b-9c89-842bcb3d35b6}">
+      <Declaration><![CDATA[METHOD PRIVATE Accepts_Signs_And_Exponents
+VAR
+	aCases	: ARRAY[1..8] OF STRING(255) := ['-3', '+7', '-0.5', '1e5', '1E-05', '1.0E-5', '-1.5e+3', '2.5E+10'];
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Accepts_Signs_And_Exponents');
+FOR i := 1 TO 8 DO
+	Check(sValue := aCases[i], bExpected := TRUE);
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Rejects_Malformed_Numbers" Id="{db58dbd7-478a-4d38-8551-63035c565d86}">
+      <Declaration><![CDATA[METHOD PRIVATE Rejects_Malformed_Numbers
+VAR
+	aCases	: ARRAY[1..14] OF STRING(255) := ['', '-', '+', '.', 'e5', '1e', '1e+', '1.5.2', '1e5.5', '--1', '+-1', '1-1', '1e5e5', '1e--5'];
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Rejects_Malformed_Numbers');
+FOR i := 1 TO 14 DO
+	Check(sValue := aCases[i], bExpected := FALSE);
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Rejects_Non_Numeric_Text" Id="{ea2f0c11-7d3a-4b6e-9f52-3c1d8a4e5b70}">
+      <Declaration><![CDATA[METHOD PRIVATE Rejects_Non_Numeric_Text
+VAR
+	aCases	: ARRAY[1..9] OF STRING(255) := ['NaN', 'TRUE', 'abc', '12a', '50cm', ' 1', '1 ', '1,5', '0x1F'];
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Rejects_Non_Numeric_Text');
+FOR i := 1 TO 9 DO
+	Check(sValue := aCases[i], bExpected := FALSE);
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

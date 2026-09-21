@@ -9,5 +9,6 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   remote-XAE runner attempt failed on VS automation-interface gaps (why `ironplc` work exists).
   **proposed** — blocked on a dedicated Windows machine
 - [2026-09-20-code-review.md](2026-09-20-code-review.md) —
-  full code review of BROTLib (bugs, security, design, CI/release). **draft**, no fixes applied.
-  Checked with Python ports against `erfa` where possible (`testing/`), not run on a PLC.
+  full code review of BROTLib (bugs, security, design, CI/release). **draft**, no finding fixed yet;
+  `BROTLibTests` added. Checked with Python ports against `erfa` where possible (`testing/`), TcUnit tests
+  pass on the user-mode runtime, not verified on a telescope.

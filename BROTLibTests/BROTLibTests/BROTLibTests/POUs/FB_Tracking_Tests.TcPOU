@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_Tracking_Tests" Id="{6a6beab6-6292-4910-ad9c-f8bbf71700de}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for the sidereal tracking functions of BROTLib: F_Azimuthvelocity, F_Elevationvelocity,
+// F_Derotatorvelocity and F_DerotatorPosition2.
+//
+// Two kinds of expected values:
+//  * anchors that can be checked by hand (sin/cos of 0, 30, 45, 60, 90 degrees), and
+//  * golden values printed by BROTLib/testing/golden_vectors.py, which first validates the same formulas
+//    against numerical derivatives of an independent HA/Dec -> Az/El transform (agreement ~4e-10 deg/s).
+// All angles are in degrees, velocities in deg/s.
+FUNCTION_BLOCK FB_Tracking_Tests EXTENDS TcUnit.FB_TestSuite
+VAR CONSTANT
+	// Earth's angular rotation rate in deg/s, the same constant as inside the functions
+	fOmega		: LREAL := 4.178074605556E-3;
+	// Goettingen
+	fLat		: LREAL := 51.56;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Elevationvelocity_Anchors();
+Azimuthvelocity_Anchors();
+Azimuthvelocity_Near_Zenith_Guard();
+Derotatorvelocity_Anchors();
+DerotatorPosition2_Anchors();
+DerotatorPosition2_Stays_In_Range();
+]]></ST>
+    </Implementation>
+    <Method Name="CheckNear" Id="{96d24ba3-879f-4c37-8641-86147bc2e1d0}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckNear
+VAR_INPUT
+	fExpected	: LREAL;
+	fActual		: LREAL;
+	fDelta		: LREAL;
+	sName		: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_LREAL(Expected := fExpected, Actual := fActual, Delta := fDelta, Message := sName);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Elevationvelocity_Anchors" Id="{f5e7ead8-b27d-49a2-8401-9c304d8239a1}">
+      <Declaration><![CDATA[METHOD PRIVATE Elevationvelocity_Anchors
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Elevationvelocity_Anchors');
+CheckNear(0.0, BROTLib.F_Elevationvelocity(azimuth := 0.0, latitude := fLat), 1.0E-15, 'azimuth 0 (north): no elevation rate');
+CheckNear(fOmega, BROTLib.F_Elevationvelocity(azimuth := 90.0, latitude := 0.0), 1.0E-15, 'east on the equator: full sidereal rate');
+CheckNear(-fOmega, BROTLib.F_Elevationvelocity(azimuth := 270.0, latitude := 0.0), 1.0E-15, 'west on the equator: full rate, falling');
+CheckNear(0.5 * fOmega, BROTLib.F_Elevationvelocity(azimuth := 90.0, latitude := 60.0), 1.0E-12, 'east at latitude 60: cos(60) = 0.5');
+CheckNear(0.0, BROTLib.F_Elevationvelocity(azimuth := 90.0, latitude := 90.0), 1.0E-12, 'at the pole nothing rises or sets');
+CheckNear(0.0021685065117460016, BROTLib.F_Elevationvelocity(azimuth := 123.4, latitude := 51.56), 1.0E-12, 'golden: az 123.4, lat 51.56');
+CheckNear(-0.0031335559541669999, BROTLib.F_Elevationvelocity(azimuth := 300.0, latitude := -30.0), 1.0E-12, 'golden: az 300, lat -30');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Azimuthvelocity_Anchors" Id="{7802b576-d8b2-4ae3-9e5b-fc6a6d6f9435}">
+      <Declaration><![CDATA[METHOD PRIVATE Azimuthvelocity_Anchors
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Azimuthvelocity_Anchors');
+CheckNear(0.0032725171421828193, BROTLib.F_Azimuthvelocity(elevation := 0.0, azimuth := 0.0, latitude := 51.56), 1.0E-12, 'golden: horizon, lat 51.56 -> sin(lat) * Omega');
+CheckNear(-0.5 * fOmega, BROTLib.F_Azimuthvelocity(elevation := 0.0, azimuth := 100.0, latitude := -30.0), 1.0E-12, 'southern hemisphere: sign flips, sin(-30) = -0.5');
+CheckNear(1.4142135623730951 * fOmega, BROTLib.F_Azimuthvelocity(elevation := 45.0, azimuth := 180.0, latitude := 45.0), 1.0E-12, 'south at el 45, lat 45: sqrt(2) * Omega');
+CheckNear(0.0, BROTLib.F_Azimuthvelocity(elevation := 45.0, azimuth := 0.0, latitude := 45.0), 1.0E-12, 'north at el 45, lat 45: terms cancel');
+CheckNear(0.0046817364334291968, BROTLib.F_Azimuthvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56), 1.0E-12, 'golden: el 30, az 200, lat 51.56');
+CheckNear(-0.0052225932569449993, BROTLib.F_Azimuthvelocity(elevation := 60.0, azimuth := 300.0, latitude := -30.0), 1.0E-12, 'golden: el 60, az 300, lat -30');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Azimuthvelocity_Near_Zenith_Guard" Id="{c13642d1-3fe5-49d3-8adc-d750909352e7}">
+      <Declaration><![CDATA[METHOD PRIVATE Azimuthvelocity_Near_Zenith_Guard
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Azimuthvelocity_Near_Zenith_Guard');
+// The formula divides by cos(elevation); below cos = 1e-3 (elevation > 89.943 deg) the function returns 0
+// instead of a huge number. The true rate is not 0 there (code review L3); this pins the current behaviour.
+CheckNear(0.0, BROTLib.F_Azimuthvelocity(elevation := 90.0, azimuth := 45.0, latitude := 51.56), 0.0, 'zenith: guarded, exactly 0');
+CheckNear(0.0, BROTLib.F_Azimuthvelocity(elevation := 89.95, azimuth := 45.0, latitude := 51.56), 0.0, 'el 89.95: inside the guard, exactly 0');
+CheckNear(-1.0490784008893366, BROTLib.F_Azimuthvelocity(elevation := 89.9, azimuth := 45.0, latitude := 51.56), 1.0E-9, 'el 89.9: just outside the guard, large but finite');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Derotatorvelocity_Anchors" Id="{ecd07ee1-8c09-4dab-999b-d5b51075287f}">
+      <Declaration><![CDATA[METHOD PRIVATE Derotatorvelocity_Anchors
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Derotatorvelocity_Anchors');
+CheckNear(-fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 0.0, latitude := 0.0), 1.0E-15, 'horizon, north, equator: -Omega');
+CheckNear(-fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 90.0, latitude := 0.0), 1.0E-15, 'horizon, east, equator: -Omega');
+CheckNear(fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 180.0, latitude := 0.0), 1.0E-15, 'horizon, south, equator: +Omega');
+CheckNear(-2.0 * fOmega, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 0.0, latitude := 0.0), 1.0E-12, 'el 60: 1/cos(60) = 2');
+CheckNear(0.0, BROTLib.F_Derotatorvelocity(elevation := 90.0, azimuth := 10.0, latitude := 51.56), 0.0, 'zenith: guarded, exactly 0');
+CheckNear(0.0037068314748825424, BROTLib.F_Derotatorvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56), 1.0E-12, 'golden: el 30, az 200, lat 51.56');
+CheckNear(-0.00048476279315114428, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 300.0, latitude := -30.0), 1.0E-12, 'golden: el 60, az 300, lat -30');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="DerotatorPosition2_Anchors" Id="{0bec715a-1618-4011-b70b-0c173513cfe4}">
+      <Declaration><![CDATA[METHOD PRIVATE DerotatorPosition2_Anchors
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('DerotatorPosition2_Anchors');
+// declination is accepted but not used by the function (code review L3), so 0 is passed throughout
+CheckNear(315.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 0.0, declination := 0.0, latitude := 45.0, sign := 1.0), 1.0E-9, 'az 90, el 0, lat 45: parallactic angle -45 -> 315');
+CheckNear(45.0, BROTLib.F_DerotatorPosition2(azimuth := 270.0, elevation := 0.0, declination := 0.0, latitude := 45.0, sign := 1.0), 1.0E-9, 'az 270 mirrors az 90: +45');
+CheckNear(225.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 45.0, declination := 0.0, latitude := 0.0, sign := 1.0), 1.0E-9, 'equator, east, el 45: -90 - 45 -> 225');
+CheckNear(315.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 45.0, declination := 0.0, latitude := 0.0, sign := -1.0), 1.0E-9, 'sign -1 adds the elevation instead: -90 + 45 -> 315');
+CheckNear(267.36458824003319, BROTLib.F_DerotatorPosition2(azimuth := 123.4, elevation := 56.7, declination := 0.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'golden: az 123.4, el 56.7, sign +1');
+CheckNear(20.764588240033163, BROTLib.F_DerotatorPosition2(azimuth := 123.4, elevation := 56.7, declination := 0.0, latitude := 51.56, sign := -1.0), 1.0E-9, 'golden: az 123.4, el 56.7, sign -1');
+CheckNear(109.48603710615262, BROTLib.F_DerotatorPosition2(azimuth := 300.0, elevation := 20.0, declination := 0.0, latitude := -30.0, sign := 1.0), 1.0E-9, 'golden: az 300, el 20, lat -30');
+// negative azimuth is wrapped into 0..360 before use
+CheckNear(15.882548343825519, BROTLib.F_DerotatorPosition2(azimuth := -30.0, elevation := 45.0, declination := 0.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'golden: az -30 wraps to 330');
+CheckNear(BROTLib.F_DerotatorPosition2(azimuth := 330.0, elevation := 45.0, declination := 0.0, latitude := 51.56, sign := 1.0),
+	BROTLib.F_DerotatorPosition2(azimuth := -30.0, elevation := 45.0, declination := 0.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'az -30 equals az 330');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="DerotatorPosition2_Stays_In_Range" Id="{c5e7d8af-8426-4486-aa50-47f7d66aedc7}">
+      <Declaration><![CDATA[METHOD PRIVATE DerotatorPosition2_Stays_In_Range
+VAR
+	aLat		: ARRAY[1..3] OF LREAL := [-60.0, 10.0, 51.56];
+	iLat, iAz, iEl	: INT;
+	fResult		: LREAL;
+	bInRange	: BOOL;
+	nChecked	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('DerotatorPosition2_Stays_In_Range');
+// Whatever the pointing direction, the derotator position is a valid angle in [0, 360).
+// Azimuths 5, 15, ... 355 avoid the exact ATAN2(0, 0) corner cases; a NaN result also fails the range test.
+bInRange := TRUE;
+nChecked := 0;
+FOR iLat := 1 TO 3 DO
+	FOR iAz := 0 TO 35 DO
+		FOR iEl := 0 TO 6 DO
+			fResult := BROTLib.F_DerotatorPosition2(
+				azimuth := 5.0 + 10.0 * iAz,
+				elevation := 15.0 * iEl,
+				declination := 0.0,
+				latitude := aLat[iLat],
+				sign := 1.0);
+			IF NOT (fResult >= 0.0 AND fResult < 360.0) THEN
+				bInRange := FALSE;
+			END_IF
+			nChecked := nChecked + 1;
+		END_FOR
+	END_FOR
+END_FOR
+AssertEquals_INT(Expected := 756, Actual := nChecked, Message := 'the whole grid was evaluated');
+AssertTrue(Condition := bInRange, Message := 'F_DerotatorPosition2 returned a value outside [0, 360)');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

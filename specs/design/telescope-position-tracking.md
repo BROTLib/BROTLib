@@ -414,6 +414,6 @@ The ephemeris computation runs on the PLC's task cycle (10 ms), so it must be li
 | `AstroBROT/CT2LST.TcPOU` | Julian Date → Local Sidereal Time |
 | `AstroBROT/DateTime2JD.TcPOU` | TwinCAT TIMESTRUCT → Julian Date |
 | `AstroBROT/FB_PRECESS.TcPOU` | Precession between epochs |
-| `AstroBROT/FB_NUTATE.TcPOU` | Nutation corrections |
+| `AstroBROT/FB_IAU2000B.TcPOU` | Nutation (IAU 2000B) |
 | `AstroBROT/FB_CO_REFRACT.TcPOU` | Atmospheric refraction |
 | `MONETcommon/FB_MonetTelescopeControl.TcPOU` | `_TrackTelescope()` loop |
