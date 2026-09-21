@@ -210,7 +210,8 @@ published at 1 s while slewing/tracking and 5 s when idle.
 
 - **`FB_AstroClock`** — RTC for the PLC, resynchronised from the system time every 5 s over ADS
   (`FB_AstroClockSync` decides when to sync). `bValid` is FALSE until the first successful sync
-  and after 3 failed syncs in a row; check it before using `time_RTCEX2`.
+  and after 3 failed syncs in a row; check it before using `time_RTCEX2`. `NT_GetTime` returns the local Windows
+  time and nothing converts it, so the PLC's Windows time zone must be UTC (the production PCs are).
 - **`FB_BLINK` / `E_Blink`** — lamp/blink pattern generation for HMI lamps.
 - **`FB_ButtonEnable`** — button debounce/enable logic for panels.
 - **`FB_Horn` / `E_Horn`** — warning-horn control.

@@ -1,15 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
   <POU Name="FB_AstroClock" Id="{9eeab12b-19b9-408a-b96c-52351be0dfa7}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK FB_AstroClock
+    <Declaration><![CDATA[// Software clock (RTC_EX2, microsecond resolution) resynchronised from the Windows system time every 5 s.
+// NT_GetTime returns the LOCAL Windows time and nothing here converts it, so the PLC's Windows time zone must be
+// UTC: DateTime2JD and everything downstream (LST, pointing, tracking) expect UTC. The production PCs are set to UTC.
+// Check bValid before using time_RTCEX2 (see FB_AstroClockSync).
+FUNCTION_BLOCK FB_AstroClock
 VAR_INPUT
 END_VAR
 VAR_OUTPUT
         bValid          : BOOL;         // FALSE until the first successful sync, and after too many failed ones in a row
         nSyncErrors     : UINT;         // failed syncs in a row
-        time_RTCEX      : DT;
         time_RTCEX2     : TIMESTRUCT;
-        nMilliseconds   : DWORD;
         nMicroseconds   : DWORD;
 END_VAR
 VAR
@@ -22,13 +24,6 @@ VAR
         syncTimer       : TON;
         fbSync          : FB_AstroClockSync;
         bSynchronize    : BOOL;
-
-        fbRTC           : RTC;
-        bValid_RTC      : BOOL;
-        time_RTC        : DT;
-
-        fbRTC_EX        : RTC_EX;
-        bValid_RTCEX    : BOOL;
 
         fbRTC_EX2       : RTC_EX2;
         bValid_RTCEX2   : BOOL;
@@ -58,23 +53,11 @@ fbGetLocalTime(START := syncTimer.Q,
 	ERRID => nErrID,
 	TIMESTR => presetTime);
 
-// the RTCs are loaded only after a successful read; bValid tells callers whether time_RTCEX2 can be used
+// the RTC is loaded only after a successful read; bValid tells callers whether time_RTCEX2 can be used
 fbSync(bBusy := bBusy, bError := bError,
 	bSynchronize => bSynchronize,
 	bValid => bValid,
 	nErrors => nSyncErrors);
-
-fbRTC(EN := bSynchronize,
-	PDT := SYSTEMTIME_TO_DT(presetTime),
-	Q => bValid_RTC,
-	CDT => time_RTC);
-
-fbRTC_EX(EN := bSynchronize,
-	PDT := SYSTEMTIME_TO_DT(presetTime),
-	PMSEK := presetTime.wMilliseconds,
-	Q => bValid_RTCEX,
-	CDT => time_RTCEX,
-	CMSEK => nMilliseconds);
 
 fbRTC_EX2(EN := bSynchronize,
 	PDT := presetTime,
