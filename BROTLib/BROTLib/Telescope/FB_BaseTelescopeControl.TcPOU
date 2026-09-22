@@ -292,11 +292,10 @@ END_VAR
       </Implementation>
     </Method>
     <Method Name="Home" Id="{84524932-267e-412f-a6c3-40e991630e8d}">
-      <Declaration><![CDATA[{warning 'add method implementation '}
-METHOD Home : BOOL
+      <Declaration><![CDATA[METHOD Home : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[]]></ST>
+        <ST><![CDATA[bGoHome := TRUE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="Init" Id="{3aef494f-7f4e-4344-8ab1-5311c283fa00}">
