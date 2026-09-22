@@ -14,6 +14,7 @@ VAR
 	i				: UINT;
 	d_el			: LREAL := 0.0;
 	d_az			: LREAL := 0.0;
+	fElevationClamped	: LREAL;
 	fbPointing		: REFERENCE TO FB_PointingModelForward;
 END_VAR
 ]]></Declaration>
@@ -21,10 +22,18 @@ END_VAR
       <ST><![CDATA[d_el := 0.0;
 d_az := 0.0;
 
-FOR i:=0 TO 10 BY 1 DO
+// FB_PointingModelForward's own BNP/cos(el) term grows without bound approaching the zenith (89.9 deg is
+// where the forward model switches to its own fixed clamp); feeding the iteration an elevation past that
+// point keeps growing the offset further instead of converging to the bounded value the forward model
+// would give at 89.9 deg
+fElevationClamped := MIN(fElevation, 89.9);
+
+// 2 passes converge to < 0.1" for every elevation/coefficient combination tried; 5 keeps a wide margin
+// (needed for BROTLibTests' Inversion_Round_Trip, which checks self-consistency to 1e-9 deg)
+FOR i:=0 TO 4 BY 1 DO
 	fbPointing(
-		fAzimuth   		 := fAzimuth   - d_az,
-		fElevation 		 := fElevation - d_el,
+		fAzimuth   		 := fAzimuth   		  - d_az,
+		fElevation 		 := fElevationClamped - d_el,
 		fAzimuthOffset   => d_az,
 		fElevationOffset => d_el,
 	);
