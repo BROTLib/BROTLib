@@ -19,50 +19,57 @@ VAR
 	LogoffTrigger	: F_TRIG; // R_Trig or F_Trig ?!
 	PayloadMessage	: STRING(255);
 	fbFormat		: FB_FormatString;
-	LevelString		: STRING;
+	// OffLevel is a VAR_INPUT; fall back to Level in a local instead of writing back into it
+	effectiveOffLevel	: UDINT;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[LogonTrigger(CLK := Trigger);
 LogoffTrigger(CLK := Trigger);
 // in case the OffLevel is not set use the default Level Value
-IF OffLevel = 0 THEN
-	OffLevel := Level;
+effectiveOffLevel := OffLevel;
+IF effectiveOffLevel = 0 THEN
+	effectiveOffLevel := Level;
 END_IF
 IF LogonTrigger.Q AND LEN(OnMessage)>0 THEN
 	ADSLOGSTR( Level OR ADSLOG_MSGTYPE_LOG, FormatString, OnMessage);
 END_IF
 
 IF LogoffTrigger.Q AND LEN(OffMessage)>0 THEN
-	ADSLOGSTR( OffLevel OR ADSLOG_MSGTYPE_LOG, FormatString, OffMessage);
+	ADSLOGSTR( effectiveOffLevel OR ADSLOG_MSGTYPE_LOG, FormatString, OffMessage);
 END_IF
 
-IF LogonTrigger.Q AND LEN(OnMessage)>1 THEN
-	IF Level=ADSLOG_MSGTYPE_HINT THEN
-		LevelString := 'INFO';
-	ELSIF Level=ADSLOG_MSGTYPE_WARN THEN
-		LevelString := 'WARNING';
-	ELSE
-	    LevelString := 'ERROR';
-	END_IF
+// same length check as the ADS log above (>0), so a one-character message is not local-only
+IF LogonTrigger.Q AND LEN(OnMessage)>0 THEN
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OnMessage), sOut => PayloadMessage);
-	Comm.PublishLog(LevelString, PayloadMessage);
-
+	Comm.PublishLog(_LevelToString(Level), PayloadMessage);
 END_IF
 
-IF LogoffTrigger.Q AND LEN(OffMessage)>1 THEN
-	IF OffLevel=ADSLOG_MSGTYPE_HINT THEN
-		LevelString := 'INFO';
-	ELSIF OffLevel=ADSLOG_MSGTYPE_WARN THEN
-		LevelString := 'WARNING';
-	ELSE
-	    LevelString := 'ERROR';
-	END_IF
+IF LogoffTrigger.Q AND LEN(OffMessage)>0 THEN
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OffMessage), sOut => PayloadMessage);
-	Comm.PublishLog(LevelString, PayloadMessage);
-END_IF	
+	Comm.PublishLog(_LevelToString(effectiveOffLevel), PayloadMessage);
+END_IF
 ]]></ST>
     </Implementation>
+    <Method Name="_LevelToString" Id="{7a3e5c91-4b82-4f6a-9d3e-2c8b1f6a9d54}">
+      <Declaration><![CDATA[METHOD PRIVATE _LevelToString : STRING
+VAR_INPUT
+	level	: UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// bit-test rather than = against the raw constant: a caller combining Level with another flag
+// (e.g. the ADSLOG_MSGTYPE_LOG bit this FB itself ORs in for ADSLOGSTR) must still match its
+// actual severity here instead of always falling through to ERROR
+IF (level AND ADSLOG_MSGTYPE_ERROR) <> 0 THEN
+	_LevelToString := 'ERROR';
+ELSIF (level AND ADSLOG_MSGTYPE_WARN) <> 0 THEN
+	_LevelToString := 'WARNING';
+ELSE
+	_LevelToString := 'INFO';
+END_IF]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_EventLog">
       <LineId Id="27" Count="1" />
       <LineId Id="54" Count="0" />
@@ -79,6 +86,9 @@ END_IF
       <LineId Id="101" Count="0" />
       <LineId Id="109" Count="1" />
       <LineId Id="71" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventLog._LevelToString">
+      <LineId Id="1" Count="6" />
     </LineIds>
   </POU>
 </TcPlcObject>
