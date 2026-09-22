@@ -152,7 +152,10 @@ END_VAR
 END_VAR
 ]]></Declaration>
         <Implementation>
-          <ST><![CDATA[]]></ST>
+          <ST><![CDATA[// no limit-switch input at this level; concrete subclasses must override this with a real
+// hardware/soft-limit read. Left unoverridden, this always reports "not at the limit" -- the
+// safe-looking value but not an accurate one (BROTLib#20)
+InNegLimit := FALSE;]]></ST>
         </Implementation>
       </Get>
     </Property>
@@ -163,7 +166,8 @@ END_VAR
 END_VAR
 ]]></Declaration>
         <Implementation>
-          <ST><![CDATA[]]></ST>
+          <ST><![CDATA[// see InNegLimit -- same caveat, concrete subclasses must override with a real limit read
+InPosLimit := FALSE;]]></ST>
         </Implementation>
       </Get>
     </Property>
