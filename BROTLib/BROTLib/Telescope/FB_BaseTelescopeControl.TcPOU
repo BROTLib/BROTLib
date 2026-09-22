@@ -17,8 +17,13 @@ see https://gitlab.aip.de/bmk10k/telescope_firmware/snippets/5
 	bReset				: BOOL;		// initiates reset on all axis
 	bAutoTrack			: BOOL := TRUE;	// automatic tracking after goto
 	bCoverAutoOpen		: BOOL := TRUE;	// automatically open the mirror covers on Init/PowerOn
-	fRightAscension		: LREAL :=  0.0;	// apparent right ascension, degrees, double	
-	fDeclination		: LREAL :=  0.0;	// apparent declination, degrees, double
+	// catalog/mean right ascension (ICRS/J2000), degrees, double -- fed straight into AstroBROT's
+	// FB_EQ2HOR with precess/nutate/aberration all at their default TRUE, which only makes sense
+	// for mean/catalog input (feeding it an already-apparent position would double-correct it);
+	// MONETcommon's own telemetry independently re-publishes this same value as *_RA_ICRS (#22)
+	fRightAscension		: LREAL :=  0.0;
+	// catalog/mean declination (ICRS/J2000), degrees, double -- see fRightAscension
+	fDeclination		: LREAL :=  0.0;
 	fElevation			: LREAL :=  0.0;	// desired elevation of the telescope pointing
 	fAzimuth			: LREAL :=  0.0;	// desired azimut of the telescope pointing
 	fTimeOffset			: LREAL := 0.0;		// absolute offset for time
@@ -66,6 +71,10 @@ VAR
 	TCSreadyEvent,
 	TCSCTOEvent			: FB_Eventlog;
 	tonMQTTTimer 			: TON := (PT:=T#5S);
+	// the 7 INFO/CONFIG fields never change at runtime; republishing them on the fast 1-5s
+	// telemetry cadence is wasted traffic, so they get their own much slower timer instead
+	tonStaticTelemetryTimer	: TON := (PT:=T#30S);
+	bStaticTelemetrySent	: BOOL;	// forces one immediate publish on the first cycle
 	
 	nStatusWord, nLastStatus:	UDINT;
 END_VAR
@@ -101,14 +110,18 @@ END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[
-// telemetry cadence depends on state
+// telemetry cadence depends on state: every 1s while slewing/tracking, every 5s otherwise
+// (subclasses that don't call SUPER^() from their own cyclic body, e.g. MONETcommon's
+// FB_MonetTelescopeControl, drive this on their own timer instead and call _PublishTelemetry()
+// directly -- the static-fields gating below lives inside that method, not here, so it still
+// applies either way)
 IF bSlewing OR bTracking THEN
 	tonMQTTTimer.PT := T#1000MS;
 ELSE
 	tonMQTTTimer.PT := T#5000MS;
 END_IF
 tonMQTTTimer(IN:=TRUE);
-IF tonMQTTTimer.Q THEN // publish new payload every second
+IF tonMQTTTimer.Q THEN
 	tonMQTTTimer(IN:=FALSE);
 	_PublishTelemetry();
 END_IF]]></ST>
@@ -124,16 +137,17 @@ END_VAR
 //fbComm.Publish('telescope', 'dome', 'TELESCOPE.READY_STATE',	LREAL_TO_STRING(fReadyState));
 //fbComm.Publish('telescope', 'dome', 'TELESCOPE.Motion_STATE',	LREAL_TO_STRING(nMotionState));
 
-// INFO
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.NAME',	telescopeConfig.name);
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER',	LREAL_TO_STRING(telescopeConfig.diameter));
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.CABINET',	telescopeConfig.cabinet);
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', telescopeConfig.manufacturer);
-
-// CONFIG
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', '0'); // no ST_TelescopeConfig field for this yet
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', telescopeConfig.mountOptions);
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', telescopeConfig.mount);
+// static INFO/CONFIG fields never change at runtime: publish once immediately, then only every
+// 30s afterward, instead of on every call to this method (#22). Gated here rather than in the
+// cyclic body so it still applies when a subclass calls this method directly on its own timer
+// instead of going through FB_BaseTelescopeControl's own cyclic body (e.g. MONETcommon's
+// FB_MonetTelescopeControl, which never calls SUPER^() from its main body)
+tonStaticTelemetryTimer(IN:=TRUE);
+IF NOT bStaticTelemetrySent OR tonStaticTelemetryTimer.Q THEN
+	tonStaticTelemetryTimer(IN:=FALSE);
+	bStaticTelemetrySent := TRUE;
+	_PublishStaticTelemetry();
+END_IF
 
 // STATUS
 IF bEstopTriggered THEN
@@ -185,6 +199,28 @@ fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.JD', LREAL_TO_STRING(fJd));
 fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.LATITUDE', LREAL_TO_STRING(telescopeConfig.latitude));
 fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.LONGITUDE', LREAL_TO_STRING(telescopeConfig.longitude));
 fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.HEIGHT', LREAL_TO_STRING(telescopeConfig.altitude));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_PublishStaticTelemetry" Id="{9c1b6e2a-7f34-4d8e-a5b1-3e6f8c2d9a47}">
+      <Declaration><![CDATA[METHOD _PublishStaticTelemetry : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// fields that never change at runtime -- published on their own slow timer (see the cyclic
+// body), not on _PublishTelemetry's fast 1-5s cadence (#22)
+
+// INFO
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.NAME',	telescopeConfig.name);
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER',	LREAL_TO_STRING(telescopeConfig.diameter));
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.CABINET',	telescopeConfig.cabinet);
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', telescopeConfig.manufacturer);
+
+// CONFIG
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', '0'); // no ST_TelescopeConfig field for this yet
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', telescopeConfig.mountOptions);
+fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', telescopeConfig.mount);
 ]]></ST>
       </Implementation>
     </Method>
