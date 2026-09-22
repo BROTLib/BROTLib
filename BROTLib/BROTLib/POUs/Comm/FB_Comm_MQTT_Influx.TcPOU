@@ -145,6 +145,7 @@ VAR
 	sHost			: STRING(255);
 	sKey			: STRING(255);
 	sFieldVal		: STRING(255);
+	sTopic			: STRING(255);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
@@ -184,8 +185,13 @@ END_IF
 bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
 retain_message := bIsBool;
 
+// publish under a per-subsystem sub-topic (domain is already the Influx measurement, e.g.
+// 'telescope'/'power'/'electronics'/'hydraulics'/'diagnostics') so a consumer that only cares
+// about one subsystem can subscribe to just that sub-topic instead of the whole site's firehose
+sTopic := CONCAT(CONCAT(sTopicPublish, '/'), domain);
+
 published := fbMqttClient.Publish(
-	sTopic			:= sTopicPublish, 
+	sTopic			:= sTopic,
 	pPayload		:= ADR(sPayloadPub), 
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
