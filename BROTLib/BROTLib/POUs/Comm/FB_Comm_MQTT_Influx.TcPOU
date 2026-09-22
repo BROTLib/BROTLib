@@ -11,6 +11,9 @@ VAR
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
 	sent		: INT := 0;
 	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
+	Temperature	: LREAL := GVL_Math.LREAL_MIN;	// last received ambient temperature (deg C), set via MQTT by an external weather-station bridge
+	Humidity	: LREAL := GVL_Math.LREAL_MIN;	// last received relative humidity (%)
+	Pressure	: LREAL := GVL_Math.LREAL_MIN;	// last received atmospheric pressure (hPa)
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -68,6 +71,12 @@ IF measurement = 'command' THEN
 		AltAz.Altitude := STRING_TO_LREAL(value);
 	ELSIF parameter = 'azimuth' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
+	ELSIF parameter = 'temperature' THEN
+		Temperature := STRING_TO_LREAL(value);
+	ELSIF parameter = 'humidity' THEN
+		Humidity := STRING_TO_LREAL(value);
+	ELSIF parameter = 'pressure' THEN
+		Pressure := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.Position := STRING_TO_LREAL(value);
 	ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
