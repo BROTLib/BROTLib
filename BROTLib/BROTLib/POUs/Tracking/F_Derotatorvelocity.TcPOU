@@ -3,12 +3,14 @@
   <POU Name="F_Derotatorvelocity" Id="{c1a20f29-795e-4354-b052-2a3ea3d9622c}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION F_Derotatorvelocity : LREAL
 VAR_INPUT
-	// elevation in degrees
-	elevation: 	LREAL;
 	// azimuth in degrees
 	azimuth:	LREAL;
+	// elevation in degrees
+	elevation: 	LREAL;
 	// observers latitude in degrees
 	latitude:	LREAL;
+	// sign for elevation, must match the sign passed to F_DerotatorPosition2
+	sign:	LREAL := 1.0;
 END_VAR
 VAR
 END_VAR
@@ -28,9 +30,12 @@ returns the rotational velocity for the de-rotator in degrees per second
 azimuth, latitutde and elevation are converted to radians
 *)
 IF ABS(COS(elevation * d2r))> 1.0e-3 THEN
-	F_Derotatorvelocity := -Omega * COS(azimuth * d2r) * COS(latitude * d2r) / COS(elevation * d2r)  - Omega *COS(latitude * d2r) * SIN(azimuth * d2r);
+	// this closed form is the parallactic-angle rate minus the elevation rate (i.e. the sign = 1
+	// case of F_DerotatorPosition2); (1 - sign) * elevation rate corrects it for any other sign
+	F_Derotatorvelocity := -Omega * COS(azimuth * d2r) * COS(latitude * d2r) / COS(elevation * d2r)  - Omega *COS(latitude * d2r) * SIN(azimuth * d2r)
+		+ (1.0 - sign) * F_Elevationvelocity(azimuth, latitude);
 ELSE
-	F_Derotatorvelocity := 0.0;	
+	F_Derotatorvelocity := 0.0;
 END_IF
 ]]></ST>
     </Implementation>

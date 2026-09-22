@@ -7,8 +7,6 @@ VAR_INPUT
 	azimuth: LREAL;
 	// elevation of the target in degrees
 	elevation: LREAL;
-	// declination of the target in degrees
-	declination: LREAL;
 	// latitude in degrees
 	latitude:	LREAL;
 	// sign for elevation
@@ -16,7 +14,7 @@ VAR_INPUT
 END_VAR
 VAR
 	// parallactic angle
-	de, az, el, la: LREAL;
+	az, el, la: LREAL;
 	parallactic_angle:	LREAL;
 	//zenith_distance: LREAL;
 END_VAR
@@ -28,14 +26,14 @@ VAR CONSTANT
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[// calculate the parallactic angle
-de := LIMIT(-90.0, declination, 90.0) * d2r;
 az := MODABS(azimuth, 360.0) * d2r;
 el := LIMIT(0.0, elevation, 90.0) * d2r;
 la := LIMIT(-90.0, latitude, 90.0) * d2r;
 
 parallactic_angle := - r2d * ATAN2(SIN(az), TAN(la)*COS(el)-SIN(el)*COS(az));
 
-F_DerotatorPosition2 := parallactic_angle - sign * elevation;
+// use the same clamped elevation as the trigonometry above, not the raw input
+F_DerotatorPosition2 := parallactic_angle - sign * (el * r2d);
 F_DerotatorPosition2 := MODABS(F_DerotatorPosition2, 360.0);
 ]]></ST>
     </Implementation>
