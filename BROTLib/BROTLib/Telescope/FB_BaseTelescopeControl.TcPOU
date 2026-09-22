@@ -4,8 +4,10 @@
     <Declaration><![CDATA[FUNCTION_BLOCK ABSTRACT FB_BaseTelescopeControl IMPLEMENTS I_Telescope
 VAR_INPUT
 (*
-TCS interface section
-see https://gitlab.aip.de/bmk10k/telescope_firmware/snippets/5
+TCS interface section, modeled on an external TCS spec kept as a private internal reference
+(not linked here -- this repo is public; ask internally for the spec if you need it). See
+specs/design/telescope-telemetry-publish-chain.md for what's actually confirmed about the
+on-wire format from tracing the code, since the spec itself isn't accessible from here.
 *)
 	bPower				: BOOL;		// true: Power on
 	bGoHome				: BOOL;		// true: go to home position, unset track/goto if active
