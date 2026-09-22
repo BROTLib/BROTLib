@@ -19,10 +19,10 @@ END_VAR
       <ST><![CDATA[(*
 y = mx+b
 
-		    delta X	  fYmax - fYmin
+		    delta Y	  fYmax - fYmin
 m = fgain = ------- = -------------
-			delta Y	  fXmax - fXmin
-			
+			delta X	  fXmax - fXmin
+
 b = foffset = y - m*x = y - fgain*x
 					  = fYmin - fgain * fXmin
 *)
@@ -33,15 +33,18 @@ IF (fXmax - fXmin) <> 0 THEN
 
 	// Berechnung der Steigung
 	fgain := (fYmax - fYmin) / (fXmax - fXmin);
-	
+
 	// Berechnung des Offsets
 	foffset := fYmin - (fgain * fXmin);
-	
+
 	// Berechnung von F_Y
 
 	F_YREAL := LREAL_TO_REAL(fgain * fX + foffset);
 	IF cut THEN
-		F_YREAL := LIMIT(fYmin, F_YREAL, fYMAX);
+		// LIMIT(MN, IN, MX) requires MN <= MX; fYmin/fYmax can be given inverted
+		// (e.g. mapping onto a descending range), so clamp against the actual
+		// low/high bound instead of assuming fYmin is the low one
+		F_YREAL := LIMIT(MIN(fYmin, fYmax), F_YREAL, MAX(fYmin, fYmax));
 	END_IF
 END_IF
 ]]></ST>

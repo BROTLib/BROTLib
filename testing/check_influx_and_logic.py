@@ -45,7 +45,8 @@ def logic_yreal(x, xmin, xmax, ymin, ymax, cut=True):
         return 0.0
     y = (ymax - ymin) / (xmax - xmin) * x + (ymin - (ymax - ymin) / (xmax - xmin) * xmin)
     if cut:
-        y = min(max(y, ymin), ymax)     # LIMIT(min, in, max)
+        lo, hi = min(ymin, ymax), max(ymin, ymax)   # LIMIT(MN, IN, MX) needs MN <= MX
+        y = min(max(y, lo), hi)
     return y
 
 
