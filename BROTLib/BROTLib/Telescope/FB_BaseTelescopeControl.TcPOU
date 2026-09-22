@@ -75,8 +75,6 @@ VAR
 	// telemetry cadence is wasted traffic, so they get their own much slower timer instead
 	tonStaticTelemetryTimer	: TON := (PT:=T#30S);
 	bStaticTelemetrySent	: BOOL;	// forces one immediate publish on the first cycle
-	
-	nStatusWord, nLastStatus:	UDINT;
 END_VAR
 VAR_OUTPUT
 	bReady				: BOOL;		// TRUE, IF telescope can be operated 

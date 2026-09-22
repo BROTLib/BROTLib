@@ -79,9 +79,6 @@
     <Compile Include="DUTs\E_TCSCommand.TcDUT">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="DUTs\E_TCSErrors.TcDUT">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="DUTs\E_TelescopeMode.TcDUT">
       <SubType>Code</SubType>
     </Compile>
@@ -162,9 +159,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_InfluxMessage.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\FB_LightTimer.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_TONTP.TcPOU">
@@ -263,10 +257,6 @@
     <PlaceholderReference Include="Tc3_IotCommunicator">
       <DefaultResolution>Tc3_IotCommunicator, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc3_IotCommunicator</Namespace>
-    </PlaceholderReference>
-    <PlaceholderReference Include="Tc3_Module">
-      <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
-      <Namespace>Tc3_Module</Namespace>
     </PlaceholderReference>
   </ItemGroup>
   <ItemGroup>
