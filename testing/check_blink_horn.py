@@ -49,10 +49,11 @@ def blink(on_ms, off_ms, cycles=1000):
     return q
 
 
-def horn(on_ms, cycles=1000):
-    imp, q = TOF(), []
+def horn(on_ms, off_ms, cycles=1000):
+    imp, pause, q = TOF(), TOF(), []
     for _ in range(cycles):
-        imp(True and not imp.Q, on_ms)               # PAUSE is declared but never called: PAUSE.Q = FALSE
+        imp(not pause.Q and not imp.Q, on_ms)
+        pause(not pause.Q and not imp.Q, off_ms)   # sees updated imp.Q, as in the ST
         q.append(imp.Q)
     return q
 
@@ -62,7 +63,7 @@ if __name__ == "__main__":
     for name, on, off in (("slow", 500, 500), ("fast", 250, 250), ("short", 100, 900), ("long", 900, 100)):
         r = runs(blink(on, off, 600))[2:6]
         print(f"  {name:5s} {on:4d}/{off:<4d} -> {[(int(l), d) for l, d in r]}")
-    print("\nFB_Horn: one call 'beep' (500 ms), 'short' (3 s), 'long' (5 s); enum stays set")
+    print("\nFB_Horn: symmetric ON/OFF per mode (beep 500 ms, short 3 s, long 5 s)")
     for name, on in (("beep", 500), ("short", 3000), ("long", 5000)):
-        r = runs(horn(on, 1500))[:5]
+        r = runs(horn(on, on, 1500))[:5]
         print(f"  {name:5s} -> {[(int(l), d) for l, d in r]}")

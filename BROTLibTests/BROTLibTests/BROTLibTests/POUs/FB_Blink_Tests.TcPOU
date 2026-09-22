@@ -8,7 +8,8 @@
 // (BROTLib/testing/check_blink_horn.py): at a 10 ms task cycle the steady state is ON + 10 ms high and
 // OFF + 20 ms low. The tolerance covers task jitter, which is larger on the user-mode runtime.
 //
-// FB_Horn is not covered: it never pauses (code review L1).
+// FB_Horn is not covered here: it now shares FB_BLINK's exact IMPULS/PAUSE oscillator (fixed in #14) but
+// has its own test suite scope if one is added later; see BROTLib/testing/check_blink_horn.py's horn().
 FUNCTION_BLOCK FB_Blink_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
 	fbProbeSlow		: FB_BlinkTimingProbe;

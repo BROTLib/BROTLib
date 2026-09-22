@@ -10,6 +10,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 	ON_TIME:	TIME := T#500MS;
+	OFF_TIME:	TIME := T#500MS;
 	IMPULS   :TOF;
     PAUSE    :TOF;
 
@@ -19,19 +20,27 @@ END_VAR
       <ST><![CDATA[CASE horn OF
 	e_horn.off:
 		ON_TIME := T#0MS;
+		OFF_TIME := T#0MS;
 	e_horn.beep:
 		ON_TIME := T#500MS;
+		OFF_TIME := T#500MS;
 	e_horn.short:
 		ON_TIME := T#3000MS;
+		OFF_TIME := T#3000MS;
 	e_horn.long:
 		ON_TIME := T#5000MS;
+		OFF_TIME := T#5000MS;
 END_CASE
 
+// same IMPULS/PAUSE oscillator as FB_BLINK: PAUSE must actually run for the pair
+// to alternate ON_TIME/OFF_TIME -- without it (the previous bug) NOT PAUSE.Q is
+// always TRUE and IMPULS just retriggers itself every cycle, i.e. stays on
 IMPULS(IN:= NOT PAUSE.Q AND NOT IMPULS.Q, PT:= ON_TIME);
+PAUSE(IN:= NOT PAUSE.Q AND NOT IMPULS.Q, PT:= OFF_TIME);
 IF horn = e_horn.off THEN
 	Q := FALSE;
 ELSE
-	Q := IMPULS.Q;	
+	Q := IMPULS.Q;
 END_IF]]></ST>
     </Implementation>
     <LineIds Name="FB_Horn">
