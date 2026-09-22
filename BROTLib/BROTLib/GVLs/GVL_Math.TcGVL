@@ -4,6 +4,12 @@
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL CONSTANT
 	LREAL_MIN			: LREAL :=  -1.7976931348623157E+308; // https://infosys.beckhoff.com/index.php?content=../content/1031/tc3_plc_intro/2529405067.html&id=
+	d2r					: LREAL := PI/180.0;
+	r2d					: LREAL := 180.0/PI;
+	// Earth's mean sidereal angular rate, deg/s (360 deg / 86164.0905 s mean sidereal day); was previously
+	// copy-pasted into three tracking functions, and separately (re-derived slightly differently, as
+	// 360/86164.099, ~0.005 arcsec/hour off) as the unused FB_BaseTelescopeControl.fSiderialVelocity
+	Omega				: LREAL := 4.178074605556E-3;
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

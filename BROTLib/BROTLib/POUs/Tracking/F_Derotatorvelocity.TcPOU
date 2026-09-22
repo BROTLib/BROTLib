@@ -14,25 +14,19 @@ VAR_INPUT
 END_VAR
 VAR
 END_VAR
-VAR CONSTANT
-	// Earth's angular rotation frequency in [deg/s]
-	Omega: LREAL := 4.178074605556E-3;
-	d2r:	LREAL := PI/180.0;
-	//r2d:	LREAL := 180.0/PI;
-END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[(* 
+      <ST><![CDATA[(*
 source: https://github.com/cytan299/field_derotator/blob/master/field_derotator_formula/field_derotator_formula.pdf
 https://circuitcellar.com/research-design-hub/projects/field-derotator-for-astrophotography-part-1/
 
 returns the rotational velocity for the de-rotator in degrees per second
 azimuth, latitutde and elevation are converted to radians
 *)
-IF ABS(COS(elevation * d2r))> 1.0e-3 THEN
+IF ABS(COS(elevation * GVL_Math.d2r))> 1.0e-3 THEN
 	// this closed form is the parallactic-angle rate minus the elevation rate (i.e. the sign = 1
 	// case of F_DerotatorPosition2); (1 - sign) * elevation rate corrects it for any other sign
-	F_Derotatorvelocity := -Omega * COS(azimuth * d2r) * COS(latitude * d2r) / COS(elevation * d2r)  - Omega *COS(latitude * d2r) * SIN(azimuth * d2r)
+	F_Derotatorvelocity := -GVL_Math.Omega * COS(azimuth * GVL_Math.d2r) * COS(latitude * GVL_Math.d2r) / COS(elevation * GVL_Math.d2r)  - GVL_Math.Omega *COS(latitude * GVL_Math.d2r) * SIN(azimuth * GVL_Math.d2r)
 		+ (1.0 - sign) * F_Elevationvelocity(azimuth, latitude);
 ELSE
 	F_Derotatorvelocity := 0.0;

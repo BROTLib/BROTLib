@@ -10,16 +10,10 @@ VAR_INPUT
 END_VAR
 VAR
 END_VAR
-VAR CONSTANT
-	// Earth's angular rotation frequency in [deg/s]
-	Omega: LREAL := 4.178074605556E-3;
-	d2r:	LREAL := PI/180.0;
-	//r2d:	LREAL := 180.0/PI;
-END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[//returns the rotational velocity for the azimuth in degrees per second
-F_Elevationvelocity := SIN(azimuth*d2r) * COS(latitude*d2r) * Omega;]]></ST>
+F_Elevationvelocity := SIN(azimuth*GVL_Math.d2r) * COS(latitude*GVL_Math.d2r) * GVL_Math.Omega;]]></ST>
     </Implementation>
     <LineIds Name="F_Elevationvelocity">
       <LineId Id="1" Count="1" />

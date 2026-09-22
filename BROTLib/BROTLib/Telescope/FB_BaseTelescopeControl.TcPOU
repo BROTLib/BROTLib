@@ -93,8 +93,10 @@ VAR_OUTPUT
 	bBusy				: BOOL;		// telescope does not accept further commands
 END_VAR
 VAR CONSTANT
-	d2r		: LREAL := PI/180.0;
-	fSiderialVelocity: LREAL := 360.0 / 86164.099;
+	// kept as an inherited constant (not GVL_Math.d2r directly) so existing subclasses
+	// (e.g. MONETcommon/MONETN's FB_MonetTelescopeControl) keep working unmodified; single-sourced
+	// from GVL_Math now instead of its own copy of PI/180.0
+	d2r		: LREAL := GVL_Math.d2r;
 END_VAR
 ]]></Declaration>
     <Implementation>

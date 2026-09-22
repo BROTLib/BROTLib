@@ -12,16 +12,10 @@ VAR_INPUT
 END_VAR
 VAR
 END_VAR
-VAR CONSTANT
-	// Earth's angular rotation frequency in [deg/s]
-	Omega: LREAL := 4.178074605556E-3;
-	d2r:	LREAL := PI/180.0;
-	//r2d:	LREAL := 180.0/PI;
-END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[IF ABS(COS(elevation * d2r))> 1.0e-3 THEN
-	F_Azimuthvelocity := (SIN(latitude * d2r) - COS(latitude * d2r) * COS(azimuth * d2r) * TAN(elevation *d2r))* Omega;
+      <ST><![CDATA[IF ABS(COS(elevation * GVL_Math.d2r))> 1.0e-3 THEN
+	F_Azimuthvelocity := (SIN(latitude * GVL_Math.d2r) - COS(latitude * GVL_Math.d2r) * COS(azimuth * GVL_Math.d2r) * TAN(elevation * GVL_Math.d2r))* GVL_Math.Omega;
 ELSE
 	F_Azimuthvelocity := 0.0;	
 END_IF
