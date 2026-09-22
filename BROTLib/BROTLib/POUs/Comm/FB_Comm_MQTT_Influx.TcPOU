@@ -11,13 +11,27 @@ VAR
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
 	sent		: INT := 0;
 	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
-	Temperature	: LREAL := GVL_Math.LREAL_MIN;	// last received ambient temperature (deg C), set via MQTT by an external weather-station bridge
-	Humidity	: LREAL := GVL_Math.LREAL_MIN;	// last received relative humidity (%)
-	Pressure	: LREAL := GVL_Math.LREAL_MIN;	// last received atmospheric pressure (hPa)
+	// 0.0 doubles as "no data received yet" and FB_CO_REFRACT's own "estimate from altitude"
+	// sentinel, so a consumer can pass these straight through with no guard needed.
+	Temperature	: LREAL := 0.0;	// last received ambient temperature (deg C), set via MQTT by an external weather-station bridge
+	Humidity	: LREAL := GVL_Math.LREAL_MIN;	// last received relative humidity (%); unconsumed anywhere today
+	Pressure	: LREAL := 0.0;	// last received atmospheric pressure (hPa)
+
+	// revert Temperature/Pressure to their safe defaults if nothing fresh arrives for a while,
+	// instead of serving an arbitrarily stale weather reading forever
+	bWeatherMessageReceived	: BOOL;
+	tonWeatherStale			: TON := (PT := T#10M);
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[SUPER^();]]></ST>
+      <ST><![CDATA[SUPER^();
+
+tonWeatherStale(IN := NOT bWeatherMessageReceived, PT := T#10M);
+bWeatherMessageReceived := FALSE;
+IF tonWeatherStale.Q THEN
+	Temperature := 0.0;
+	Pressure := 0.0;
+END_IF]]></ST>
     </Implementation>
     <Method Name="_handleMQTTMessage" Id="{6b8170c3-1db8-4027-aca0-99823e943d46}">
       <Declaration><![CDATA[METHOD _handleMQTTMessage : BOOL
@@ -73,10 +87,15 @@ IF measurement = 'command' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
 	ELSIF parameter = 'temperature' THEN
 		Temperature := STRING_TO_LREAL(value);
+		bWeatherMessageReceived := TRUE;
 	ELSIF parameter = 'humidity' THEN
 		Humidity := STRING_TO_LREAL(value);
+		bWeatherMessageReceived := TRUE;
 	ELSIF parameter = 'pressure' THEN
 		Pressure := STRING_TO_LREAL(value);
+		bWeatherMessageReceived := TRUE;
+	ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
+		AltAzTelescope.Dut1 := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.Position := STRING_TO_LREAL(value);
 	ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN

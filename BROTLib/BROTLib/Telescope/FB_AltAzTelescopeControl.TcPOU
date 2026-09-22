@@ -6,6 +6,10 @@ VAR_INPUT
 	fElevationOffset	: LREAL := 0.0;		// absolute offset for elevation
 	fAzimuthOffset 		: LREAL := 0.0;		// absolute offset for azimuth
 	fDerotatorOffset	: LREAL := 0.0;		// offset for the de-rotator
+	// UT1-UTC (seconds, IERS). 0.0 = treat UTC as UT1 (no correction), matching FB_EQ2HOR/
+	// FB_HOR2EQ's own default. Set via MQTT by an external time bridge (Dut1 property, see
+	// FB_Comm_MQTT_Influx); reverts to 0.0 if nothing fresh arrives for a while (below).
+	fDut1				: LREAL := 0.0;
 END_VAR
 VAR_OUTPUT
 	fDerotatorCurrent	: LREAL;	// current position in derotator (calculated) (without pointing and offset correction)
@@ -13,8 +17,11 @@ END_VAR
 VAR
 	eq2hor				: FB_EQ2HOR;
 	hor2eq				: FB_HOR2EQ;
-	
+
 	fDerotatorCalc		: LREAL;	// derotator angle calcuilated
+
+	bDut1Received		: BOOL;
+	tonDut1Stale		: TON := (PT := T#10M);
 END_VAR
 VAR PERSISTENT
 	EOFF				: LREAL;	// elevation encoder zero offset
@@ -100,6 +107,27 @@ END_VAR
 ]]></Declaration>
         <Implementation>
           <ST><![CDATA[THIS^.fDerotatorOffset := DerotatorOffset;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="Dut1" Id="{d1e2f3a4-5b6c-47d8-a9e0-1f2a3b4c5d6e}">
+      <Declaration><![CDATA[PROPERTY Dut1 : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{e2f3a4b5-6c7d-48e9-ba01-2f3a4b5c6d7e}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Dut1 := THIS^.fDut1;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{f3a4b5c6-7d8e-49fa-cb12-3a4b5c6d7e8f}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[THIS^.fDut1 := Dut1;
+THIS^.bDut1Received := TRUE;]]></ST>
         </Implementation>
       </Set>
     </Property>
