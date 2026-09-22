@@ -33,7 +33,9 @@ VAR
 	fbMessageQueue:		FB_IotMqttMessageQueue;
     fbMessage:			FB_IotMqttMessage;
 	fbMqttClient:		FB_IotMqttClient;
-	sPayloadRcv: 		STRING;
+	// match _handleMQTTMessage's sPayloadRcv : STRING(255) -- plain STRING (80 chars) here
+	// truncated any longer message before it ever reached the 255-capable handler (#24)
+	sPayloadRcv: 		STRING(255);
 END_VAR
 ]]></Declaration>
     <Implementation>

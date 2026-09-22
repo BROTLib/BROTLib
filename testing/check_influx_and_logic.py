@@ -5,6 +5,7 @@
 3. F_YREAL with an inverted output range and cut = TRUE
 4. FB_InfoConnection.sDiag decoding (cascade of bit tests)
 5. FB_EventLog._LevelToString: bit-test vs a combined Level value
+6. FB_InfluxMessage: quoted value, trailing timestamp (#24)
 Run: python3 check_influx_and_logic.py
 """
 
@@ -70,6 +71,19 @@ def level_to_string_new(level):          # FB_EventLog._LevelToString, fixed
     return "INFO"
 
 
+def parse_influx_message(payload, strip_timestamp_and_quotes=True):
+    # FB_InfluxMessage: measurement[,tags] parameter=value[ timestamp], single field only
+    measurement_tags, _, parameter_value = payload.partition(" ")
+    measurement = measurement_tags.partition(",")[0]
+    first_pair = parameter_value.split(",", 1)[0]
+    parameter, _, value = first_pair.partition("=")
+    if strip_timestamp_and_quotes:
+        value = value.split(" ", 1)[0]                    # drop a trailing timestamp (#24 fix)
+        if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+            value = value[1:-1]                            # strip quotes (#24 fix)
+    return measurement, parameter, value
+
+
 def diag_connection(v):                 # FB_InfoConnection.sDiag cascade, in source order
     b = lambda n: bool(v >> n & 1)
     if v == 0: return "No error"
@@ -131,3 +145,17 @@ if __name__ == "__main__":
         old, new = level_to_string_old(combined), level_to_string_new(combined)
         flag = "" if old == new else "   <-- old reads as ERROR regardless of the real level"
         print(f"   {name:5s} | LOG: old={old:8s} new={new:8s}{flag}")
+
+    print("\n6. FB_InfluxMessage: quoted value and trailing timestamp")
+    cases = [
+        'command mode="auto"',
+        'command mode="auto" 1234567890',
+        'command temperature=20.5 1234567890',
+        'command nasmyth=1',
+    ]
+    for payload in cases:
+        old = parse_influx_message(payload, strip_timestamp_and_quotes=False)
+        new = parse_influx_message(payload, strip_timestamp_and_quotes=True)
+        flag = "" if old == new else "   <-- old kept the quotes/timestamp in value"
+        print(f"   {payload!r}")
+        print(f"     old value={old[2]!r}  new value={new[2]!r}{flag}")
