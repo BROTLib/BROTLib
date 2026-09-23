@@ -16,3 +16,7 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   full code review of BROTLib (bugs, security, design, CI/release). **draft**, no finding fixed yet;
   `BROTLibTests` added. Checked with Python ports against `erfa` where possible (`testing/`), TcUnit tests
   pass on the user-mode runtime, not verified on a telescope.
+- [2026-09-23-multi-field-influx-message-parsing.md](2026-09-23-multi-field-influx-message-parsing.md) —
+  `FB_InfluxMessage` only returns the first `parameter=value` pair in a multi-field Influx line, dropping the
+  rest; return-the-remainder design so a caller can loop, prerequisite for BROTLib#6's "one message per
+  command" fix. **proposed**, nothing implemented (BROTLib#39)
