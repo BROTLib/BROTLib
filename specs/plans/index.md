@@ -20,3 +20,8 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   `FB_InfluxMessage` only returns the first `parameter=value` pair in a multi-field Influx line, dropping the
   rest; return-the-remainder design so a caller can loop, prerequisite for BROTLib#6's "one message per
   command" fix. **proposed**, nothing implemented (BROTLib#39)
+- [2026-09-23-fb-axis-latching-and-self-mutation-fixes.md](2026-09-23-fb-axis-latching-and-self-mutation-fixes.md) —
+  BROTLib#9's six findings re-verified against the merged `FB_Axis` (only one was fixed as a side effect of the
+  `FB_Axis2`/`FB_Axis3` unification): the `Axis_SetpointEnable.Execute` error latch, `Axis_Home`'s stale
+  reference position, the self-mutating `VAR_INPUT`s (flagged as a separate bigger effort), the unverified
+  `MC_Power` default question, and the `OR`/`AND` busy-check fix. **proposed**, nothing implemented
