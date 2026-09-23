@@ -9,8 +9,8 @@ END_VAR
 VAR
 	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
-	sent		: INT := 0;
 	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
+	deliveryFailed	: INT := 0;	// fbMqttClient.Publish() returned FALSE (e.g. client busy/not connected); periodic telemetry, not retried on purpose (#5)
 	// 0.0 doubles as "no data received yet" and FB_CO_REFRACT's own "estimate from altitude"
 	// sentinel, so a consumer can pass these straight through with no guard needed.
 	Temperature	: LREAL := 0.0;	// last received ambient temperature (deg C), set via MQTT by an external weather-station bridge
@@ -206,6 +206,7 @@ IF bError OR LEN(sPayloadPub) >= 255 THEN
 	IF dropped = 1 OR (dropped MOD 100) = 0 THEN
 		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'Influx line too long, not published: %s', parameter);
 	END_IF
+	Publish := published;
 	RETURN;
 END_IF
 
@@ -218,16 +219,29 @@ retain_message := bIsBool;
 // about one subsystem can subscribe to just that sub-topic instead of the whole site's firehose
 sTopic := CONCAT(CONCAT(sTopicPublish, '/'), domain);
 
+// bQueue left FALSE on purpose: this is periodic telemetry (republished every 1-5s or on the
+// static-fields timer), so a dropped publish under load is self-healing next cycle -- queuing
+// would just build a backlog of stale values behind whatever caused the client to be busy.
+// One-time events (PublishLog) get bQueue := TRUE instead, see there. (#5)
 published := fbMqttClient.Publish(
 	sTopic			:= sTopic,
-	pPayload		:= ADR(sPayloadPub), 
+	pPayload		:= ADR(sPayloadPub),
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
-	bRetain			:= retain_message, 
-	bQueue			:= FALSE 
+	bRetain			:= retain_message,
+	bQueue			:= FALSE
 );
 
-sent := sent + 1;]]></ST>
+IF NOT published THEN
+	IF deliveryFailed < 32767 THEN
+		deliveryFailed := deliveryFailed + 1;
+	END_IF
+	IF deliveryFailed = 1 OR (deliveryFailed MOD 100) = 0 THEN
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT publish failed (client busy/not connected): %s', parameter);
+	END_IF
+END_IF
+
+Publish := published;]]></ST>
       </Implementation>
     </Method>
     <Method Name="PublishLog" Id="{dd46de85-b82a-4d9d-9238-d6c509f88651}">
@@ -273,17 +287,22 @@ fbFormat(
 // still too long (very long host name or level): publish nothing rather than a broken line
 IF bError OR LEN(sPayloadPub) >= 255 THEN
 	published := FALSE;
+	PublishLog := published;
 	RETURN;
 END_IF
 
-published := fbMqttClient.Publish(	
-	sTopic			:= sTopicLog, 
-	pPayload		:= ADR(sPayloadPub), 
+// bQueue TRUE: unlike Publish()'s periodic telemetry, a log/event message is one-time -- if the
+// client can't send it immediately, queue it for retry instead of losing it silently (#5)
+published := fbMqttClient.Publish(
+	sTopic			:= sTopicLog,
+	pPayload		:= ADR(sPayloadPub),
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
-	bRetain			:= FALSE, 
-	bQueue			:= FALSE 
+	bRetain			:= FALSE,
+	bQueue			:= TRUE
 );
+
+PublishLog := published;
 ]]></ST>
       </Implementation>
     </Method>

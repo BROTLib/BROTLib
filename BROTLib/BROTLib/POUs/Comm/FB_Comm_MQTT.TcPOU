@@ -36,6 +36,11 @@ VAR
 	// match _handleMQTTMessage's sPayloadRcv : STRING(255) -- plain STRING (80 chars) here
 	// truncated any longer message before it ever reached the 255-capable handler (#24)
 	sPayloadRcv: 		STRING(255);
+	tonHostNameStuck	: TON := (PT := T#30S);	// warn once if state 0 never completes (#5)
+	bHostNameStuckLogged: BOOL;
+	sStatusTopic		: STRING(255);	// {sTopicPublish}/status: 'online'/'offline' presence (#5)
+	sOnlinePayload		: STRING(20);
+	sOfflinePayload		: STRING(20);
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -50,34 +55,57 @@ https://infosys.beckhoff.com/english.php?content=../content/1033/tf6701_tc3_iot_
 CASE state OF
 0:
 	// get hostname of this machine
-	GetHostName(bExecute := TRUE, sHostName => HostName);	
-	
+	GetHostName(bExecute := TRUE, sHostName => HostName);
+
 	// finished?
 	IF HostName <> '' THEN
 		GetHostName(bExecute := FALSE);
 		state := 1;
+	ELSE
+		// GetHostName failing would otherwise leave this state (and the whole connection) stuck
+		// forever with nothing reporting it (#5); log once, keep waiting either way
+		tonHostNameStuck(IN := TRUE, PT := T#30S);
+		IF tonHostNameStuck.Q AND NOT bHostNameStuckLogged THEN
+			bHostNameStuckLogged := TRUE;
+			ADSLOGSTR(ADSLOG_MSGTYPE_ERROR OR ADSLOG_MSGTYPE_LOG, 'MQTT: FB_GetHostName has not returned a hostname after 30s, still waiting', '');
+		END_IF
 	END_IF
 	
 1:
 	// set parameters
     fbMqttClient.sHostName      := sHostName;
     fbMqttClient.nHostPort      := nHostPort;
-    fbMqttClient.sClientId      := HostName; 
-    fbMqttClient.sTopicPrefix   := ''; 
-	fbMqttClient.nKeepAlive     := nKeepAlive; 
+    fbMqttClient.sClientId      := HostName;
+    fbMqttClient.sTopicPrefix   := '';
+	fbMqttClient.nKeepAlive     := nKeepAlive;
     fbMqttClient.ipMessageQueue := fbMessageQueue;
-	
+
+	// last will: the broker publishes this (retained) if this client disconnects uncleanly
+	// (crash, power loss, network loss), so a consumer can tell the PLC is actually gone instead
+	// of telemetry just having gone quiet (#5). Paired with the explicit 'online' publish below
+	// once actually connected, so the retained value on this topic always reflects current status
+	sStatusTopic := CONCAT(sTopicPublish, '/status');
+	sOfflinePayload := 'offline';
+	fbMqttClient.stWill.sTopic := sStatusTopic;
+	fbMqttClient.stWill.eQoS := TcIotMqttQos.AtLeastOnceDelivery;
+	fbMqttClient.stWill.bRetain := TRUE;
+	fbMqttClient.stWill.fbPayload.SetData(ADR(sOfflinePayload), LEN2(ADR(sOfflinePayload)));
+
 	// connect
 	fbMqttClient.Execute(bConnect := TRUE);
 	IF fbMqttClient.bConnected THEN
 		state := 2;
 	END_IF
-	
+
 2:
   	// subscribe
 	fbMqttClient.Execute(bConnect := TRUE);
 	IF fbMqttClient.Subscribe(sTopic:=sTopicSub, eQoS:=TcIotMqttQos.AtMostOnceDelivery) THEN
 		bConnected := TRUE;
+		// birth message: overwrites the retained 'offline' left by an earlier unclean disconnect
+		sOnlinePayload := 'online';
+		fbMqttClient.Publish(sTopic := sStatusTopic, pPayload := ADR(sOnlinePayload), nPayloadSize := LEN2(ADR(sOnlinePayload)),
+			eQoS := TcIotMqttQos.AtLeastOnceDelivery, bRetain := TRUE, bQueue := TRUE);
 		state := 3;
 	END_IF
 	
