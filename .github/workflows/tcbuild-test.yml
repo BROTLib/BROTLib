@@ -1,5 +1,8 @@
 name: TcBuild test (manual)
 
+# runs-on is a self-hosted runner on a public repo: keep this trigger workflow_dispatch only, never
+# push/pull_request -- a PR from any fork would otherwise execute on it (BROTLib#31; a prior attempt
+# at auto-triggering did exactly this and was reverted, see specs/design/twincat-ci-runner-setup.md)
 on:
   workflow_dispatch:
 
