@@ -132,7 +132,13 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[(* TELESCOPE module*)
+        <ST><![CDATA[// fbComm is only ever set via FB_Init(comm := ...); nothing enforces that a consumer actually
+// does, and calling through an unassigned interface reference crashes the whole PLC task (#7)
+IF fbComm = 0 THEN
+	RETURN;
+END_IF
+
+(* TELESCOPE module*)
 
 //fbComm.Publish('telescope', 'dome', 'TELESCOPE.READY_STATE',	LREAL_TO_STRING(fReadyState));
 //fbComm.Publish('telescope', 'dome', 'TELESCOPE.Motion_STATE',	LREAL_TO_STRING(nMotionState));
@@ -208,7 +214,12 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[// fields that never change at runtime -- published on their own slow timer (see the cyclic
+        <ST><![CDATA[// see _PublishTelemetry's identical guard (#7)
+IF fbComm = 0 THEN
+	RETURN;
+END_IF
+
+// fields that never change at runtime -- published on their own slow timer (see the cyclic
 // body), not on _PublishTelemetry's fast 1-5s cadence (#22)
 
 // INFO

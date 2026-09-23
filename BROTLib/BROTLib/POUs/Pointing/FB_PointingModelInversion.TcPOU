@@ -22,6 +22,15 @@ END_VAR
       <ST><![CDATA[d_el := 0.0;
 d_az := 0.0;
 
+// fbPointing is only ever set via FB_init(fbPointing := ...); nothing enforces that a consumer
+// actually does, and calling through an unassigned REFERENCE TO crashes the whole PLC task (#7).
+// Leave the offsets at 0.0 (no correction) rather than crash.
+IF NOT __ISVALIDREF(fbPointing) THEN
+	fAzimuthOffset := 0.0;
+	fElevationOffset := 0.0;
+	RETURN;
+END_IF
+
 // FB_PointingModelForward's own BNP/cos(el) term grows without bound approaching the zenith (89.9 deg is
 // where the forward model switches to its own fixed clamp); feeding the iteration an elevation past that
 // point keeps growing the offset further instead of converging to the bounded value the forward model

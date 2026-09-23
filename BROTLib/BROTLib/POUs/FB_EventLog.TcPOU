@@ -39,13 +39,16 @@ IF LogoffTrigger.Q AND LEN(OffMessage)>0 THEN
 	ADSLOGSTR( effectiveOffLevel OR ADSLOG_MSGTYPE_LOG, FormatString, OffMessage);
 END_IF
 
-// same length check as the ADS log above (>0), so a one-character message is not local-only
-IF LogonTrigger.Q AND LEN(OnMessage)>0 THEN
+// same length check as the ADS log above (>0), so a one-character message is not local-only.
+// Comm <> 0: it's a plain VAR_INPUT, nothing stops a caller from leaving it unassigned, and
+// calling through it would crash the whole PLC task (#7) -- the ADS log above still happens
+// either way, only the MQTT publish is skipped
+IF LogonTrigger.Q AND LEN(OnMessage)>0 AND Comm <> 0 THEN
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OnMessage), sOut => PayloadMessage);
 	Comm.PublishLog(_LevelToString(Level), PayloadMessage);
 END_IF
 
-IF LogoffTrigger.Q AND LEN(OffMessage)>0 THEN
+IF LogoffTrigger.Q AND LEN(OffMessage)>0 AND Comm <> 0 THEN
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OffMessage), sOut => PayloadMessage);
 	Comm.PublishLog(_LevelToString(effectiveOffLevel), PayloadMessage);
 END_IF
