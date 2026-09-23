@@ -48,29 +48,40 @@ END_VAR]]></Declaration>
         <ST><![CDATA[influxMessage(  sPayload := sPayloadRcv, measurement => measurement, parameter => parameter, value => value);
 IF measurement = 'command' THEN
 	IF parameter = 'power' AND Telescope <> 0 THEN
+		// there is no power-off command: Park() serves that role
 		IF STRING_TO_UINT(value) = 1 THEN
 			Telescope.CoverAutoOpen := TRUE;
 			Telescope.Init();
 		ELSIF STRING_TO_UINT(value) = 2 THEN
 			Telescope.CoverAutoOpen := FALSE;
 			Telescope.Init();
+		ELSE
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT power: unrecognized value (want 1 or 2) %s', sPayloadRcv);
 		END_IF
 	ELSIF parameter = 'park' AND Telescope <> 0 THEN
 		Telescope.Park();
 	ELSIF parameter = 'gohome' AND Telescope <> 0 THEN
 		Telescope.Home();
 	ELSIF parameter = 'track' AND Telescope <> 0 THEN
+		// rightascension/declination arrive as separate messages beforehand and are buffered here
+		// (see #6/#39 -- a multi-field message would remove the need for this buffer-and-consume
+		// pattern entirely); an incomplete pair used to be dropped with no error, no log, nothing
 		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
 			Telescope.Track(RaDec.RightAscension, RaDec.Declination);
+		ELSE
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT track: rightascension/declination incomplete, command dropped %s', sPayloadRcv);
 		END_IF
 		RaDec.RightAscension := GVL_Math.LREAL_MIN;
 		RaDec.Declination := GVL_Math.LREAL_MIN;
 	ELSIF parameter = 'slew' AND Telescope <> 0 THEN
+		// see 'track' above -- same buffer-and-consume pattern, same incomplete-pair gap
 		IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
 			Telescope.Slew(AltAz.Azimuth, AltAz.Altitude);
+		ELSE
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT slew: azimuth/elevation incomplete, command dropped %s', sPayloadRcv);
 		END_IF
 		AltAz.Azimuth := GVL_Math.LREAL_MIN;
-		AltAz.Altitude := GVL_Math.LREAL_MIN;	
+		AltAz.Altitude := GVL_Math.LREAL_MIN;
 	ELSIF parameter = 'stop' AND Telescope <> 0 THEN
 		Telescope.Stop();
 	ELSIF parameter = 'reset' AND Telescope <> 0 THEN
@@ -132,14 +143,14 @@ IF measurement = 'command' THEN
 		Dome.Reset();
 	ELSIF parameter = 'filter' AND Filter <> 0 THEN
 		Filter.SetFilter(STRING_TO_USINT(value));
-	ELSIF parameter = 'derotator' AND AltAzTelescope <> 0 THEN
+	ELSIF (parameter = 'derotator' OR parameter = 'derotatoroffset') AND AltAzTelescope <> 0 THEN
+		// two client-facing names for the same thing -- I_AltAzTelescope only has one derotator
+		// property (DerotatorOffset), there's no separate "absolute derotator position" concept
 		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'elevationoffset' AND AltAzTelescope <> 0 THEN
 		AltAzTelescope.AltitudeOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
 		AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
-	ELSIF parameter = 'derotatoroffset' AND AltAzTelescope <> 0 THEN
-		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'declinationoffset' AND RaDecTelescope <> 0 THEN
 		RaDecTelescope.DeclinationOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
