@@ -257,7 +257,7 @@ published at 1 s while slewing/tracking and 5 s when idle.
   implemented; there is no equivalent MONETcommon/MONETN/MONETS unification
   plan currently documented.
 - CI builds and releases through GitHub Actions using TcBuild
-  (`.github/workflows/tcbuild-test.yml`, `tcbuild-service-test.yml`,
+  (`.github/workflows/tcbuild.yml`,
   `release.yml`, `tag-release.yml`), not the older `build.ps1`/`build.yml`
   pipeline (removed).
 
