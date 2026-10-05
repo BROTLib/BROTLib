@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_TONTP" Id="{3261e024-b082-405b-8658-f2ae9a529dde}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_TONTP
 VAR_INPUT
