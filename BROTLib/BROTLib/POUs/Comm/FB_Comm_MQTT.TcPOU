@@ -89,7 +89,8 @@ CASE state OF
 	fbMqttClient.stWill.sTopic := sStatusTopic;
 	fbMqttClient.stWill.eQoS := TcIotMqttQos.AtLeastOnceDelivery;
 	fbMqttClient.stWill.bRetain := TRUE;
-	fbMqttClient.stWill.fbPayload.SetData(ADR(sOfflinePayload), LEN2(ADR(sOfflinePayload)));
+	fbMqttClient.stWill.pPayload := ADR(sOfflinePayload);
+	fbMqttClient.stWill.nPayloadSize := LEN2(ADR(sOfflinePayload));
 
 	// connect
 	fbMqttClient.Execute(bConnect := TRUE);
