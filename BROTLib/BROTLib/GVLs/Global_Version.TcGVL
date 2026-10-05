@@ -10,10 +10,10 @@ VAR_GLOBAL CONSTANT
 	stLibVersion_BROTLib : ST_LibVersion := (
 		iMajor := 0,
 		iMinor := 5,
-		iBuild := 0,
+		iBuild := 1,
 		iRevision := 0,
 		nFlags := 1,
-		sVersion := '0.5.0'
+		sVersion := '0.5.1'
 	);
 END_VAR]]></Declaration>
   </GVL>
