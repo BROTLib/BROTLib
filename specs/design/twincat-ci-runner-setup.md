@@ -167,6 +167,20 @@ refuses to save a project flagged `Released: true` at all, so fixing anything on
 flips that flag to `false` as a necessary side effect — that's an honest reflection of "this was
 modified since release," not a bug to force back to `true`.
 
+## Publishing the compiled library with each release
+
+`release-library.yml` (BROTLib, AstroBROT, HalfBROT, MONETcommon, MONETRoof) builds a tag on the
+runner with `TcBuild install ... -l <Repo>_<tag>.library` and attaches the saved file to that tag's
+GitHub Release, creating the Release if it does not exist. `tag-release.yml` dispatches it right
+after it pushes a new tag, so the whole chain is: dispatch `release.yml` → merge the release PR →
+tag → `.library` on the Release. It can also be run by hand for any existing tag
+(`gh workflow run release-library.yml -f tag=v0.4.1`), e.g. to backfill. Like `tcbuild.yml` it is
+`workflow_dispatch` only, and it needs to exist on `main` before it can be dispatched.
+
+`-x` and `-p` are the XAE project and PLC project names from the `.sln`/`.tsproj`; they differ in
+case from the repo name for MONETRoof (`-x MONETroof -p MonetRoof`). Using the `.plcproj`'s `<Name>`
+(`MONETRoof`) fails with "Subitem 'MONETRoof Project' ... not found".
+
 ## Known TcBuild flakiness (retry, don't debug)
 
 - `RPC_E_SERVERCALL_RETRYLATER` (exit 3, "message filter indicated application is busy") — cold-

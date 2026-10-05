@@ -1,0 +1,66 @@
+name: Release library
+
+# Builds the tagged version with TcBuild on the shared self-hosted runner, saves it as a .library and
+# attaches it to the GitHub Release for that tag (creating the release if it does not exist yet).
+# tag-release.yml dispatches this after it pushes a new tag; it can also be run by hand to (re)build
+# one. Keep the trigger workflow_dispatch only, never push/pull_request -- a PR from any fork would
+# otherwise execute on the self-hosted runner (see tcbuild.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release, e.g. v0.4.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  library:
+    runs-on: [self-hosted, twincat, windows]
+    steps:
+      - name: Validate tag
+        shell: powershell
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ($env:TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Tag must look like v0.4.1, got '$env:TAG'" }
+
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Save library with TcBuild
+        shell: powershell
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP "BROTLib_$($env:TAG).library"
+          # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER): retry
+          for ($i = 1; $i -le 4; $i++) {
+            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 30
+          }
+          if ($LASTEXITCODE -ne 0) { throw "TcBuild failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path $file)) { throw "TcBuild did not write $file" }
+          "LIBRARY_FILE=$file" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Attach to GitHub Release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Continue'
+          gh release view $env:TAG 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG $env:LIBRARY_FILE --clobber
+          } else {
+            gh release create $env:TAG $env:LIBRARY_FILE --verify-tag --title $env:TAG --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { throw "gh release failed with exit code $LASTEXITCODE" }
