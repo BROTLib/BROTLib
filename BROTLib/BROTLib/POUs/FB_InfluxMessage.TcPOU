@@ -15,7 +15,7 @@ VAR_OUTPUT
 	value:			STRING(255) := '';
 END_VAR
 VAR
-	//space_position:		INT;
+	space_position:		INT;
 	//equial_position:	INT;
 	comma_position:		INT;
 	measurement_tags:	STRING(255);
@@ -73,6 +73,20 @@ ELSE
                               pRightString   := ADR(value), nRightSize := SIZEOF(value),
                               bSearchFromRight := FALSE );
 	// TODO: return the rest an re-parse
+END_IF
+
+// a trailing Influx timestamp (measurement[,tags] field_set timestamp) ends up appended to value,
+// since only the first space in the whole payload is split off above; drop it and anything after
+// the first remaining space. A genuine quoted string value could itself contain a space, but this
+// parser doesn't handle that either way (see the module comment's TODOs)
+space_position := FIND(value, spaceSeparator);
+IF space_position > 0 THEN
+	value := LEFT(value, space_position-1);
+END_IF
+
+// strip the surrounding quotes Influx line protocol uses for a string-typed field value
+IF LEN(value) >= 2 AND LEFT(value,1) = '"' AND RIGHT(value,1) = '"' THEN
+	value := MID(value, LEN(value)-2, 2);
 END_IF
 ]]></ST>
     </Implementation>

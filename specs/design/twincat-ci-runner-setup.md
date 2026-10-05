@@ -134,7 +134,7 @@ versions coexist side-by-side without conflict (a project only resolves whatever
 ## 6. Add a build workflow per repo
 
 ```yaml
-name: TcBuild test
+name: TcBuild   # saved as .github/workflows/tcbuild.yml
 
 on:
   workflow_dispatch:

@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_TruncateInfluxEscaped" Id="{71178b76-62bc-4ff5-a505-ef4d52751cae}" SpecialFunc="None">
+    <Declaration><![CDATA[// Shortens an already escaped string to at most nMaxLen characters without cutting an escape pair in half. A cut
+// that leaves a lone backslash at the end would escape the closing quote of a quoted string field.
+FUNCTION F_TruncateInfluxEscaped : STRING(255)
+VAR_INPUT
+	sEscaped	: STRING(255);
+	nMaxLen		: INT;
+END_VAR
+VAR
+	sOut			: STRING(255);
+	i, nBackslashes	: INT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF nMaxLen < 0 THEN
+	nMaxLen := 0;
+END_IF
+IF LEN(sEscaped) <= nMaxLen THEN
+	F_TruncateInfluxEscaped := sEscaped;
+	RETURN;
+END_IF
+
+sOut := LEFT(sEscaped, nMaxLen);
+// an odd number of backslashes at the end means the cut is between a backslash and the character it escapes
+nBackslashes := 0;
+i := LEN(sOut);
+WHILE i > 0 AND MID(sOut, 1, i) = '\' DO
+	nBackslashes := nBackslashes + 1;
+	i := i - 1;
+END_WHILE
+IF (nBackslashes MOD 2) = 1 THEN
+	sOut := LEFT(sOut, LEN(sOut) - 1);
+END_IF
+
+F_TruncateInfluxEscaped := sOut;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

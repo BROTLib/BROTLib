@@ -105,6 +105,10 @@ CheckNear(-2.0 * fOmega, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth 
 CheckNear(0.0, BROTLib.F_Derotatorvelocity(elevation := 90.0, azimuth := 10.0, latitude := 51.56), 0.0, 'zenith: guarded, exactly 0');
 CheckNear(0.0037068314748825424, BROTLib.F_Derotatorvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56), 1.0E-12, 'golden: el 30, az 200, lat 51.56');
 CheckNear(-0.00048476279315114428, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 300.0, latitude := -30.0), 1.0E-12, 'golden: el 60, az 300, lat -30');
+// sign, added for #16: sign defaults to 1.0 (all the above are unaffected); sign = -1.0 adds twice the
+// elevation rate back in, verified against a numerical derivative of F_DerotatorPosition2(..., sign := -1.0)
+CheckNear(0.0019300456901029633, BROTLib.F_Derotatorvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56, sign := -1.0), 1.0E-12, 'golden: el 30, az 200, lat 51.56, sign -1');
+CheckNear(-0.006751874701485144, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 300.0, latitude := -30.0, sign := -1.0), 1.0E-12, 'golden: el 60, az 300, lat -30, sign -1');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -116,18 +120,17 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('DerotatorPosition2_Anchors');
-// declination is accepted but not used by the function (code review L3), so 0 is passed throughout
-CheckNear(315.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 0.0, declination := 0.0, latitude := 45.0, sign := 1.0), 1.0E-9, 'az 90, el 0, lat 45: parallactic angle -45 -> 315');
-CheckNear(45.0, BROTLib.F_DerotatorPosition2(azimuth := 270.0, elevation := 0.0, declination := 0.0, latitude := 45.0, sign := 1.0), 1.0E-9, 'az 270 mirrors az 90: +45');
-CheckNear(225.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 45.0, declination := 0.0, latitude := 0.0, sign := 1.0), 1.0E-9, 'equator, east, el 45: -90 - 45 -> 225');
-CheckNear(315.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 45.0, declination := 0.0, latitude := 0.0, sign := -1.0), 1.0E-9, 'sign -1 adds the elevation instead: -90 + 45 -> 315');
-CheckNear(267.36458824003319, BROTLib.F_DerotatorPosition2(azimuth := 123.4, elevation := 56.7, declination := 0.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'golden: az 123.4, el 56.7, sign +1');
-CheckNear(20.764588240033163, BROTLib.F_DerotatorPosition2(azimuth := 123.4, elevation := 56.7, declination := 0.0, latitude := 51.56, sign := -1.0), 1.0E-9, 'golden: az 123.4, el 56.7, sign -1');
-CheckNear(109.48603710615262, BROTLib.F_DerotatorPosition2(azimuth := 300.0, elevation := 20.0, declination := 0.0, latitude := -30.0, sign := 1.0), 1.0E-9, 'golden: az 300, el 20, lat -30');
+CheckNear(315.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 0.0, latitude := 45.0, sign := 1.0), 1.0E-9, 'az 90, el 0, lat 45: parallactic angle -45 -> 315');
+CheckNear(45.0, BROTLib.F_DerotatorPosition2(azimuth := 270.0, elevation := 0.0, latitude := 45.0, sign := 1.0), 1.0E-9, 'az 270 mirrors az 90: +45');
+CheckNear(225.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 45.0, latitude := 0.0, sign := 1.0), 1.0E-9, 'equator, east, el 45: -90 - 45 -> 225');
+CheckNear(315.0, BROTLib.F_DerotatorPosition2(azimuth := 90.0, elevation := 45.0, latitude := 0.0, sign := -1.0), 1.0E-9, 'sign -1 adds the elevation instead: -90 + 45 -> 315');
+CheckNear(267.36458824003319, BROTLib.F_DerotatorPosition2(azimuth := 123.4, elevation := 56.7, latitude := 51.56, sign := 1.0), 1.0E-9, 'golden: az 123.4, el 56.7, sign +1');
+CheckNear(20.764588240033163, BROTLib.F_DerotatorPosition2(azimuth := 123.4, elevation := 56.7, latitude := 51.56, sign := -1.0), 1.0E-9, 'golden: az 123.4, el 56.7, sign -1');
+CheckNear(109.48603710615262, BROTLib.F_DerotatorPosition2(azimuth := 300.0, elevation := 20.0, latitude := -30.0, sign := 1.0), 1.0E-9, 'golden: az 300, el 20, lat -30');
 // negative azimuth is wrapped into 0..360 before use
-CheckNear(15.882548343825519, BROTLib.F_DerotatorPosition2(azimuth := -30.0, elevation := 45.0, declination := 0.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'golden: az -30 wraps to 330');
-CheckNear(BROTLib.F_DerotatorPosition2(azimuth := 330.0, elevation := 45.0, declination := 0.0, latitude := 51.56, sign := 1.0),
-	BROTLib.F_DerotatorPosition2(azimuth := -30.0, elevation := 45.0, declination := 0.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'az -30 equals az 330');
+CheckNear(15.882548343825519, BROTLib.F_DerotatorPosition2(azimuth := -30.0, elevation := 45.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'golden: az -30 wraps to 330');
+CheckNear(BROTLib.F_DerotatorPosition2(azimuth := 330.0, elevation := 45.0, latitude := 51.56, sign := 1.0),
+	BROTLib.F_DerotatorPosition2(azimuth := -30.0, elevation := 45.0, latitude := 51.56, sign := 1.0), 1.0E-9, 'az -30 equals az 330');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -154,7 +157,6 @@ FOR iLat := 1 TO 3 DO
 			fResult := BROTLib.F_DerotatorPosition2(
 				azimuth := 5.0 + 10.0 * iAz,
 				elevation := 15.0 * iEl,
-				declination := 0.0,
 				latitude := aLat[iLat],
 				sign := 1.0);
 			IF NOT (fResult >= 0.0 AND fResult < 360.0) THEN

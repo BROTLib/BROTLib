@@ -1,5 +1,6 @@
-"""FB_PointingModelForward / FB_PointingModelInversion: does the 11-step fixed-point
-inversion converge? Line-by-line port of the ST. Needs numpy only.
+"""FB_PointingModelForward / FB_PointingModelInversion: does the fixed-point inversion
+converge, and does the zenith clamp (#17) actually bound the offset? Line-by-line port
+of the ST. Needs numpy only.
 
 Coefficients: MONETN calibration from TRACKING.md (degrees), AOFF = EOFF = 0.
 Run: python3 check_pointing_inversion.py
@@ -23,9 +24,10 @@ def forward(az, el, c=C):
     return d_az, d_el
 
 
-def inversion(az, el, n=11, c=C):
+def inversion(az, el, n=5, c=C):
+    el = min(el, 89.9)              # zenith clamp, fixed alongside the iteration count (#17)
     d_az = d_el = 0.0
-    for _ in range(n + 0):          # FOR i := 0 TO 10  -> 11 passes
+    for _ in range(n):              # FOR i := 0 TO 4  -> 5 passes
         d_az, d_el = forward(az - d_az, el - d_el, c)
     return d_az, d_el
 
@@ -39,7 +41,7 @@ def residual_arcsec(az, el, c=C):
 
 if __name__ == "__main__":
     azs = np.arange(0, 360, 5.0)
-    print("MONETN coefficients, residual of the 11-step inversion (arcsec on sky, worst over azimuth)")
+    print("MONETN coefficients, residual of the 5-step inversion (arcsec on sky, worst over azimuth)")
     print(" el[deg]   worst residual   forward az-offset at that el (deg, worst az)")
     for el in (10, 30, 50, 60, 70, 75, 80, 83, 85, 87, 89, 89.5):
         r = max(residual_arcsec(a, el) for a in azs)
@@ -67,3 +69,11 @@ if __name__ == "__main__":
         r = max(residual_arcsec(a, el) for a in np.arange(0, 360, 1.0))
         fo = max(abs(forward(a, el)[0]) for a in np.arange(0, 360, 1.0))
         print(f" el={el:6.2f}: residual {r:.3f}\", forward az-offset {fo:.1f} deg")
+
+    print("\n#17 fix check: does inversion()'s own elevation clamp stop the offset growing past 89.9 deg?")
+    print(" (without the clamp, inversion(el=89.99) and inversion(el=90) would exceed the 89.9 deg offset)")
+    az = 45.0
+    offset_at_clamp = inversion(az, 89.9)[0]
+    for el in (89.9, 89.95, 89.99, 90.0):
+        d_az = inversion(az, el)[0]
+        print(f" el={el:6.2f}: az-offset {d_az:8.4f} deg  (matches the 89.9 deg value: {abs(d_az - offset_at_clamp) < 1e-9})")

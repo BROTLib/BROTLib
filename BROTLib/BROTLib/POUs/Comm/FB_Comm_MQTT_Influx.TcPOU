@@ -9,11 +9,29 @@ END_VAR
 VAR
 	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
-	sent		: INT := 0;
+	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
+	deliveryFailed	: INT := 0;	// fbMqttClient.Publish() returned FALSE (e.g. client busy/not connected); periodic telemetry, not retried on purpose (#5)
+	// 0.0 doubles as "no data received yet" and FB_CO_REFRACT's own "estimate from altitude"
+	// sentinel, so a consumer can pass these straight through with no guard needed.
+	Temperature	: LREAL := 0.0;	// last received ambient temperature (deg C), set via MQTT by an external weather-station bridge
+	Humidity	: LREAL := GVL_Math.LREAL_MIN;	// last received relative humidity (%); unconsumed anywhere today
+	Pressure	: LREAL := 0.0;	// last received atmospheric pressure (hPa)
+
+	// revert Temperature/Pressure to their safe defaults if nothing fresh arrives for a while,
+	// instead of serving an arbitrarily stale weather reading forever
+	bWeatherMessageReceived	: BOOL;
+	tonWeatherStale			: TON := (PT := T#10M);
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[SUPER^();]]></ST>
+      <ST><![CDATA[SUPER^();
+
+tonWeatherStale(IN := NOT bWeatherMessageReceived, PT := T#10M);
+bWeatherMessageReceived := FALSE;
+IF tonWeatherStale.Q THEN
+	Temperature := 0.0;
+	Pressure := 0.0;
+END_IF]]></ST>
     </Implementation>
     <Method Name="_handleMQTTMessage" Id="{6b8170c3-1db8-4027-aca0-99823e943d46}">
       <Declaration><![CDATA[METHOD _handleMQTTMessage : BOOL
@@ -30,29 +48,40 @@ END_VAR]]></Declaration>
         <ST><![CDATA[influxMessage(  sPayload := sPayloadRcv, measurement => measurement, parameter => parameter, value => value);
 IF measurement = 'command' THEN
 	IF parameter = 'power' AND Telescope <> 0 THEN
+		// there is no power-off command: Park() serves that role
 		IF STRING_TO_UINT(value) = 1 THEN
 			Telescope.CoverAutoOpen := TRUE;
 			Telescope.Init();
 		ELSIF STRING_TO_UINT(value) = 2 THEN
 			Telescope.CoverAutoOpen := FALSE;
 			Telescope.Init();
+		ELSE
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT power: unrecognized value (want 1 or 2) %s', sPayloadRcv);
 		END_IF
 	ELSIF parameter = 'park' AND Telescope <> 0 THEN
 		Telescope.Park();
 	ELSIF parameter = 'gohome' AND Telescope <> 0 THEN
 		Telescope.Home();
 	ELSIF parameter = 'track' AND Telescope <> 0 THEN
+		// rightascension/declination arrive as separate messages beforehand and are buffered here
+		// (see #6/#39 -- a multi-field message would remove the need for this buffer-and-consume
+		// pattern entirely); an incomplete pair used to be dropped with no error, no log, nothing
 		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
 			Telescope.Track(RaDec.RightAscension, RaDec.Declination);
+		ELSE
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT track: rightascension/declination incomplete, command dropped %s', sPayloadRcv);
 		END_IF
 		RaDec.RightAscension := GVL_Math.LREAL_MIN;
 		RaDec.Declination := GVL_Math.LREAL_MIN;
 	ELSIF parameter = 'slew' AND Telescope <> 0 THEN
+		// see 'track' above -- same buffer-and-consume pattern, same incomplete-pair gap
 		IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
 			Telescope.Slew(AltAz.Azimuth, AltAz.Altitude);
+		ELSE
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT slew: azimuth/elevation incomplete, command dropped %s', sPayloadRcv);
 		END_IF
 		AltAz.Azimuth := GVL_Math.LREAL_MIN;
-		AltAz.Altitude := GVL_Math.LREAL_MIN;	
+		AltAz.Altitude := GVL_Math.LREAL_MIN;
 	ELSIF parameter = 'stop' AND Telescope <> 0 THEN
 		Telescope.Stop();
 	ELSIF parameter = 'reset' AND Telescope <> 0 THEN
@@ -67,6 +96,17 @@ IF measurement = 'command' THEN
 		AltAz.Altitude := STRING_TO_LREAL(value);
 	ELSIF parameter = 'azimuth' THEN
 		AltAz.Azimuth := STRING_TO_LREAL(value);
+	ELSIF parameter = 'temperature' THEN
+		Temperature := STRING_TO_LREAL(value);
+		bWeatherMessageReceived := TRUE;
+	ELSIF parameter = 'humidity' THEN
+		Humidity := STRING_TO_LREAL(value);
+		bWeatherMessageReceived := TRUE;
+	ELSIF parameter = 'pressure' THEN
+		Pressure := STRING_TO_LREAL(value);
+		bWeatherMessageReceived := TRUE;
+	ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
+		AltAzTelescope.Dut1 := STRING_TO_LREAL(value);
 	ELSIF parameter = 'focus' AND Focus <> 0 THEN
 		Focus.Position := STRING_TO_LREAL(value);
 	ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
@@ -103,14 +143,14 @@ IF measurement = 'command' THEN
 		Dome.Reset();
 	ELSIF parameter = 'filter' AND Filter <> 0 THEN
 		Filter.SetFilter(STRING_TO_USINT(value));
-	ELSIF parameter = 'derotator' AND AltAzTelescope <> 0 THEN
+	ELSIF (parameter = 'derotator' OR parameter = 'derotatoroffset') AND AltAzTelescope <> 0 THEN
+		// two client-facing names for the same thing -- I_AltAzTelescope only has one derotator
+		// property (DerotatorOffset), there's no separate "absolute derotator position" concept
 		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'elevationoffset' AND AltAzTelescope <> 0 THEN
 		AltAzTelescope.AltitudeOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
 		AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
-	ELSIF parameter = 'derotatoroffset' AND AltAzTelescope <> 0 THEN
-		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'declinationoffset' AND RaDecTelescope <> 0 THEN
 		RaDecTelescope.DeclinationOffset := STRING_TO_LREAL(value);
 	ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
@@ -139,51 +179,80 @@ VAR
 	nErrID			: UDINT;
 	retain_message	: BOOL := FALSE;
 	bIsBool			: BOOL;
-	bIsNumeric		: BOOL;
-	bIsInteger		: BOOL;
+	sDomain			: STRING(255);
+	sLocation		: STRING(255);
+	sHost			: STRING(255);
+	sKey			: STRING(255);
 	sFieldVal		: STRING(255);
+	sTopic			: STRING(255);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
-// classify the value so it is written as the correct line protocol type
-bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
-bIsNumeric := F_IsNumericValue(value);
-// an integer field has no decimal point; line protocol requires a trailing 'i' for those
-bIsInteger := bIsNumeric AND (FIND(value, '.') = 0);
-
-IF bIsInteger THEN
-	sFieldVal := CONCAT(value, 'i');
-ELSIF bIsBool OR bIsNumeric THEN
-	sFieldVal := value;
-ELSE
-	sFieldVal := CONCAT('"', CONCAT(F_EscapeInfluxString(value), '"'));
-END_IF
+// tag values and the field key are escaped (a space or comma in the host name would break the line); the field
+// value is typed by F_InfluxFieldValue: integer 'i', float, boolean or quoted string
+sDomain := F_EscapeInfluxTag(domain, FALSE);
+sLocation := F_EscapeInfluxTag(location, TRUE);
+sHost := F_EscapeInfluxTag(HostName, TRUE);
+sKey := F_EscapeInfluxTag(parameter, TRUE);
+sFieldVal := F_InfluxFieldValue(value);
 
 fbFormat(
 	sFormat 	:= '%s,location=%s,host=%s %s=%s',
-	arg1 		:= F_STRING(domain),
-	arg2 		:= F_STRING(location),
-	arg3 		:= F_STRING(HostName),
-	arg4 		:= F_STRING(parameter),
+	arg1 		:= F_STRING(sDomain),
+	arg2 		:= F_STRING(sLocation),
+	arg3 		:= F_STRING(sHost),
+	arg4 		:= F_STRING(sKey),
 	arg5 		:= F_STRING(sFieldVal),
 	sOut 		=> sPayloadPub,
 	bError 		=> bError,
 	nErrID 		=> nErrID
 );
 
+// a line that did not fit the buffer is cut off and would be invalid (or wrong): do not publish it
+IF bError OR LEN(sPayloadPub) >= 255 THEN
+	published := FALSE;
+	IF dropped < 32767 THEN
+		dropped := dropped + 1;
+	END_IF
+	IF dropped = 1 OR (dropped MOD 100) = 0 THEN
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'Influx line too long, not published: %s', parameter);
+	END_IF
+	Publish := published;
+	RETURN;
+END_IF
+
 // retain message if value is boolean
+bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
 retain_message := bIsBool;
 
+// publish under a per-subsystem sub-topic (domain is already the Influx measurement, e.g.
+// 'telescope'/'power'/'electronics'/'hydraulics'/'diagnostics') so a consumer that only cares
+// about one subsystem can subscribe to just that sub-topic instead of the whole site's firehose
+sTopic := CONCAT(CONCAT(sTopicPublish, '/'), domain);
+
+// bQueue left FALSE on purpose: this is periodic telemetry (republished every 1-5s or on the
+// static-fields timer), so a dropped publish under load is self-healing next cycle -- queuing
+// would just build a backlog of stale values behind whatever caused the client to be busy.
+// One-time events (PublishLog) get bQueue := TRUE instead, see there. (#5)
 published := fbMqttClient.Publish(
-	sTopic			:= sTopicPublish, 
-	pPayload		:= ADR(sPayloadPub), 
+	sTopic			:= sTopic,
+	pPayload		:= ADR(sPayloadPub),
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
-	bRetain			:= retain_message, 
-	bQueue			:= FALSE 
+	bRetain			:= retain_message,
+	bQueue			:= FALSE
 );
 
-sent := sent + 1;]]></ST>
+IF NOT published THEN
+	IF deliveryFailed < 32767 THEN
+		deliveryFailed := deliveryFailed + 1;
+	END_IF
+	IF deliveryFailed = 1 OR (deliveryFailed MOD 100) = 0 THEN
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT publish failed (client busy/not connected): %s', parameter);
+	END_IF
+END_IF
+
+Publish := published;]]></ST>
       </Implementation>
     </Method>
     <Method Name="PublishLog" Id="{dd46de85-b82a-4d9d-9238-d6c509f88651}">
@@ -198,32 +267,53 @@ VAR
 	bError			: BOOL;
 	nErrID			: UDINT;
 	sEscapedMessage	: STRING(255);
+	sHost			: STRING(255);
+	sLevel			: STRING(255);
+	nMaxMessage		: INT;
 END_VAR
 VAR_OUTPUT
 	published	: BOOL;
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
+sHost := F_EscapeInfluxTag(HostName, TRUE);
+sLevel := F_EscapeInfluxTag(level, TRUE);
 sEscapedMessage := F_EscapeInfluxString(message);
+
+// a long message is shortened so that the line fits the 255 character buffer and its closing quote is kept:
+// 255 minus 'log,host=' (9), ',level=' (7), ' message="' (10) and the closing '"' (1)
+nMaxMessage := 255 - 27 - LEN(sHost) - LEN(sLevel);
+sEscapedMessage := F_TruncateInfluxEscaped(sEscapedMessage, nMaxMessage);
 
 fbFormat(
 	sFormat := 'log,host=%s,level=%s message="%s"',
-	arg1 	:= F_STRING(HostName),
-	arg2 	:= F_STRING(level),
+	arg1 	:= F_STRING(sHost),
+	arg2 	:= F_STRING(sLevel),
 	arg3 	:= F_STRING(sEscapedMessage),
 	sOut 	=> sPayloadPub,
 	bError 	=> bError,
 	nErrID 	=> nErrID
 );
 
-published := fbMqttClient.Publish(	
-	sTopic			:= sTopicLog, 
-	pPayload		:= ADR(sPayloadPub), 
+// still too long (very long host name or level): publish nothing rather than a broken line
+IF bError OR LEN(sPayloadPub) >= 255 THEN
+	published := FALSE;
+	PublishLog := published;
+	RETURN;
+END_IF
+
+// bQueue TRUE: unlike Publish()'s periodic telemetry, a log/event message is one-time -- if the
+// client can't send it immediately, queue it for retry instead of losing it silently (#5)
+published := fbMqttClient.Publish(
+	sTopic			:= sTopicLog,
+	pPayload		:= ADR(sPayloadPub),
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
-	bRetain			:= FALSE, 
-	bQueue			:= FALSE 
+	bRetain			:= FALSE,
+	bQueue			:= TRUE
 );
+
+PublishLog := published;
 ]]></ST>
       </Implementation>
     </Method>

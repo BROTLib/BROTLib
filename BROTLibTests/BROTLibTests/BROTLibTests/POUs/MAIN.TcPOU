@@ -11,6 +11,7 @@ VAR
 	fbPointingModelTests	: FB_PointingModel_Tests;
 	fbBlinkTests			: FB_Blink_Tests;
 	fbAstroClockSyncTests	: FB_AstroClockSync_Tests;
+	fbInfluxLineProtocolTests	: FB_InfluxLineProtocol_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

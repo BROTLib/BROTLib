@@ -26,10 +26,11 @@ def el_vel(az, lat):
     return math.sin(az * d2r) * math.cos(lat * d2r) * OMEGA
 
 
-def derot_vel(el, az, lat):
+def derot_vel(az, el, lat, sign=1.0):
     if abs(math.cos(el * d2r)) > 1.0e-3:
-        return (-OMEGA * math.cos(az * d2r) * math.cos(lat * d2r) / math.cos(el * d2r)
+        base = (-OMEGA * math.cos(az * d2r) * math.cos(lat * d2r) / math.cos(el * d2r)
                 - OMEGA * math.cos(lat * d2r) * math.sin(az * d2r))
+        return base + (1.0 - sign) * el_vel(az, lat)
     return 0.0
 
 
@@ -89,15 +90,13 @@ def validate():
         worst["el"] = max(worst["el"], abs((el1 - el0) / 2 - el_vel(az, lat)))
         for s, key in ((1.0, "derot_plus"), (-1.0, "derot_minus")):
             num = wrap180(derot_pos(az1, el1, lat, s) - derot_pos(az0, el0, lat, s)) / 2
-            # F_Derotatorvelocity has no `sign` input; it matches the sign = +1 position formula
-            worst[key] = max(worst[key], abs(num - derot_vel(el, az, lat)))
+            worst[key] = max(worst[key], abs(num - derot_vel(az, el, lat, s)))
         q_st = -math.degrees(math.atan2(math.sin(az * d2r), math.tan(lat * d2r) * math.cos(el * d2r)
                                         - math.sin(el * d2r) * math.cos(az * d2r)))
         worst["pa"] = max(worst["pa"], abs(wrap180(q_st - hd2pa(ha, dec, lat))))
     print(f"oracle check over {n} random states, max |numerical - formula| (deg/s; pa in deg):")
     for k, v in worst.items():
         print(f"  {k:12s} {v:.2e}")
-    # the derot_minus row is expected to be large: F_Derotatorvelocity ignores `sign` (review L3)
 
 
 def g(x):
@@ -112,13 +111,14 @@ def vectors():
     print("// F_Elevationvelocity(azimuth, latitude)")
     for az, la in ((123.4, lat), (300.0, -30.0)):
         print(f"//   ({az}, {la}) = {g(el_vel(az, la))}")
-    print("// F_Derotatorvelocity(elevation, azimuth, latitude)")
-    for el, az, la in ((30.0, 200.0, lat), (60.0, 300.0, -30.0)):
-        print(f"//   ({el}, {az}, {la}) = {g(derot_vel(el, az, la))}")
-    print("// F_DerotatorPosition2(azimuth, elevation, declination, latitude, sign)")
+    print("// F_Derotatorvelocity(azimuth, elevation, latitude, sign)")
+    for az, el, la, s in ((200.0, 30.0, lat, 1.0), (300.0, 60.0, -30.0, 1.0),
+                          (200.0, 30.0, lat, -1.0), (300.0, 60.0, -30.0, -1.0)):
+        print(f"//   ({az}, {el}, {la}, {s}) = {g(derot_vel(az, el, la, s))}")
+    print("// F_DerotatorPosition2(azimuth, elevation, latitude, sign)")
     for az, el, la, s in ((123.4, 56.7, lat, 1.0), (123.4, 56.7, lat, -1.0), (300.0, 20.0, -30.0, 1.0),
                           (-30.0, 45.0, lat, 1.0), (10.0, 95.0, lat, 1.0)):
-        print(f"//   ({az}, {el}, _, {la}, {s}) = {g(derot_pos(az, el, la, s))}")
+        print(f"//   ({az}, {el}, {la}, {s}) = {g(derot_pos(az, el, la, s))}")
     print("// analytic anchors")
     print(f"//   OMEGA*sqrt(2)           = {g(OMEGA * math.sqrt(2))}")
     print(f"//   derot_pos(90,0,45)      = {g(derot_pos(90, 0, 45))}   (315)")

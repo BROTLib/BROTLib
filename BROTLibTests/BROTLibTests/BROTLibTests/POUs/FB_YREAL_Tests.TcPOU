@@ -2,8 +2,6 @@
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_YREAL_Tests" Id="{534bb66f-35c7-4ef4-a63d-6a65ae31c59c}" SpecialFunc="None">
     <Declaration><![CDATA[// Tests for BROTLib.F_YREAL, the linear scaling helper.
-// Not covered on purpose: an inverted output range (fYmin > fYmax) with cut = TRUE, which returns a constant
-// (code review L2). A test asserting the correct mapping would fail until that is fixed.
 FUNCTION_BLOCK FB_YREAL_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
 END_VAR
@@ -13,6 +11,7 @@ END_VAR
 Scales_To_Engineering_Range();
 Clamps_Unless_Cut_Is_False();
 Zero_Width_Input_Range_Returns_Zero();
+Inverted_Output_Range_Maps_Correctly();
 ]]></ST>
     </Implementation>
     <Method Name="CheckNear" Id="{ae40dec4-5f91-4283-b12b-0af297a8bbb3}">
@@ -90,6 +89,25 @@ END_VAR
         <ST><![CDATA[TEST('Zero_Width_Input_Range_Returns_Zero');
 // fXmax = fXmin would divide by zero; the function guards against it and leaves the result at 0
 CheckNear(0.0, BROTLib.F_YREAL(fX := 5.0, fXmin := 1.0, fXmax := 1.0, fYmin := 0.0, fYmax := 1.0, cut := TRUE), 1.0E-6, 'fXmax = fXmin -> 0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Inverted_Output_Range_Maps_Correctly" Id="{d4f1a7b3-2c6e-4a89-9f05-8e3b6c1d7a42}">
+      <Declaration><![CDATA[METHOD PRIVATE Inverted_Output_Range_Maps_Correctly
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Inverted_Output_Range_Maps_Correctly');
+// fYmin > fYmax (descending output range); LIMIT needs its low/high bounds the right way round
+// regardless of which of fYmin/fYmax is numerically smaller (code review L2, issue #15)
+CheckNear(0.75, BROTLib.F_YREAL(fX := 0.25, fXmin := 0.0, fXmax := 1.0, fYmin := 1.0, fYmax := 0.0, cut := TRUE), 1.0E-6, '0.25 on [0,1] -> [1,0]: 0.75');
+CheckNear(1.0, BROTLib.F_YREAL(fX := 0.0, fXmin := 0.0, fXmax := 1.0, fYmin := 1.0, fYmax := 0.0, cut := TRUE), 1.0E-6, '0.0 on [0,1] -> [1,0]: 1.0');
+CheckNear(0.0, BROTLib.F_YREAL(fX := 1.0, fXmin := 0.0, fXmax := 1.0, fYmin := 1.0, fYmax := 0.0, cut := TRUE), 1.0E-6, '1.0 on [0,1] -> [1,0]: 0.0');
+// out-of-range input still clamps to the correct end of the descending range
+CheckNear(1.0, BROTLib.F_YREAL(fX := -1.0, fXmin := 0.0, fXmax := 1.0, fYmin := 1.0, fYmax := 0.0, cut := TRUE), 1.0E-6, 'below range clamps to 1.0, not 0.0');
+CheckNear(0.0, BROTLib.F_YREAL(fX := 2.0, fXmin := 0.0, fXmax := 1.0, fYmin := 1.0, fYmax := 0.0, cut := TRUE), 1.0E-6, 'above range clamps to 0.0, not 1.0');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

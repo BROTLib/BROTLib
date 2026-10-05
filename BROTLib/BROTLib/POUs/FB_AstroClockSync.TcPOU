@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_AstroClockSync" Id="{b7f0f43c-7ead-44a3-815d-4e88e648eb39}" SpecialFunc="None">
     <Declaration><![CDATA[// Decides when FB_AstroClock may load the RTC blocks and whether the time can be trusted.
 // Separate from FB_AstroClock so that it runs without ADS and can be unit tested.

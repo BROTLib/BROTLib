@@ -30,5 +30,14 @@
         <Declaration><![CDATA[]]></Declaration>
       </Set>
     </Property>
+    <Property Name="Dut1" Id="{a3f1c2d4-5e6b-47a8-9c1d-2b3e4f5a6b7c}">
+      <Declaration><![CDATA[PROPERTY Dut1 : LREAL]]></Declaration>
+      <Get Name="Get" Id="{b4a2d3e5-6f7c-48b9-ad2e-3c4f5a6b7c8d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{c5b3e4f6-708d-49ca-be3f-4d5a6b7c8d9e}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
   </Itf>
 </TcPlcObject>

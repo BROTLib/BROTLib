@@ -1,9 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <GVL Name="GVL_Math" Id="{075a91d5-10d5-4158-8c0a-c855859db804}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL CONSTANT
 	LREAL_MIN			: LREAL :=  -1.7976931348623157E+308; // https://infosys.beckhoff.com/index.php?content=../content/1031/tc3_plc_intro/2529405067.html&id=
+	// literal values (PI/180 and 180/PI), not PI-based expressions: PI is not initialised yet when these
+	// constants are, which fails the build ("uninitialized variable PI is used for initialization")
+	d2r					: LREAL := 0.017453292519943295;
+	r2d					: LREAL := 57.29577951308232;
+	// Earth's mean sidereal angular rate, deg/s (360 deg / 86164.0905 s mean sidereal day); was previously
+	// copy-pasted into three tracking functions, and separately (re-derived slightly differently, as
+	// 360/86164.099, ~0.005 arcsec/hour off) as the unused FB_BaseTelescopeControl.fSiderialVelocity
+	Omega				: LREAL := 4.178074605556E-3;
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

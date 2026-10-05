@@ -138,11 +138,14 @@ El offset  = EOFF + AN_E×cos(az) + AE_E×sin(az) + TF×cos(el)
 
 ### Inverse Model (`FB_PointingModelInversion`)
 
-Solves for sky coordinates from encoder positions by iterating the forward model 11 times:
+Solves for sky coordinates from encoder positions by iterating the forward model 5 times (cut
+down from 11 in BROTLib#17 -- 2 passes converge to < 0.1" for every elevation/coefficient
+combination tried; 5 keeps a wide margin, also clamps the elevation fed in to 89.9° to avoid the
+model's own zenith singularity growing the offset unboundedly):
 
 ```pascal
-FOR i := 0 TO 10 DO
-    fbPointing(fAzimuth := az - d_az, fElevation := el - d_el, ...)
+FOR i := 0 TO 4 DO
+    fbPointing(fAzimuth := az - d_az, fElevation := MIN(el, 89.9) - d_el, ...)
 END_FOR
 ```
 
@@ -173,7 +176,11 @@ Tracking auto-stops if:
 
 The velocity functions are called in two contexts: the **main body** (runs every cycle regardless of state) and **`_TrackTelescope()`** (runs only when tracking is active). The main-body computation is redundant in some projects.
 
-### MONETN (independent `FB_MonetTelescopeControl` copy)
+### MONETN (independent `FB_MonetTelescopeControl` copy) -- decommissioned
+
+MONETN is decommissioned as of 2026-09-22. Kept below for historical/technical reference (the
+wrap-around and dead-code patterns it illustrates may still be informative), not as a description
+of a live system.
 
 Velocities computed **3 times per cycle**:
 
@@ -263,7 +270,7 @@ The two telescope types handle tracking velocities differently:
 
 **MONET (Alt-Az mount):** Velocities are computed from Alt/Az position using `F_Azimuthvelocity`, `F_Elevationvelocity`, `F_Derotatorvelocity` — derivatives of the coordinate transformation equations. These are sent as velocity commands to the NC axes.
 
-**IAG50cm (equatorial HA-DEC mount):** Velocities are computed by `FB_PointingModelForward`, which applies sidereal rate (`omega = 360°/86164.099s`) plus pointing model corrections. The HA axis receives `TrackVelocityRef := omega` (sidereal reference), and `FB_Axis3` computes the correction as `Velocity - TrackVelocityRef`. The Dec axis has `TrackVelocityRef := 0.0` (no sidereal component).
+**IAG50cm (equatorial HA-DEC mount):** Velocities are computed by `FB_PointingModelForward`, which applies sidereal rate (`omega = 360°/86164.099s`) plus pointing model corrections. The HA axis receives `TrackVelocityRef := omega` (sidereal reference), and `FB_Axis` computes the correction as `Velocity - TrackVelocityRef`. The Dec axis has `TrackVelocityRef := 0.0` (no sidereal component).
 
 ### Two Implementation Approaches
 
@@ -304,7 +311,7 @@ This modifies `FB_PointingModelForward` to include the non-sidereal rate in `ome
 
 ### Approach A Does Not Work for IAG50cm
 
-Approach A (update RA/Dec, let existing pipeline handle it) works for MONET but **fails for IAG50cm** due to how `FB_Axis3` handles tracking.
+Approach A (update RA/Dec, let existing pipeline handle it) works for MONET but **fails for IAG50cm** due to how `FB_Axis` handles tracking.
 
 **Why it works for MONET:** The velocity functions (`F_Azimuthvelocity` etc.) are derivatives of the coordinate transformation. They take current Alt/Az as input and output the instantaneous rate needed to follow that position. When RA/Dec changes (non-sidereal target), the Alt/Az changes, and the velocity functions automatically compute the correct rate. No velocity function changes needed.
 
@@ -312,9 +319,9 @@ Approach A (update RA/Dec, let existing pipeline handle it) works for MONET but 
 
 1. `FB_PointingModelForward` computes `Velocity = (omega + track_tau_esti)/d2r` where `omega` is the sidereal rate (line 42, 99). It doesn't know about non-sidereal motion.
 
-2. `FB_Axis3` receives this velocity and computes a correction: `TrackVelocity = Velocity - TrackVelocityRef` (line 155). For HA, `TrackVelocityRef = omega`, so the correction is just the pointing model terms. The non-sidereal rate is missing.
+2. `FB_Axis` receives this velocity and computes a correction: `TrackVelocity = Velocity - TrackVelocityRef` (line 155). For HA, `TrackVelocityRef = omega`, so the correction is just the pointing model terms. The non-sidereal rate is missing.
 
-3. When RA/Dec updates and the HA position changes, `FB_Axis3` tries to catch up via position-following. But the catch-up velocity is clamped to **0.05 deg/s** (line 134). The Moon moves at ~0.5 deg/s — 10x faster. The axis falls behind and never catches up.
+3. When RA/Dec updates and the HA position changes, `FB_Axis` tries to catch up via position-following. But the catch-up velocity is clamped to **0.05 deg/s** (line 134). The Moon moves at ~0.5 deg/s — 10x faster. The axis falls behind and never catches up.
 
 ```
 Moon tracking scenario:
@@ -353,7 +360,7 @@ Declination_velocity := (track_dec_esti + fNonSiderealDecRate * d2r) / d2r;
 
 The Dec axis has `TrackVelocityRef = 0.0`, so the full velocity is used directly.
 
-**3. Optionally increase catch-up limit in `FB_Axis3`:**
+**3. Optionally increase catch-up limit in `FB_Axis`:**
 
 ```pascal
 // Current (line 134):
@@ -370,7 +377,7 @@ This ensures the axis can catch up when the position target jumps from an epheme
 | | MONET (Alt-Az) | IAG50cm (HA-DEC) |
 |---|---|---|
 | Approach A (update RA/Dec only) | ✓ Works | ✗ Fails — velocity path hardcoded to sidereal |
-| Required changes | Just update RA/Dec before `eq2hor` | Update RA/Dec + modify `FB_PointingModelForward` + increase `FB_Axis3` catch-up limit |
+| Required changes | Just update RA/Dec before `eq2hor` | Update RA/Dec + modify `FB_PointingModelForward` + increase `FB_Axis` catch-up limit |
 | Velocity functions | `F_Azimuthvelocity` etc. (auto-account for changing target) | `FB_PointingModelForward` (must be modified to include non-sidereal rate) |
 | Why different | Velocities are coordinate derivatives — they naturally follow a moving target | Velocity is sidereal rate + corrections — doesn't know about non-sidereal motion |
 
@@ -384,7 +391,7 @@ This ensures the axis can catch up when the position target jumps from an epheme
 **IAG50cm (HA-DEC):**
 - Update RA/Dec before HA/Dec conversion
 - Modify `FB_PointingModelForward` — add non-sidereal rate to `omega` (line 42) and Dec output (line 100)
-- Increase `FB_Axis3` catch-up velocity limit (line 134) for fast-moving bodies
+- Increase `FB_Axis` catch-up velocity limit (line 134) for fast-moving bodies
 - Pointing model corrections automatically scale correctly once `omega` includes the non-sidereal rate
 
 ### Ephemeris Sources
