@@ -76,7 +76,7 @@ BROTLib/
 │   │       ├── Telescope/       # FB_BaseTelescopeControl,
 │   │       │                    # FB_AltAzTelescopeControl,
 │   │       │                    # FB_RaDecTelescopeControl
-│   │       └── ...              # FB_AstroClock, FB_Axis2, FB_BaseAxis,
+│   │       └── ...              # FB_AstroClock, FB_Axis, FB_BaseAxis,
 │   │                            # FB_EventLog, FB_InfluxMessage, FB_Horn,
 │   │                            # FB_BLINK, FB_ButtonEnable, FB_LightTimer,
 │   │                            # FB_TONTP, F_YREAL, NCError_TO_STRING
@@ -137,10 +137,10 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
    `specs/design/repository-structure.md` was removed in 2026; no `E_TelescopeState` enum exists in the
    current code.)
 
-3. **Axes** — `FB_Axis2` / `FB_BaseAxis` implement the axis abstraction
+3. **Axes** — `FB_Axis` / `FB_BaseAxis` implement the axis abstraction
    (position/velocity control, homing, limits, error checks) on top of the
-   TwinCAT NC axes. An axis-unification effort is proposed to merge `FB_Axis2`
-   with the IAG50cm `FB_Axis3` into a single block — see
+   TwinCAT NC axes. `FB_Axis` is the merge of the former `FB_Axis2` and the
+   IAG50cm `FB_Axis3` (done; the plan docs below are historical) — see
    [specs/design/iag50cm-axis-unification-plan.md](specs/design/iag50cm-axis-unification-plan.md)
    and [specs/design/iag50cm-fb-axis-comparison.md](specs/design/iag50cm-fb-axis-comparison.md).
 
@@ -168,7 +168,7 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
 
 ### Axes and pointing
 
-- **`FB_BaseAxis` / `FB_Axis2`** — axis abstraction over a TwinCAT NC axis:
+- **`FB_BaseAxis` / `FB_Axis`** — axis abstraction over a TwinCAT NC axis:
   position and velocity control, `isTracking` handling, homing/referencing,
   limit handling and error checking. `FB_AxisControl`-style blocks in the
   hardware libraries (`HalfBROT`, `MONETcommon`) extend these.
@@ -252,9 +252,9 @@ published at 1 s while slewing/tracking and 5 s when idle.
   reverse-engineered TwinCAT ScopeView `.svdx` format used by the roof
   analysis scripts, and the proposed axis-unification design), dated plans
   (investigation/work logs), and steering guidance.
-- The axis-unification effort (merging `FB_Axis2` with IAG50cm's `FB_Axis3`,
-  see [specs/design/](specs/design/index.md)) is proposed but not yet
-  implemented; there is no equivalent MONETcommon/MONETN/MONETS unification
+- The axis unification (`FB_Axis2` + IAG50cm's `FB_Axis3` → `FB_Axis`) is
+  implemented; the telescope-control and pointing-model parts of the plan in
+  [specs/design/](specs/design/index.md) are not. There is no equivalent MONETcommon/MONETN/MONETS unification
   plan currently documented.
 - CI builds and releases through GitHub Actions using TcBuild
   (`.github/workflows/tcbuild.yml`,
