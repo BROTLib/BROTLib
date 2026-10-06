@@ -1,6 +1,6 @@
 # FB_Axis re-home fix: PLC check and the 0.5.5 release (handover)
 
-**Status: proposed.** The code change is on `develop` (`6dabd5a`) but unreleased and not run on any PLC.
+**Status: checked on the IAG50cm PLC (2026-10-06, see "Result"); release 0.5.5 still to do.** The code change is on `develop` (`6dabd5a`) but unreleased.
 This is a handover: everything below is what the next person (or session) needs to finish it.
 
 Repos: BROTLib (the change), HalfBROT / MONETcommon / MONETN / MONETS / IAG50cm (consumers).
@@ -59,6 +59,33 @@ Record the answers to unknowns 1 and 2 in this doc, in the issue, and fix the co
 
 IAG50cm's HA/Dec axes pass `HomeAxis := FALSE` and home through `FB_LatchHome`, so they do not exercise
 this path at all; do not use them for this check.
+
+## Result (2026-10-06, IAG50cm focus axis, CX-92B77E)
+
+Run with a throwaway `FB_RehomeTest` (own `FB_Axis` on the focus `axisRef`, `focusControl` call commented out,
+BROTLib built from `develop` as `0.5.4.99`), driven and read over ADS. `HomingMode := MC_ForceCalibration`
+with `Position` = the current actual position, so the axis did not move (16.2999 before and after, no error).
+Already-homed axis (step 2), one re-home request written to `HomeAxis`, trace per PLC cycle (index 0 = the
+cycle of the request):
+
+```
+aExecute     111.....
+aBusy        11......
+aDone        ..1.....
+aHomeAxis    11......
+aHomed       1111111111...
+aCalibrated  1111111111...
+```
+
+- Unknown 1: `MC_Home.Busy` is TRUE in the same cycle as the rising `Execute`. The `Busy` guard is correct and
+  `HomeAxis` stays alive until `Busy` drops (the old code would have cleared it in cycle 0).
+- Unknown 2: `MC_Home` does not clear the NC `Homed` flag when it starts; `Calibrated` stays TRUE throughout.
+  On an already-homed axis the fix only keeps the request alive.
+- Not covered: only `MC_ForceCalibration` (done in 2 cycles, no motion). A homing mode that moves has a longer
+  `Busy` phase; same-cycle `Busy` should hold but was not shown. The old 0.5.4 behaviour was not run for
+  comparison, and steps 1, 3 and 4 were not run.
+- Also seen: `FB_FocusControl` only requests homing while `NOT Calibrated`, so the focus axis never re-homes
+  through it; this path needs a caller that uses `FB_Axis.HomeAxis` directly.
 
 ## Release
 
