@@ -35,7 +35,7 @@ Tests that would fail today are left out rather than written red. Add them when 
 
 ## Running the tests
 
-TcBuild only compiles. Running needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it.
+TcBuild only compiles, so running the tests needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it. CI does this on the self-hosted runner, see [In CI](#in-ci) below.
 
 **Windows 11 note.** The TwinCAT 3.1 Build 4024 *real-time* runtime does not run on Windows 11
 ([Beckhoff system requirements](https://infosys.beckhoff.com/content/1033/tc3_overview/6162419083.html)); Run mode

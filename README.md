@@ -259,7 +259,11 @@ published at 1 s while slewing/tracking and 5 s when idle.
 - CI builds and releases through GitHub Actions using TcBuild
   (`.github/workflows/tcbuild.yml`,
   `release.yml`, `tag-release.yml`), not the older `build.ps1`/`build.yml`
-  pipeline (removed).
+  pipeline (removed). On the self-hosted runner (push only, never
+  `pull_request`) BROTLib runs `tests.yml` on every push (compiles BROTLib and
+  runs the tests) and `tcbuild.yml` on releases (push to `main`) and on demand;
+  the other repos of the org run `tcbuild.yml` on every push as their compile
+  check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
 
 ---
 
