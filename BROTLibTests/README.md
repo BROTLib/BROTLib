@@ -12,11 +12,12 @@ references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telesco
 | `FB_YREAL_Tests` | `F_YREAL` | linear scaling, offset ranges, clamping with `cut`, zero-width input range |
 | `FB_Tracking_Tests` | `F_Azimuthvelocity`, `F_Elevationvelocity`, `F_Derotatorvelocity`, `F_DerotatorPosition2` | hand-checkable anchors, golden values, zenith guard, result stays in [0, 360) |
 | `FB_PointingModel_Tests` | `FB_PointingModelForward`, `FB_PointingModelInversion` | every one of the nine terms on its own, the zenith clamp, a combined golden vector, inversion round trip |
+| `FB_Axis_Tests` | `FB_Axis` (no NC axis) | actual position (plain and modulo), `isTracking` envelope, move ignored and home request kept without calibration, modulo-wrap limitation pinned. Homing completion and the setpoint generator need an NC and are not covered |
 | `FB_Blink_Tests` | `FB_BLINK` | off/on modes, timing per mode, measured high/low durations (real time, +-60 ms) |
 | `FB_InfluxLineProtocol_Tests` | `F_InfluxFieldValue`, `F_EscapeInfluxTag`, `F_TruncateInfluxEscaped` | integer / float / boolean / quoted typing (exponents are floats), escaping of tag values, field keys and measurement names, cutting an escaped string without splitting an escape pair |
 | `FB_AstroClockSync_Tests` | `FB_AstroClockSync` | the sync and validity logic behind `FB_AstroClock`: no sync and no validity before the first good read, no sync on a failed read, error counting, recovery |
 
-52 test cases in total.
+59 test cases in total.
 
 Expected values are either hand-derivable (sin/cos of 0, 45, 60, 90 degrees) or golden values printed by
 [`testing/golden_vectors.py`](../testing/golden_vectors.py). That script first checks the tracking formulas

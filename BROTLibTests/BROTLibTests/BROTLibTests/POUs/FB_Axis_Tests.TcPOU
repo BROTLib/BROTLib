@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_Axis_Tests" Id="{4b1d7a52-93c6-4e08-a1f4-5d2c8e7b3a10}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for the parts of FB_Axis that do not need a real NC axis: the AXIS_REF is a plain local structure with
+// no NC behind it, so the MC_* blocks report errors and never confirm a command. What can be checked is what
+// FB_Axis computes itself: the actual position (plain and modulo), isTracking, and that homing/move requests are
+// kept or ignored as intended. Homing completion (Homed) and the setpoint generator need the NC and are covered
+// by the hardware checks, not here.
+// Each test calls the block twice because ActualPosition is read at the end of a cycle and used in the next.
+FUNCTION_BLOCK FB_Axis_Tests EXTENDS TcUnit.FB_TestSuite
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[ActualPosition_Reads_ActPos();
+ActualPosition_Modulo_Reads_ModuloActPos();
+IsTracking_Envelope();
+IsTracking_Requires_Tracking();
+IsTracking_Modulo_Wrap_Known_Limitation();
+Move_Is_Ignored_Without_Calibration();
+Home_Request_Is_Kept_While_Not_Homed();
+]]></ST>
+    </Implementation>
+    <Method Name="ActualPosition_Reads_ActPos" Id="{0a6e1c3d-5f7b-4d29-8c41-b3e9a7d20f61}">
+      <Declaration><![CDATA[METHOD PRIVATE ActualPosition_Reads_ActPos
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('ActualPosition_Reads_ActPos');
+axisRef.NcToPlc.ActPos := 123.456;
+axisRef.NcToPlc.ModuloActPos := 7.0;
+fbAxis(AxisRef := axisRef);
+AssertEquals_LREAL(Expected := 123.456, Actual := fbAxis.ActualPosition, Delta := 1.0E-12, Message := 'plain axis reports ActPos');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ActualPosition_Modulo_Reads_ModuloActPos" Id="{6c2f9b84-1e3a-4a75-9d06-e8b4c1f57a23}">
+      <Declaration><![CDATA[METHOD PRIVATE ActualPosition_Modulo_Reads_ModuloActPos
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('ActualPosition_Modulo_Reads_ModuloActPos');
+axisRef.NcToPlc.ActPos := 725.0;
+axisRef.NcToPlc.ModuloActPos := 5.0;
+fbAxis.isModuloAxis := TRUE;
+fbAxis(AxisRef := axisRef);
+AssertEquals_LREAL(Expected := 5.0, Actual := fbAxis.ActualPosition, Delta := 1.0E-12, Message := 'modulo axis reports ModuloActPos');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="IsTracking_Envelope" Id="{b83d5e17-2c4f-4b90-a6e1-7f09d3c8b542}">
+      <Declaration><![CDATA[METHOD PRIVATE IsTracking_Envelope
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('IsTracking_Envelope');
+fbAxis.Tracking := TRUE;
+fbAxis.Position := 10.0;
+fbAxis.TrackEnvelope := 5.0;	// arcsec
+
+axisRef.NcToPlc.ActPos := 10.0 + 4.0 / 3600.0;
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertTrue(Condition := fbAxis.isTracking, Message := '4 arcsec off, envelope 5 arcsec: tracking');
+
+axisRef.NcToPlc.ActPos := 10.0 - 6.0 / 3600.0;
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.isTracking, Message := '6 arcsec off, envelope 5 arcsec: not tracking');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="IsTracking_Requires_Tracking" Id="{d94a0f68-3b5e-4c17-b2d8-1a6f8e0c7934}">
+      <Declaration><![CDATA[METHOD PRIVATE IsTracking_Requires_Tracking
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('IsTracking_Requires_Tracking');
+fbAxis.Tracking := FALSE;
+fbAxis.Position := 10.0;
+axisRef.NcToPlc.ActPos := 10.0;
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.isTracking, Message := 'on position but tracking not requested');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="IsTracking_Modulo_Wrap_Known_Limitation" Id="{e5b1c279-4d60-4f83-9a2e-c0d7b4f19a65}">
+      <Declaration><![CDATA[METHOD PRIVATE IsTracking_Modulo_Wrap_Known_Limitation
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('IsTracking_Modulo_Wrap_Known_Limitation');
+// Pins the CURRENT behaviour: the position difference is not wrapped on a modulo axis, so 0.001 deg
+// against 359.999 deg (0.002 deg apart on the circle) is not seen as tracking. Flip the assertion when
+// FB_Axis handles the wrap.
+fbAxis.isModuloAxis := TRUE;
+fbAxis.Tracking := TRUE;
+fbAxis.Position := 0.001;
+fbAxis.TrackEnvelope := 10.0;	// arcsec, 0.002 deg = 7.2 arcsec is inside
+axisRef.NcToPlc.ModuloActPos := 359.999;
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.isTracking, Message := 'modulo wrap is not handled (known limitation)');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Move_Is_Ignored_Without_Calibration" Id="{f6c2d38a-5e71-4094-8b3f-d1e8c5a02b76}">
+      <Declaration><![CDATA[METHOD PRIVATE Move_Is_Ignored_Without_Calibration
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Move_Is_Ignored_Without_Calibration');
+fbAxis.MoveAxis := TRUE;
+fbAxis.Position := 50.0;
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.Calibrated, Message := 'a fresh axis is not calibrated');
+AssertFalse(Condition := fbAxis.MoveDone, Message := 'no move without calibration');
+AssertTrue(Condition := fbAxis.MoveAxis, Message := 'the request is kept, not consumed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Home_Request_Is_Kept_While_Not_Homed" Id="{07d3e49b-6f82-41a5-9c40-e2f9d6b13c87}">
+      <Declaration><![CDATA[METHOD PRIVATE Home_Request_Is_Kept_While_Not_Homed
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Home_Request_Is_Kept_While_Not_Homed');
+fbAxis.HomeAxis := TRUE;
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.Calibrated, Message := 'not calibrated without Homed');
+AssertFalse(Condition := fbAxis.HomeDone, Message := 'HomeDone is low while not homed');
+AssertTrue(Condition := fbAxis.HomeAxis, Message := 'the home request stays set until the axis is homed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
