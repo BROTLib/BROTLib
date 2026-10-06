@@ -150,9 +150,11 @@ jobs:
           & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build SomeSolution.sln
 ```
 
-`workflow_dispatch` only — **not** `push`/`pull_request`. A prior attempt auto-triggered on every
+`push` and `workflow_dispatch` — **not** `pull_request`. A prior attempt auto-triggered on every
 push/PR to a public repo, exposing the runner to PR-triggered execution from anyone; removed once
-found. `shell: powershell`, not `pwsh` — a fresh machine may only have Windows PowerShell 5.1.
+found. Since 2026-10-06 `push` (all branches, no tags) is back on purpose: a push needs write access,
+fork PRs cannot trigger it. Never add `pull_request`/`pull_request_target`. `shell: powershell`, not
+`pwsh` — a fresh machine may only have Windows PowerShell 5.1.
 
 **The real gotcha that cost the most time:** if a project's `.plcproj` has a stale visualization
 profile (wrong/mismatched TwinCAT build embedded — see

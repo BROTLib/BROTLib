@@ -1,10 +1,20 @@
 name: TcBuild
 
-# runs-on is a self-hosted runner on a public repo: keep this trigger workflow_dispatch only, never
-# push/pull_request -- a PR from any fork would otherwise execute on it (BROTLib#31; a prior attempt
-# at auto-triggering did exactly this and was reverted, see BROTLib specs/design/twincat-ci-runner-setup.md)
+# runs-on is a self-hosted runner and most of these repos are public. Therefore: `push` only, NEVER
+# `pull_request` / `pull_request_target` -- a PR from any fork would otherwise execute on the runner
+# (BROTLib#31; an earlier push+PR auto-trigger did exactly that and was reverted, see BROTLib
+# specs/design/twincat-ci-runner-setup.md). A push can only come from someone with write access.
+# Tags are ignored (the release flow tags after a build), and a newer push to the same branch
+# cancels a queued/running build so the single runner does not pile up.
 on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
   workflow_dispatch:
+
+concurrency:
+  group: tcbuild-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
