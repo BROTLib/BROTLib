@@ -2,7 +2,7 @@ name: TcBuild
 
 # runs-on is a self-hosted runner on a public repo: keep this trigger workflow_dispatch only, never
 # push/pull_request -- a PR from any fork would otherwise execute on it (BROTLib#31; a prior attempt
-# at auto-triggering did exactly this and was reverted, see specs/design/twincat-ci-runner-setup.md)
+# at auto-triggering did exactly this and was reverted, see BROTLib specs/design/twincat-ci-runner-setup.md)
 on:
   workflow_dispatch:
 
@@ -10,14 +10,17 @@ jobs:
   build:
     runs-on: [self-hosted, twincat, windows]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Build with TcBuild
+      - name: Build BROTLib.sln
         shell: powershell
         run: |
-          & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build "${{ github.workspace }}\BROTLib.sln"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "TcBuild failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+          # TcBuild exit codes: 0 = built, 1 = built with compile warnings (still a success),
+          # 2 = compile errors, 3 = COM busy (retry), 4/5 = other failure
+          for ($i = 1; $i -le 4; $i++) {
+            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLib.sln
+            if ($LASTEXITCODE -ne 3) { break }
+            Start-Sleep -Seconds 30
           }
+          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+          exit 0

@@ -194,9 +194,16 @@ case from the repo name for MONETRoof (`-x MONETroof -p MonetRoof`). Using the `
   orphaned session server-side — "A session for this runner already exists" on the next start.
   Self-heals via the listener's own 30s-backoff retry within ~1-2 minutes; no action needed.
 
-## Still open, not part of this setup guide
+## TcBuild exit codes (resolves the old "telescope solutions fail" wall)
 
-Full XAE **telescope** solutions (with I/O/target config, not pure PLC libraries — e.g. IAG50cm,
-MONETS) hit a different, unresolved wall: exit 1, warnings only, nothing written to disk, immune
-to retries. Every pure library solution builds cleanly. Not yet root-caused — see the investigation
-doc's open items.
+Per TcBuild's README: **0** = built, **1** = built *with compile warnings* (a success), **2** =
+compile errors, **3** = COM busy (retry), **4** = unknown exception, **5** = missing file. Full XAE
+telescope solutions (IAG50cm, MONETS, MONETN) always carry some warnings, so they exit 1 — which the
+workflows used to treat as a failure ("exit 1, warnings only, nothing written to disk"). They do
+build: the earlier belief that TcBuild cannot handle multi-project / TwinSAFE solutions was a
+misreading of that exit code. `tcbuild.yml` therefore passes on 0 and 1, retries on 3, and fails on
+anything else. (2026-10-06: checked on MONETS, IAG50cm and MONETN; removing the TwinSAFE project or
+DriveManager/MotorTuning from a copy of MONETS changed nothing, since there was nothing to fix.)
+
+What *did* block these solutions was real: BROTLib `FB_Comm_MQTT` used a non-existent
+`stWill.fbPayload` (fixed in 0.5.3), and MONETN had an unsuppressed `SA0033` on `Global_Version`.

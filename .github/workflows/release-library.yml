@@ -42,10 +42,11 @@ jobs:
           # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER): retry
           for ($i = 1; $i -le 4; $i++) {
             & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
-            if ($LASTEXITCODE -eq 0) { break }
+            if ($LASTEXITCODE -ne 3) { break }
             Start-Sleep -Seconds 30
           }
-          if ($LASTEXITCODE -ne 0) { throw "TcBuild failed with exit code $LASTEXITCODE" }
+          # exit 1 = built with compile warnings, still a success (see tcbuild.yml)
+          if ($LASTEXITCODE -gt 1) { throw "TcBuild failed with exit code $LASTEXITCODE" }
           if (-not (Test-Path $file)) { throw "TcBuild did not write $file" }
           "LIBRARY_FILE=$file" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
