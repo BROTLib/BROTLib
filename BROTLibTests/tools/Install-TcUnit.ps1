@@ -35,10 +35,14 @@ function Invoke-Retry([scriptblock]$Action, [int]$Tries = 60, [int]$DelayMs = 10
 }
 
 # Only ever clean up the XAE instance this script started, never one the user has open.
+# The instance is identified right after it was created: anything that shows up in TcXaeShell later (the user
+# starting XAE during the run) is not ours.
 $xaeBefore = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
+$xaeOwn = @()
 $dte = $null
 try {
     $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
+    $xaeOwn = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeBefore -notcontains $_.Id } | ForEach-Object Id)
     Invoke-Retry { $dte.SuppressUI = $true }
     Invoke-Retry { $dte.UserControl = $false }
     Invoke-Retry { $dte.Solution.Open($Solution) }
@@ -59,10 +63,12 @@ try {
 finally {
     if ($dte) {
         try { Invoke-Retry { $dte.Solution.Close($false) } } catch { }
-        try { Invoke-Retry { $dte.Quit() } } catch { }
+        # If COM attached to an XAE that was already open instead of starting its own, do not quit that one.
+        if ($xaeOwn.Count -gt 0) { try { Invoke-Retry { $dte.Quit() } } catch { } }
+        else { Write-Warning 'No new XAE process appeared; not quitting the XAE instance that was already open.' }
     }
     Start-Sleep -Seconds 3
-    Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeBefore -notcontains $_.Id } | ForEach-Object {
+    Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeOwn -contains $_.Id } | ForEach-Object {
         Write-Warning "XAE instance $($_.Id) did not quit; killing it."
         Stop-Process -Id $_.Id -Force
     }

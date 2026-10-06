@@ -98,13 +98,13 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Derotatorvelocity_Anchors');
-CheckNear(-fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 0.0, latitude := 0.0), 1.0E-15, 'horizon, north, equator: -Omega');
-CheckNear(-fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 90.0, latitude := 0.0), 1.0E-15, 'horizon, east, equator: -Omega');
-CheckNear(fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 180.0, latitude := 0.0), 1.0E-15, 'horizon, south, equator: +Omega');
-CheckNear(-2.0 * fOmega, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 0.0, latitude := 0.0), 1.0E-12, 'el 60: 1/cos(60) = 2');
-CheckNear(0.0, BROTLib.F_Derotatorvelocity(elevation := 90.0, azimuth := 10.0, latitude := 51.56), 0.0, 'zenith: guarded, exactly 0');
-CheckNear(0.0037068314748825424, BROTLib.F_Derotatorvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56), 1.0E-12, 'golden: el 30, az 200, lat 51.56');
-CheckNear(-0.00048476279315114428, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 300.0, latitude := -30.0), 1.0E-12, 'golden: el 60, az 300, lat -30');
+CheckNear(-fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 0.0, latitude := 0.0, sign := 1.0), 1.0E-15, 'horizon, north, equator: -Omega');
+CheckNear(-fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 90.0, latitude := 0.0, sign := 1.0), 1.0E-15, 'horizon, east, equator: -Omega');
+CheckNear(fOmega, BROTLib.F_Derotatorvelocity(elevation := 0.0, azimuth := 180.0, latitude := 0.0, sign := 1.0), 1.0E-15, 'horizon, south, equator: +Omega');
+CheckNear(-2.0 * fOmega, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 0.0, latitude := 0.0, sign := 1.0), 1.0E-12, 'el 60: 1/cos(60) = 2');
+CheckNear(0.0, BROTLib.F_Derotatorvelocity(elevation := 90.0, azimuth := 10.0, latitude := 51.56, sign := 1.0), 0.0, 'zenith: guarded, exactly 0');
+CheckNear(0.0037068314748825424, BROTLib.F_Derotatorvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56, sign := 1.0), 1.0E-12, 'golden: el 30, az 200, lat 51.56');
+CheckNear(-0.00048476279315114428, BROTLib.F_Derotatorvelocity(elevation := 60.0, azimuth := 300.0, latitude := -30.0, sign := 1.0), 1.0E-12, 'golden: el 60, az 300, lat -30');
 // sign, added for #16: sign defaults to 1.0 (all the above are unaffected); sign = -1.0 adds twice the
 // elevation rate back in, verified against a numerical derivative of F_DerotatorPosition2(..., sign := -1.0)
 CheckNear(0.0019300456901029633, BROTLib.F_Derotatorvelocity(elevation := 30.0, azimuth := 200.0, latitude := 51.56, sign := -1.0), 1.0E-12, 'golden: el 30, az 200, lat 51.56, sign -1');
