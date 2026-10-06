@@ -25,3 +25,7 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   `FB_Axis2`/`FB_Axis3` unification): the `Axis_SetpointEnable.Execute` error latch, `Axis_Home`'s stale
   reference position, the self-mutating `VAR_INPUT`s (flagged as a separate bigger effort), the unverified
   `MC_Power` default question, and the `OR`/`AND` busy-check fix. **proposed**, nothing implemented
+
+- [2026-10-06-fb-axis-rehome-check-and-0.5.5-release.md](2026-10-06-fb-axis-rehome-check-and-0.5.5-release.md) —
+  handover: the `FB_Axis` re-home fix (`6dabd5a`) is on `develop` but unreleased and never run on a PLC; what is
+  unknown (`MC_Home.Busy` timing), the on-site check, and the 0.5.5 release steps. **proposed**

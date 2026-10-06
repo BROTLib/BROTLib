@@ -18,6 +18,13 @@ currently runs no self-hosted runner. Everything needed to stand it back up (on 
 future dedicated VM) is captured in
 [twincat-ci-runner-setup.md](../design/twincat-ci-runner-setup.md).
 
+**Correction (2026-10-06): the IAG50cm/MONETS "limitation" below does not exist.** TcBuild exit code 1
+means "built, with compile warnings", which full telescope solutions always produce; the workflows
+treated it as a failure. With 0 and 1 accepted, `IAG50cm`, `MONETS` and `MONETN` build in TcBuild
+(manual runs on `main`, 2026-10-06, all green), and `tcbuild.yml` now also runs on every push. The
+passages below that call it a permanent manual-build gap, or a TcBuild TwinSAFE limitation, are
+historical and wrong; see [twincat-ci-runner-setup.md](../design/twincat-ci-runner-setup.md).
+
 ## Fleet-wide build pass across all 8 PLC repos (2026-09-16)
 
 Cloned every PLC repo in the `brotlib` org onto IAG50cm's `Becky` (BROTLib, AstroBROT, IAG50cm,

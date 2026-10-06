@@ -137,6 +137,9 @@ versions coexist side-by-side without conflict (a project only resolves whatever
 name: TcBuild   # saved as .github/workflows/tcbuild.yml
 
 on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
   workflow_dispatch:
 
 jobs:
@@ -150,9 +153,42 @@ jobs:
           & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build SomeSolution.sln
 ```
 
-`workflow_dispatch` only — **not** `push`/`pull_request`. A prior attempt auto-triggered on every
+`push` and `workflow_dispatch` — **not** `pull_request`. A prior attempt auto-triggered on every
 push/PR to a public repo, exposing the runner to PR-triggered execution from anyone; removed once
-found. `shell: powershell`, not `pwsh` — a fresh machine may only have Windows PowerShell 5.1.
+found. Since 2026-10-06 `push` (all branches, no tags) is back on purpose: a push needs write access,
+fork PRs cannot trigger it. This is the CI that is live now: the repos build on every push, and a green run
+is the compile check. It does not run TcUnit tests (needs a runtime and a license, see below). The real
+workflow also has a `concurrency` group that cancels a superseded run and the exit-code handling from the last
+section; copy `tcbuild.yml` from another repo of the org rather than the sketch above. Never add
+`pull_request`/`pull_request_target`. `shell: powershell`, not
+`pwsh` — a fresh machine may only have Windows PowerShell 5.1.
+
+**BROTLib is the exception:** it has two workflows, `tests.yml` on every push to any branch (installs BROTLib,
+which compiles it, then builds and runs BROTLibTests, see below) and `tcbuild.yml` only on pushes to `main` — the
+release merges — and on demand. A tag trigger would not work for the release build: `tag-release.yml` pushes
+tags with `GITHUB_TOKEN`, and events caused by that token do not start workflows.
+
+### Running the tests (BROTLib)
+
+`tests.yml` needs a TwinCAT runtime that executes the PLC, which on Windows 11 is the beta user-mode runtime
+(`C:\TwinCAT\3.1\Runtimes\UmRT_Default`; the 4024 real-time runtime does not run there). Per machine:
+
+1. `BROTLibTests\tools\Install-TcUnit.ps1` (installs the vendored TcUnit into the library repository).
+2. A scheduled task that starts the runtime at boot — needs an **elevated** PowerShell, once:
+   ```powershell
+   $a = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c Start.bat' -WorkingDirectory 'C:\TwinCAT\3.1\Runtimes\UmRT_Default'
+   $t = New-ScheduledTaskTrigger -AtStartup
+   $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew -Hidden
+   $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+   Register-ScheduledTask -TaskName 'TwinCAT UmRT_Default' -Action $a -Trigger $t -Settings $s -Principal $p -Force
+   ```
+3. A license for the PLC (TC1200). Until a permanent one is bought this is the 7-day trial from XAE > SYSTEM >
+   License > Manage Licenses, renewed by hand (captcha). The license is bound to the System ID; it was verified
+   to stay the same across a runtime restart and a reboot, but not across a VM clone or move.
+
+Verified 2026-10-06 on the first runner (TwinCAT 3.1 Build 4024.66, QEMU VM, platform level `other (90)`): after a
+reboot the runtime starts on its own as SYSTEM and `Run-Tests.ps1` passes 60/60. The runner service
+(`actions.runner.*`) has a delayed automatic start, so it can still show Stopped for a minute after boot.
 
 **The real gotcha that cost the most time:** if a project's `.plcproj` has a stale visualization
 profile (wrong/mismatched TwinCAT build embedded — see
@@ -174,8 +210,8 @@ runner with `TcBuild install ... -l <Repo>_<tag>.library` and attaches the saved
 GitHub Release, creating the Release if it does not exist. `tag-release.yml` dispatches it right
 after it pushes a new tag, so the whole chain is: dispatch `release.yml` → merge the release PR →
 tag → `.library` on the Release. It can also be run by hand for any existing tag
-(`gh workflow run release-library.yml -f tag=v0.4.1`), e.g. to backfill. Like `tcbuild.yml` it is
-`workflow_dispatch` only, and it needs to exist on `main` before it can be dispatched.
+(`gh workflow run release-library.yml -f tag=v0.4.1`), e.g. to backfill. Unlike `tcbuild.yml` it is
+`workflow_dispatch` only (it is triggered by `tag-release.yml`, not by pushes), and it needs to exist on `main` before it can be dispatched.
 
 `-x` and `-p` are the XAE project and PLC project names from the `.sln`/`.tsproj`; they differ in
 case from the repo name for MONETRoof (`-x MONETroof -p MonetRoof`). Using the `.plcproj`'s `<Name>`

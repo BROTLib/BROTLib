@@ -215,7 +215,10 @@ Axis_Jog(
 Axis_Home(
 	Axis := 			AxisRef,
 	Execute := 			HomeAxis AND Ready,
-	Position := 		position, //DEFAULT_HOME_POSITION,
+	// NOTE: the reference position is the Position input (also the MoveAxis target), not a separate
+	// home position. HalfBROT and the IAG50cm focus axis rely on this (they set Position to the
+	// calibration position before homing), so do not change without migrating callers.
+	Position := 		Position,
 	HomingMode :=		HomingMode,
 	bCalibrationCam := 	bCalibrationCam,
 	Done => 			HomeDone);
@@ -236,8 +239,13 @@ END_IF
 
 IF Axis_Status.Status.Homed THEN
 	Calibrated := TRUE;
+	// NOTE: HomeDone is a level (TRUE while the axis is homed), not a one-cycle pulse; IAG50cm's
+	// FB_HourAngleControl/FB_DeclinationControl combine it with FB_LatchHome.Done. Use Calibrated.
 	HomeDone := TRUE;
-	HomeAxis := FALSE;
+	// do not cancel a re-home request in the cycle it starts on an already-homed axis
+	IF NOT Axis_Home.Busy THEN
+		HomeAxis := FALSE;
+	END_IF
 ELSE
 	Calibrated := FALSE;
 	HomeDone := FALSE;
