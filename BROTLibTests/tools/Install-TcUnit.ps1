@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Installs the vendored TcUnit library into the local TwinCAT library repository.
 
@@ -16,7 +16,8 @@
 param(
     [string]$Solution = (Join-Path $PSScriptRoot '..\BROTLibTests.sln'),
     [string]$Library  = (Join-Path $PSScriptRoot '..\vendor\tcunit.library'),
-    [string]$PlcTreePath = 'TIPC^BROTLibTests^BROTLibTests Project^References'
+    [string]$PlcTreePath = 'TIPC^BROTLibTests^BROTLibTests Project^References',
+    [int]$LockTimeoutMinutes = 60
 )
 $ErrorActionPreference = 'Stop'
 $Solution = (Resolve-Path $Solution).Path
@@ -34,42 +35,61 @@ function Invoke-Retry([scriptblock]$Action, [int]$Tries = 60, [int]$DelayMs = 10
     }
 }
 
-# Only ever clean up the XAE instance this script started, never one the user has open.
-# The instance is identified right after it was created: anything that shows up in TcXaeShell later (the user
-# starting XAE during the run) is not ours.
-$xaeBefore = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
-$xaeOwn = @()
-$dte = $null
+# One TwinCAT test/XAE job at a time on this machine: the user-mode runtime and XAE are shared by CI runs, the
+# test scripts of the other repos and local runs. A named mutex serialises them; it is released when the script
+# ends, and taken over if the previous holder died.
+$lock = New-Object System.Threading.Mutex($false, 'Global\BROT-TwinCAT-UmRT')
+$locked = $false
+try { $locked = $lock.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $locked = $true }
+if (-not $locked) {
+    Write-Host "Another TwinCAT test run is in progress, waiting up to $LockTimeoutMinutes min for it to finish..."
+    try { $locked = $lock.WaitOne([TimeSpan]::FromMinutes($LockTimeoutMinutes)) } catch [System.Threading.AbandonedMutexException] { $locked = $true }
+}
+if (-not $locked) { throw "Another TwinCAT test run still held the lock after $LockTimeoutMinutes min." }
 try {
-    $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
-    $xaeOwn = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeBefore -notcontains $_.Id } | ForEach-Object Id)
-    Invoke-Retry { $dte.SuppressUI = $true }
-    Invoke-Retry { $dte.UserControl = $false }
-    Invoke-Retry { $dte.Solution.Open($Solution) }
-    # the project loads asynchronously after Open() returns: first the project, then its system manager object
-    # (the leading commas stop PowerShell from unrolling these enumerable COM tree items into arrays)
-    $sysMan = $null
-    for ($i = 0; $null -eq $sysMan; $i++) {
-        if ($i -ge 60) { throw "XAE did not load a TwinCAT project from $Solution" }
-        if ((Invoke-Retry { $dte.Solution.Projects.Count }) -ge 1) {
-            $sysMan = Invoke-Retry { ,$dte.Solution.Projects.Item(1).Object }
+    # Only ever clean up the XAE instance this script started, never one the user has open.
+    # The instance is identified right after it was created: anything that shows up in TcXaeShell later (the user
+    # starting XAE during the run) is not ours.
+    $xaeBefore = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
+    $xaeOwn = @()
+    $dte = $null
+    try {
+        $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
+        $xaeOwn = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeBefore -notcontains $_.Id } | ForEach-Object Id)
+        # XAE is not ready right after the COM object exists: Solution stays null while it starts up
+        for ($n = 0; $null -eq (Invoke-Retry { $dte.Solution }); $n++) {
+            if ($n -ge 120) { throw 'XAE did not become ready (DTE.Solution stayed null for 120 s).' }
+            Start-Sleep -Seconds 1
         }
-        if ($null -eq $sysMan) { Start-Sleep -Seconds 1 }
+        Invoke-Retry { $dte.SuppressUI = $true }
+        Invoke-Retry { $dte.UserControl = $false }
+        Invoke-Retry { $dte.Solution.Open($Solution) }
+        # the project loads asynchronously after Open() returns: first the project, then its system manager object
+        # (the leading commas stop PowerShell from unrolling these enumerable COM tree items into arrays)
+        $sysMan = $null
+        for ($i = 0; $null -eq $sysMan; $i++) {
+            if ($i -ge 60) { throw "XAE did not load a TwinCAT project from $Solution" }
+            if ((Invoke-Retry { $dte.Solution.Projects.Count }) -ge 1) {
+                $sysMan = Invoke-Retry { ,$dte.Solution.Projects.Item(1).Object }
+            }
+            if ($null -eq $sysMan) { Start-Sleep -Seconds 1 }
+        }
+        $refs   = Invoke-Retry { ,$sysMan.LookupTreeItem($PlcTreePath) }
+        Invoke-Retry { $refs.InstallLibrary('System', $Library, $true) }
+        Write-Host "Installed $Library into the 'System' library repository."
     }
-    $refs   = Invoke-Retry { ,$sysMan.LookupTreeItem($PlcTreePath) }
-    Invoke-Retry { $refs.InstallLibrary('System', $Library, $true) }
-    Write-Host "Installed $Library into the 'System' library repository."
+    finally {
+        if ($dte) {
+            try { Invoke-Retry { $dte.Solution.Close($false) } } catch { }
+            # If COM attached to an XAE that was already open instead of starting its own, do not quit that one.
+            if ($xaeOwn.Count -gt 0) { try { Invoke-Retry { $dte.Quit() } } catch { } }
+            else { Write-Warning 'No new XAE process appeared; not quitting the XAE instance that was already open.' }
+        }
+        Start-Sleep -Seconds 3
+        Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeOwn -contains $_.Id } | ForEach-Object {
+            Write-Warning "XAE instance $($_.Id) did not quit; killing it."
+            Stop-Process -Id $_.Id -Force
+        }
+    }
 }
-finally {
-    if ($dte) {
-        try { Invoke-Retry { $dte.Solution.Close($false) } } catch { }
-        # If COM attached to an XAE that was already open instead of starting its own, do not quit that one.
-        if ($xaeOwn.Count -gt 0) { try { Invoke-Retry { $dte.Quit() } } catch { } }
-        else { Write-Warning 'No new XAE process appeared; not quitting the XAE instance that was already open.' }
-    }
-    Start-Sleep -Seconds 3
-    Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeOwn -contains $_.Id } | ForEach-Object {
-        Write-Warning "XAE instance $($_.Id) did not quit; killing it."
-        Stop-Process -Id $_.Id -Force
-    }
-}
+finally { $lock.ReleaseMutex(); $lock.Dispose() }
