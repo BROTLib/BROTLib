@@ -137,6 +137,9 @@ versions coexist side-by-side without conflict (a project only resolves whatever
 name: TcBuild   # saved as .github/workflows/tcbuild.yml
 
 on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
   workflow_dispatch:
 
 jobs:
@@ -153,7 +156,10 @@ jobs:
 `push` and `workflow_dispatch` — **not** `pull_request`. A prior attempt auto-triggered on every
 push/PR to a public repo, exposing the runner to PR-triggered execution from anyone; removed once
 found. Since 2026-10-06 `push` (all branches, no tags) is back on purpose: a push needs write access,
-fork PRs cannot trigger it. Never add `pull_request`/`pull_request_target`. `shell: powershell`, not
+fork PRs cannot trigger it. This is the CI that is live now: all eight repos build on every push, and a
+green run is the compile check. It does not run TcUnit tests (needs a runtime and a license, see
+`BROTLibTests/README.md`). The real workflow also has a `concurrency` group that cancels a superseded
+run and the exit-code handling from the last section; copy `tcbuild.yml` from BROTLib rather than the sketch above. Never add `pull_request`/`pull_request_target`. `shell: powershell`, not
 `pwsh` — a fresh machine may only have Windows PowerShell 5.1.
 
 **The real gotcha that cost the most time:** if a project's `.plcproj` has a stale visualization
@@ -176,8 +182,8 @@ runner with `TcBuild install ... -l <Repo>_<tag>.library` and attaches the saved
 GitHub Release, creating the Release if it does not exist. `tag-release.yml` dispatches it right
 after it pushes a new tag, so the whole chain is: dispatch `release.yml` → merge the release PR →
 tag → `.library` on the Release. It can also be run by hand for any existing tag
-(`gh workflow run release-library.yml -f tag=v0.4.1`), e.g. to backfill. Like `tcbuild.yml` it is
-`workflow_dispatch` only, and it needs to exist on `main` before it can be dispatched.
+(`gh workflow run release-library.yml -f tag=v0.4.1`), e.g. to backfill. Unlike `tcbuild.yml` it is
+`workflow_dispatch` only (it is triggered by `tag-release.yml`, not by pushes), and it needs to exist on `main` before it can be dispatched.
 
 `-x` and `-p` are the XAE project and PLC project names from the `.sln`/`.tsproj`; they differ in
 case from the repo name for MONETRoof (`-x MONETroof -p MonetRoof`). Using the `.plcproj`'s `<Name>`

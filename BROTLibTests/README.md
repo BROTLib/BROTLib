@@ -35,7 +35,7 @@ Tests that would fail today are left out rather than written red. Add them when 
 
 ## Running the tests
 
-TcBuild only compiles. Running needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it.
+TcBuild only compiles. CI (`tcbuild.yml`, every push) therefore checks that the library and `BROTLibTests.sln` build, not that the tests pass. Running needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it.
 
 **Windows 11 note.** The TwinCAT 3.1 Build 4024 *real-time* runtime does not run on Windows 11
 ([Beckhoff system requirements](https://infosys.beckhoff.com/content/1033/tc3_overview/6162419083.html)); Run mode
@@ -75,8 +75,8 @@ the configuration, log in and start the PLC. TcUnit prints every result to the e
 
 ## Things to know
 
-- **Trial license.** The PLC trial license lasts 7 days and is renewed by hand (captcha). This is the open point
-  for running this unattended in CI.
+- **Trial license.** The PLC trial license lasts 7 days and is renewed by hand (captcha). This is why the tests
+  are not run in CI yet (the compile check is).
 - **TcUnit sizing.** TcUnit's defaults (1000 suites x 100 tests x 1000 assertions) allocate about 78 MB of PLC
   data, which the user-mode runtime cannot start. The project overrides them to 32 / 32 / 256 in the
   `TcUnit` reference (`Parameters` in `BROTLibTests.plcproj`). TcUnit needs tests-per-suite <= suites, or it does
