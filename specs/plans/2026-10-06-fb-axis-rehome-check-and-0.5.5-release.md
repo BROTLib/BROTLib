@@ -88,3 +88,20 @@ The other open `FB_Axis` findings (modulo-wrap tracking, stale on-target feed ve
 [2026-09-23-fb-axis-latching-and-self-mutation-fixes.md](2026-09-23-fb-axis-latching-and-self-mutation-fixes.md).
 The modulo-wrap one is pinned by `FB_Axis_Tests.IsTracking_Modulo_Wrap_Known_Limitation` and the test must
 be flipped together with its fix. Do not bundle them into 0.5.5 unless the PLC check also covers them.
+
+## Findings 5 and 6 re-checked (2026-10-06): no code change
+
+- **Stale feed velocity on target: harmless today.** The behaviour comes verbatim from `FB_Axis3` (its history
+  even has a no-op `TrackVelocityRef := TrackVelocityRef;` in that branch). The feed velocity is
+  `Direction * TrackVelocity`, and the only callers that track (IAG50cm HA/Dec) pass `TrackDirectionRef := 0`,
+  so on target `Direction = 0` and the fed velocity is 0 whatever `TrackVelocity` holds; HalfBROT leaves the
+  default 0. The sidereal rate comes from the moving `Position`, not from the feed velocity. It only
+  matters for a caller using `TrackDirectionRef <> 0`; there is none. Left as is.
+- **`Axis_SetpointDisable` missing from `Error`/`ErrorID`/`Busy`: not changed, needs a PLC.** `Execute` is
+  `NOT Tracking`, so the block fires once at startup on every axis that is not tracking, possibly before
+  the axis is powered or the generator is enabled. If the NC answers that with an error, adding it to
+  `Error` would raise a spurious error on every non-tracking axis (MONETN/MONETS/HalfBROT park on `bError`).
+  Check what `Axis_SetpointDisable.Error`/`ErrorID` do at startup and when disabling an already-disabled
+  generator during the on-site check above, then decide.
+- **Modulo-wrap tracking: still open**, needs a decision on how to wrap (shortest way, +-180 deg) and a
+  check of which axes are modulo; pinned by `IsTracking_Modulo_Wrap_Known_Limitation`.
