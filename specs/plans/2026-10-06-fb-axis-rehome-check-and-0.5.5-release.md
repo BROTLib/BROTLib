@@ -130,5 +130,11 @@ be flipped together with its fix. Do not bundle them into 0.5.5 unless the PLC c
   `Error` would raise a spurious error on every non-tracking axis (MONETN/MONETS/HalfBROT park on `bError`).
   Check what `Axis_SetpointDisable.Error`/`ErrorID` do at startup and when disabling an already-disabled
   generator during the on-site check above, then decide.
+- **`Axis_SetpointDisable` read on the IAG50cm PLC (2026-10-06, read-only, after a reactivation):** on all
+  three axes (focus, HA, Dec) the block has `Execute` TRUE, `Error` TRUE and `ErrorID` 1793 (0x701), while
+  `Tracking`, `Ready` and `FB_Axis.Error` are FALSE. So the NC rejects the disable on every unpowered,
+  non-tracking axis and the error stays latched (`Execute := NOT Tracking` never drops). Adding it to
+  `Error` would therefore raise a permanent error on every non-tracking axis: keep it out. Not checked:
+  behaviour on a powered, tracking axis or when disabling an already-disabled generator.
 - **Modulo-wrap tracking: still open**, needs a decision on how to wrap (shortest way, +-180 deg) and a
   check of which axes are modulo; pinned by `IsTracking_Modulo_Wrap_Known_Limitation`.
