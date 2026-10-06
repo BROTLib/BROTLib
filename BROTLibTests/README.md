@@ -17,7 +17,7 @@ references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telesco
 | `FB_InfluxLineProtocol_Tests` | `F_InfluxFieldValue`, `F_EscapeInfluxTag`, `F_TruncateInfluxEscaped` | integer / float / boolean / quoted typing (exponents are floats), escaping of tag values, field keys and measurement names, cutting an escaped string without splitting an escape pair |
 | `FB_AstroClockSync_Tests` | `FB_AstroClockSync` | the sync and validity logic behind `FB_AstroClock`: no sync and no validity before the first good read, no sync on a failed read, error counting, recovery |
 
-59 test cases in total.
+60 test cases in total.
 
 Expected values are either hand-derivable (sin/cos of 0, 45, 60, 90 degrees) or golden values printed by
 [`testing/golden_vectors.py`](../testing/golden_vectors.py). That script first checks the tracking formulas
@@ -35,7 +35,7 @@ Tests that would fail today are left out rather than written red. Add them when 
 
 ## Running the tests
 
-TcBuild only compiles. CI (`tcbuild.yml`, every push) therefore checks that the library and `BROTLibTests.sln` build, not that the tests pass. Running needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it.
+TcBuild only compiles, so running the tests needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it. CI does this on the self-hosted runner, see [In CI](#in-ci) below.
 
 **Windows 11 note.** The TwinCAT 3.1 Build 4024 *real-time* runtime does not run on Windows 11
 ([Beckhoff system requirements](https://infosys.beckhoff.com/content/1033/tc3_overview/6162419083.html)); Run mode
@@ -61,6 +61,8 @@ Every run:
    ```powershell
    cd C:\TwinCAT\3.1\Runtimes\UmRT_Default; .\Start.bat
    ```
+   On the CI machine this is done at boot by the scheduled task `TwinCAT UmRT_Default` (runs `Start.bat` as
+   SYSTEM, hidden, restarted up to 3 times if it fails), so there is nothing to start by hand there.
 2. Build, deploy and run. Exit code 0 = all passed, 1 = a test failed, 2 = no result within the timeout:
    ```powershell
    & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLibTests.sln
@@ -73,10 +75,26 @@ Every run:
 To debug interactively instead: open `BROTLibTests.sln` in XAE, choose the user-mode runtime as target, activate
 the configuration, log in and start the PLC. TcUnit prints every result to the error list.
 
+## In CI
+
+`.github/workflows/tests.yml` runs on every push (never on pull requests: the runner is self-hosted) and does, in
+order: check that the trial license has not expired and the user-mode runtime is running, install the checked-out
+BROTLib into the machine's library repository, build `BROTLibTests.sln`, run `tools/Run-Tests.ps1`. Runs are queued
+and not cancelled, because a cancelled run leaves a stray hidden XAE behind. `tcbuild.yml` is the plain compile check
+of `BROTLib.sln`; it runs on pushes to `main` (the release merges) and on demand.
+
+The runner and the runtime share the machine with whoever works in XAE there. `Run-Tests.ps1` and `Install-TcUnit.ps1`
+only quit and kill the XAE instance they started themselves, so an XAE you open meanwhile is left alone. They do
+overwrite the boot project on the target runtime (`192.168.4.1.1.1`) and restart TwinCAT, so do not be connected to
+that runtime while a run is going, and expect the library repository to change after a run.
+
 ## Things to know
 
-- **Trial license.** The PLC trial license lasts 7 days and is renewed by hand (captcha). This is why the tests
-  are not run in CI yet (the compile check is).
+- **Trial license.** The PLC trial license (TC1000, TC1100, TC1200) lasts 7 days and is renewed by hand (captcha):
+  XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License. It is bound to the machine's System ID (shown on
+  the Order Information (Runtime) tab; it stays the same across a runtime restart and a reboot) and its expiry is
+  in `C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs`. `tests.yml` fails with a clear
+  message once it has expired. A permanent TC1200 license is needed for unattended CI.
 - **TcUnit sizing.** TcUnit's defaults (1000 suites x 100 tests x 1000 assertions) allocate about 78 MB of PLC
   data, which the user-mode runtime cannot start. The project overrides them to 32 / 32 / 256 in the
   `TcUnit` reference (`Parameters` in `BROTLibTests.plcproj`). TcUnit needs tests-per-suite <= suites, or it does

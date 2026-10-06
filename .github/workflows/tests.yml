@@ -1,0 +1,82 @@
+name: Tests
+
+# Runs the BROTLibTests TcUnit suites on the shared self-hosted runner: installs the checked-out BROTLib into
+# the machine's library repository (the tests use the *installed* copy, not the source tree), builds the test
+# project and runs it on the user-mode runtime (see BROTLibTests/README.md).
+#
+# runs-on is a self-hosted runner and most of these repos are public. Therefore: `push` only, NEVER
+# `pull_request` / `pull_request_target` -- a PR from any fork would otherwise execute on the runner
+# (BROTLib#31, see tcbuild.yml). A push can only come from someone with write access.
+# Tags are ignored (the release flow tags after a test run).
+#
+# Not cancelled when a newer push arrives: a test run is deploying to the runtime and talking to a hidden XAE
+# instance, and killing that mid-run leaves a stray TcXaeShell behind. Runs queue instead (GitHub keeps only
+# the newest pending one).
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  workflow_dispatch:
+
+concurrency:
+  group: twincat-tests
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: [self-hosted, twincat, windows]
+    steps:
+      - uses: actions/checkout@v4
+
+      # The PLC needs a license. The 7-day trial is renewed by hand; fail with a clear message instead of a
+      # cryptic activation error once it has run out.
+      - name: Check TwinCAT license
+        shell: powershell
+        run: |
+          $file = 'C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs'
+          if (-not (Test-Path $file)) { throw "No trial license at $file" }
+          $expire = [datetime]([xml](Get-Content $file)).TcLicenseInfo.LicenseInfo.ExpireTime
+          $left = $expire - (Get-Date)
+          Write-Host "Trial license expires $expire ($([math]::Round($left.TotalHours)) h left)"
+          if ($left.TotalSeconds -le 0) { throw "The TwinCAT trial license expired $expire. Renew it: XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License." }
+          if ($left.TotalDays -lt 2) { Write-Host "::warning::TwinCAT trial license expires $expire" }
+
+      # The runtime is started at boot by the scheduled task 'TwinCAT UmRT_Default'.
+      - name: Check user-mode runtime
+        shell: powershell
+        run: |
+          if (-not (Get-Process TcSystemServiceUm -ErrorAction SilentlyContinue)) {
+            throw "The TwinCAT user-mode runtime is not running. It is started at boot by the scheduled task 'TwinCAT UmRT_Default'; start it with: Start-ScheduledTask 'TwinCAT UmRT_Default'"
+          }
+
+      # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER, exit 3): retry.
+      # Exit 1 = built with compile warnings, still a success (see tcbuild.yml).
+      - name: Install BROTLib
+        shell: powershell
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
+          for ($i = 1; $i -le 4; $i++) {
+            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
+            if ($LASTEXITCODE -ne 3) { break }
+            Start-Sleep -Seconds 30
+          }
+          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+      - name: Build BROTLibTests
+        shell: powershell
+        working-directory: BROTLibTests
+        run: |
+          for ($i = 1; $i -le 4; $i++) {
+            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLibTests.sln
+            if ($LASTEXITCODE -ne 3) { break }
+            Start-Sleep -Seconds 30
+          }
+          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+
+      # Exit 0 = all passed, 1 = a test failed, 2 = no result within the timeout.
+      - name: Run tests
+        shell: powershell
+        run: |
+          & .\BROTLibTests\tools\Run-Tests.ps1
+          exit $LASTEXITCODE

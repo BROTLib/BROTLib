@@ -19,6 +19,44 @@ Move_Is_Ignored_Without_Calibration();
 Home_Request_Is_Kept_While_Not_Homed();
 ]]></ST>
     </Implementation>
+    <Method Name="SetActPos" Id="{2b7e4c91-8d35-4f06-a1c8-9e3d5b70f214}">
+      <Declaration><![CDATA[// AXIS_REF is a function block whose NcToPlc is not writable from outside; a pointer sidesteps that.
+METHOD PRIVATE SetActPos
+VAR_INPUT
+	fValue	: LREAL;
+END_VAR
+VAR_IN_OUT
+	axisRef	: AXIS_REF;
+END_VAR
+VAR
+	pValue	: POINTER TO LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[pValue := ADR(axisRef.NcToPlc.ActPos);
+pValue^ := fValue;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetModuloActPos" Id="{3c8f5da2-9e46-4017-b2d9-af4e6c81a325}">
+      <Declaration><![CDATA[// AXIS_REF is a function block whose NcToPlc is not writable from outside; a pointer sidesteps that.
+METHOD PRIVATE SetModuloActPos
+VAR_INPUT
+	fValue	: LREAL;
+END_VAR
+VAR_IN_OUT
+	axisRef	: AXIS_REF;
+END_VAR
+VAR
+	pValue	: POINTER TO LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[pValue := ADR(axisRef.NcToPlc.ModuloActPos);
+pValue^ := fValue;
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="ActualPosition_Reads_ActPos" Id="{0a6e1c3d-5f7b-4d29-8c41-b3e9a7d20f61}">
       <Declaration><![CDATA[METHOD PRIVATE ActualPosition_Reads_ActPos
 VAR
@@ -28,8 +66,8 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('ActualPosition_Reads_ActPos');
-axisRef.NcToPlc.ActPos := 123.456;
-axisRef.NcToPlc.ModuloActPos := 7.0;
+SetActPos(axisRef := axisRef, fValue := 123.456);
+SetModuloActPos(axisRef := axisRef, fValue := 7.0);
 fbAxis(AxisRef := axisRef);
 AssertEquals_LREAL(Expected := 123.456, Actual := fbAxis.ActualPosition, Delta := 1.0E-12, Message := 'plain axis reports ActPos');
 TEST_FINISHED();
@@ -45,8 +83,8 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('ActualPosition_Modulo_Reads_ModuloActPos');
-axisRef.NcToPlc.ActPos := 725.0;
-axisRef.NcToPlc.ModuloActPos := 5.0;
+SetActPos(axisRef := axisRef, fValue := 725.0);
+SetModuloActPos(axisRef := axisRef, fValue := 5.0);
 fbAxis.isModuloAxis := TRUE;
 fbAxis(AxisRef := axisRef);
 AssertEquals_LREAL(Expected := 5.0, Actual := fbAxis.ActualPosition, Delta := 1.0E-12, Message := 'modulo axis reports ModuloActPos');
@@ -67,12 +105,12 @@ fbAxis.Tracking := TRUE;
 fbAxis.Position := 10.0;
 fbAxis.TrackEnvelope := 5.0;	// arcsec
 
-axisRef.NcToPlc.ActPos := 10.0 + 4.0 / 3600.0;
+SetActPos(axisRef := axisRef, fValue := 10.0 + 4.0 / 3600.0);
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertTrue(Condition := fbAxis.isTracking, Message := '4 arcsec off, envelope 5 arcsec: tracking');
 
-axisRef.NcToPlc.ActPos := 10.0 - 6.0 / 3600.0;
+SetActPos(axisRef := axisRef, fValue := 10.0 - 6.0 / 3600.0);
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.isTracking, Message := '6 arcsec off, envelope 5 arcsec: not tracking');
@@ -91,7 +129,7 @@ END_VAR
         <ST><![CDATA[TEST('IsTracking_Requires_Tracking');
 fbAxis.Tracking := FALSE;
 fbAxis.Position := 10.0;
-axisRef.NcToPlc.ActPos := 10.0;
+SetActPos(axisRef := axisRef, fValue := 10.0);
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.isTracking, Message := 'on position but tracking not requested');
@@ -115,7 +153,7 @@ fbAxis.isModuloAxis := TRUE;
 fbAxis.Tracking := TRUE;
 fbAxis.Position := 0.001;
 fbAxis.TrackEnvelope := 10.0;	// arcsec, 0.002 deg = 7.2 arcsec is inside
-axisRef.NcToPlc.ModuloActPos := 359.999;
+SetModuloActPos(axisRef := axisRef, fValue := 359.999);
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.isTracking, Message := 'modulo wrap is not handled (known limitation)');
