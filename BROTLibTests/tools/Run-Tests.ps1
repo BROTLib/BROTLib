@@ -64,7 +64,7 @@ try {
         $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
         $xaeOwn = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeBefore -notcontains $_.Id } | ForEach-Object Id)
         # XAE is not ready right after the COM object exists: Solution stays null while it starts up
-        for ($n = 0; $null -eq (Invoke-Retry { $dte.Solution }); $n++) {
+        for ($n = 0; $null -eq (Invoke-Retry { ,$dte.Solution }); $n++) {
             if ($n -ge 120) { throw 'XAE did not become ready (DTE.Solution stayed null for 120 s).' }
             Start-Sleep -Seconds 1
         }
