@@ -1,0 +1,172 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_TelescopeStub" Id="{94896858-e375-45fa-8185-d6e1eb0e6752}" SpecialFunc="None">
+    <Declaration><![CDATA[// Minimal I_Telescope that only records what the MQTT handler asks it to do.
+FUNCTION_BLOCK FB_TelescopeStub IMPLEMENTS BROTLib.I_Telescope
+VAR_OUTPUT
+	nTrack			: INT;		// number of Track() calls
+	fTrackRa		: LREAL;	// arguments of the last Track()
+	fTrackDec		: LREAL;
+	nSlew			: INT;		// number of Slew() calls
+	fSlewAz			: LREAL;	// arguments of the last Slew()
+	fSlewAlt		: LREAL;
+	nOther			: INT;		// Home / Init / Park / Reset / Stop calls
+END_VAR
+VAR
+	bCoverAutoOpen	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="ClearCounters" Id="{dbed822d-5ef7-4e4c-879b-8489f044a9c3}">
+      <Declaration><![CDATA[METHOD ClearCounters : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nTrack := 0; fTrackRa := 0.0; fTrackDec := 0.0;
+nSlew := 0; fSlewAz := 0.0; fSlewAlt := 0.0;
+nOther := 0;
+ClearCounters := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Home" Id="{a576499b-e0e7-4b0a-b36c-d18d1cf2465c}">
+      <Declaration><![CDATA[METHOD Home : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nOther := nOther + 1;
+Home := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Init" Id="{36312c01-6a95-462f-b0b7-06307001967a}">
+      <Declaration><![CDATA[METHOD Init : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nOther := nOther + 1;
+Init := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park" Id="{094c25e1-a33b-4906-81cd-86ad398b3b46}">
+      <Declaration><![CDATA[METHOD Park : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nOther := nOther + 1;
+Park := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{b4aefd18-a438-4adb-ac4f-e4396a08a9a0}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nOther := nOther + 1;
+Reset := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop" Id="{3e1444b8-464e-459f-a4a7-4c693d816795}">
+      <Declaration><![CDATA[METHOD Stop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nOther := nOther + 1;
+Stop := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Slew" Id="{52302751-cb70-4524-9cf9-3f472cf20eb5}">
+      <Declaration><![CDATA[METHOD Slew : BOOL
+VAR_INPUT
+	fAzimuth	: LREAL;
+	fAltitude	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSlew := nSlew + 1;
+fSlewAz := fAzimuth;
+fSlewAlt := fAltitude;
+Slew := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Track" Id="{5aa3ca1c-0cf1-4a57-8ea3-44ca09468218}">
+      <Declaration><![CDATA[METHOD Track : BOOL
+VAR_INPUT
+	fRightAscension	: LREAL;
+	fDeclination	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nTrack := nTrack + 1;
+fTrackRa := fRightAscension;
+fTrackDec := fDeclination;
+Track := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="Altitude" Id="{06212c45-5841-4ad4-812d-331b3ee572b0}">
+      <Declaration><![CDATA[PROPERTY Altitude : LREAL]]></Declaration>
+      <Get Name="Get" Id="{691eb4c8-da5b-4c1c-a788-b422685f0037}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Altitude := fSlewAlt;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Azimuth" Id="{8c8f752e-c3e6-477f-b2c1-f6531d3cbf2b}">
+      <Declaration><![CDATA[PROPERTY Azimuth : LREAL]]></Declaration>
+      <Get Name="Get" Id="{57a86085-e7dc-4b5e-bf9c-b698ba20ecfd}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Azimuth := fSlewAz;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="Declination" Id="{24caef07-e8df-4d8e-99f0-6fba5bb9b6a0}">
+      <Declaration><![CDATA[PROPERTY Declination : LREAL]]></Declaration>
+      <Get Name="Get" Id="{01f1bec2-91f3-4f4d-8aa3-e8771b7e907d}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Declination := fTrackDec;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="RightAscension" Id="{97b9bc6b-cce8-467a-bc5c-0226b8b22337}">
+      <Declaration><![CDATA[PROPERTY RightAscension : LREAL]]></Declaration>
+      <Get Name="Get" Id="{532f6d71-1748-4ca8-9122-a33953968cc6}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[RightAscension := fTrackRa;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="CoverAutoOpen" Id="{3282ebb7-57b9-4bd4-9b20-2d73243eaef5}">
+      <Declaration><![CDATA[PROPERTY CoverAutoOpen : BOOL]]></Declaration>
+      <Get Name="Get" Id="{5c19cb3c-52e4-494d-b407-1ffe70da1e35}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[CoverAutoOpen := bCoverAutoOpen;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{6aab54b9-dc2b-4451-bee2-007d1a8bf795}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[bCoverAutoOpen := CoverAutoOpen;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+  </POU>
+</TcPlcObject>

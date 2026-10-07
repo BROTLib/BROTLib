@@ -16,9 +16,10 @@ references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telesco
 | `FB_Blink_Tests` | `FB_BLINK` | off/on modes, timing per mode, measured high/low durations (real time, +-60 ms) |
 | `FB_InfluxLineProtocol_Tests` | `F_InfluxFieldValue`, `F_EscapeInfluxTag`, `F_TruncateInfluxEscaped` | integer / float / boolean / quoted typing (exponents are floats), escaping of tag values, field keys and measurement names, cutting an escaped string without splitting an escape pair |
 | `FB_AstroClockSync_Tests` | `FB_AstroClockSync` | the sync and validity logic behind `FB_AstroClock`: no sync and no validity before the first good read, no sync on a failed read, error counting, recovery |
-| `FB_InfluxMessage_Tests` | `FB_InfluxMessage` | characterisation of the MQTT command parser: single pair, tags dropped, trailing timestamp dropped, quotes stripped, only the first of several pairs returned (BROTLib#39), no space gives empty outputs. Expected values read from the code, not yet run |
+| `FB_InfluxMessage_Tests` | `FB_InfluxMessage` | the MQTT command parser: single pair, numbers, tags dropped, trailing timestamp dropped, quotes stripped, several pairs walked via `remaining` (BROTLib#39), tags and timestamp kept in `remaining`, no space gives empty outputs, outputs reset between calls |
+| `FB_Comm_MQTT_Influx_Tests` | `FB_Comm_MQTT_Influx._handleMQTTMessage` (with `FB_TelescopeStub`) | single-field messages as pyBROT and BROTgui send them, one-message `track`/`slew` with the data in any order, same-message data beats a stale buffer, incomplete pair dropped, buffer cleared after `track`, trailing timestamp, other measurement ignored, at most 8 fields |
 
-68 test cases in total.
+79 test cases in total.
 
 Expected values are either hand-derivable (sin/cos of 0, 45, 60, 90 degrees) or golden values printed by
 [`testing/golden_vectors.py`](../testing/golden_vectors.py). That script first checks the tracking formulas

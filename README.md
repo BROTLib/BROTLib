@@ -188,8 +188,10 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
 - **`FB_Comm_MQTT_Influx`** — concrete MQTT + InfluxDB telemetry publisher.
   Publishes measurements in Influx line protocol; used by every BROT
   application (topics such as `MONETN/Telemetry`, `50cm/Telemetry`, ...).
-- **`FB_InfluxMessage`** — parses single Influx line-protocol messages
-  (`measurement,tags parameter=value`) received on the command topic.
+- **`FB_InfluxMessage`** — parses Influx line-protocol messages (`measurement,tags parameter=value[,parameter=value ...]`)
+  received on the command topic, one pair at a time (`remaining` holds the payload for the next pair).
+  `FB_Comm_MQTT_Influx` walks up to 8 pairs per message and applies `track`/`slew` last, so they see the
+  coordinates of the same message.
 - **`F_EscapeInfluxString`** / **`F_IsNumericValue`** — Influx string escaping
   and strict numeric validation (incl. scientific notation).
 - **`FB_EventLog`** — structured event/error logging with severity and message
@@ -293,7 +295,7 @@ TwinCAT OS (ARM/x64) all build on this library.
 
 ## Testing
 
-`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (68 test cases:
+`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (79 test cases:
 Influx value typing and escaping, `F_YREAL`, the tracking velocity and derotator functions, the pointing model and
 its inversion, `FB_BLINK`, `FB_Axis` without an NC axis, the sync logic of `FB_AstroClock`, the Influx line protocol
 helpers). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the user-mode

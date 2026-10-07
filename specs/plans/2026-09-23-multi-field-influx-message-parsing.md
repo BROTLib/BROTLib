@@ -1,6 +1,6 @@
 # Multi-field Influx message parsing (BROTLib#39)
 
-**Status: proposed, revised 2026-10-07.** Parser change not implemented; pinning tests for today's behaviour are written (`FB_InfluxMessage_Tests`, not yet run). Split out of #6 (coordinates and commands arrive as
+**Status: implemented on a branch, 2026-10-07** (PR after the pinning-test PR). Parser returns `remaining`, the handler walks up to 8 pairs in two passes (data fields, then `track`/`slew`). Producers still send one field per message; migrating pyBROT and BROTgui to one atomic `track`/`slew` message is the follow-up under #6. Not yet run on the runtime. Split out of #6 (coordinates and commands arrive as
 separate messages with persistent buffers) — this plan covers the parser-side prerequisite only.
 
 ## Problem
@@ -154,7 +154,11 @@ before the verb).
 
 ## Open questions
 
-1. **Still open, not checkable from this repo:** does anything currently on the wire send a multi-field message today, relying on BROTLib
+1. **Checked 2026-10-07 for the repos on Tim's machine, none does:** pyBROT (`telescope.py`, `dome.py`, `roof.py`, `focus.py`,
+   `mirrorcovers.py`, the weather publisher) and BROTgui (`qtelescopecontrol.py`) send one `command name=value`
+   per message; `track` is three messages (`rightascension`, `declination`, `track=1`), `slew` likewise. No
+   comma appears in any command payload there. **Still not checked:** producers on other machines (Node-RED
+   flows, scripts, MQTT tools used by hand, differing copies of pyBROT or BROTgui) and `brotsim`. Original question: does anything currently on the wire send a multi-field message today, relying on BROTLib
    dropping everything past the first comma as (accidental) truncation? Not found in this repo's
    own call sites, but pybrotlib/pyobs-brot or another external producer is worth checking before
    this ships, in case something depends on today's drop-the-rest behavior.
@@ -172,3 +176,18 @@ before the verb).
 - The buffer-staleness bug's safe, non-breaking mitigations (deduping `derotator`/
   `derotatoroffset`, logging on a silently-dropped incomplete pair or unrecognized `power` value)
   — those don't need this parser change and are handled directly under #6.
+
+## Implemented (2026-10-07)
+
+- `FB_InfluxMessage`: new output `remaining` (the next pair as a complete payload: measurement and tags in front,
+  timestamp kept at the end, `''` for the last pair). All outputs are reset at the start of every call, so a
+  caller that reuses the instance never sees the previous pair again (before, the early `RETURN` left them).
+- `FB_Comm_MQTT_Influx._handleMQTTMessage` now calls `_DispatchPass` twice: first for every field except
+  `track`/`slew`, then for `track`/`slew`. The old dispatch chain moved unchanged into `_ApplyField`. At most 8
+  pairs are walked; more are logged and ignored. A single-field message takes exactly the old path.
+- Tests: `FB_InfluxMessage_Tests` (9 cases) and `FB_Comm_MQTT_Influx_Tests` (10 cases, with `FB_TelescopeStub`),
+  79 in `BROTLibTests`. `testing/check_influx_and_logic.py` section 7 mirrors the walk and the two passes and
+  agrees with the expected values (it encodes the same reading of the code, so it is a consistency check, not an
+  independent proof; the first run on the runtime is the check).
+- Not done: a quoted string value that contains a comma or a space is still split wrongly; the producers (pyBROT,
+  BROTgui) still send separate messages.
