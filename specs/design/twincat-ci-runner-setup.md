@@ -183,8 +183,11 @@ every push, so the check name `build` exists in every repo. A tag trigger would 
    $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
    Register-ScheduledTask -TaskName 'TwinCAT UmRT_Default' -Action $a -Trigger $t -Settings $s -Principal $p -Force
    ```
-3. A license for the PLC (TC1200). Until a permanent one is bought this is the 7-day trial from XAE > SYSTEM >
-   License > Manage Licenses, renewed by hand (captcha). The license is bound to the System ID; it was verified
+3. A license for the PLC (TC1200), plus TF6701 (TC3 IoT Communication, MQTT) for `BROTLibTests`, whose MQTT handler
+   tests instantiate the `Tc3_IotBase` client. A license is needed only when the boot project instantiates a block
+   that carries one; the compiled `.tmc` lists it under `<Licenses>`. Until permanent ones are bought this is the
+   7-day trial from XAE > SYSTEM > License > Manage Licenses, renewed by hand (captcha) with every needed license in
+   the list. A missing one leaves TwinCAT in Config after activation. The license is bound to the System ID; it was verified
    to stay the same across a runtime restart and a reboot, but not across a VM clone or move.
 
 Verified 2026-10-06 on the first runner (TwinCAT 3.1 Build 4024.66, QEMU VM, platform level `other (90)`): after a

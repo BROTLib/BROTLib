@@ -30,7 +30,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The PLC needs a license. The 7-day trial is renewed by hand; fail with a clear message instead of a
-      # cryptic activation error once it has run out.
+      # cryptic activation error once it has run out, or when a license the tests need is not in it.
+      # TF6701 (IoT MQTT): FB_Comm_MQTT_Influx_Tests instantiates FB_Comm_MQTT_Influx (BROTLib#39). Without it
+      # TwinCAT stays in Config and the run looks like a TcUnit timeout.
       - name: Check TwinCAT license
         shell: powershell
         run: |
@@ -40,6 +42,9 @@ jobs:
           $left = $expire - (Get-Date)
           Write-Host "Trial license expires $expire ($([math]::Round($left.TotalHours)) h left)"
           if ($left.TotalSeconds -le 0) { throw "The TwinCAT trial license expired $expire. Renew it: XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License." }
+          $have = @(([xml](Get-Content $file)).SelectNodes('//*[local-name()="License"]') | ForEach-Object { $_.OrderNo })
+          $missing = @('TC1200', 'TF6701') | Where-Object { $have -notcontains $_ }
+          if ($missing) { throw "The TwinCAT trial license does not contain $($missing -join ', '). Renew it with these ticked: XAE > SYSTEM > License > Manage Licenses, then 7 Days Trial License." }
           if ($left.TotalDays -lt 2) { Write-Host "::warning::TwinCAT trial license expires $expire" }
 
       # The runtime is started at boot by the scheduled task 'TwinCAT UmRT_Default'.

@@ -112,13 +112,28 @@ try {
     $runner = 'GVL_TcUnit.TcUnitRunner'
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $client = New-Object TwinCAT.Ads.TcAdsClient
+    $system = New-Object TwinCAT.Ads.TcAdsClient
     $finished = $false
     try {
         $client.Connect($TargetNetId, 851)
+        $system.Connect($TargetNetId, 10000)
+        # If the restart into Run fails (typically a license the boot project needs is missing from the trial, e.g.
+        # TF6701 for the MQTT blocks), TwinCAT stays in Config and the PLC never appears: say so instead of waiting
+        # for TcUnit until the timeout. The restart itself passes through Config, so allow it some time.
+        $configSince = $null
         while ((Get-Date) -lt $deadline -and -not $finished) {
             try { $finished = [bool]$client.ReadSymbol("$runner.AllTestSuitesFinished", [bool], $false) }
             catch { Start-Sleep -Seconds 1 }   # symbols are not there until the PLC has started
-            if (-not $finished) { Start-Sleep -Milliseconds 500 }
+            if (-not $finished) {
+                $state = try { [string]$system.ReadState().AdsState } catch { '' }
+                if ($state -ne 'Config') { $configSince = $null }
+                elseif ($null -eq $configSince) { $configSince = Get-Date }
+                elseif (((Get-Date) - $configSince).TotalSeconds -ge 30) {
+                    Write-Host 'TwinCAT is still in Config mode after the restart, the PLC did not start. Check the license (a missing one, e.g. TF6701, is the usual cause) and the error list in XAE.'
+                    exit 2
+                }
+                Start-Sleep -Milliseconds 500
+            }
         }
         if (-not $finished) {
             Write-Host "TcUnit did not report completion within $TimeoutSeconds s."
@@ -130,7 +145,7 @@ try {
         $ok     = [int]$client.ReadSymbol("$res.NumberOfSuccessfulTestCases", [uint16], $false)
         $failed = [int]$client.ReadSymbol("$res.NumberOfFailedTestCases", [uint16], $false)
     }
-    finally { $client.Dispose() }
+    finally { $client.Dispose(); $system.Dispose() }
 
     Write-Host ("TcUnit: {0} test suites, {1} test cases, {2} passed, {3} failed" -f $suites, $cases, $ok, $failed)
     if ($failed -gt 0) {

@@ -92,11 +92,16 @@ that runtime while a run is going, and expect the library repository to change a
 
 ## Things to know
 
-- **Trial license.** The PLC trial license (TC1000, TC1100, TC1200) lasts 7 days and is renewed by hand (captcha):
-  XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License. It is bound to the machine's System ID (shown on
+- **Trial license.** The trial license (TC1000, TC1100, TC1200 and TF6701) lasts 7 days and is renewed by hand
+  (captcha): XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License. TF6701 (TC3 IoT Communication, MQTT) is
+  needed because `FB_Comm_MQTT_Influx_Tests` instantiates `FB_Comm_MQTT_Influx`, which contains the `Tc3_IotBase`
+  MQTT client (#39). The trial covers only the licenses in the list when it is generated, so check that TF6701 is
+  there; without it TwinCAT stays in Config after the restart and `Run-Tests.ps1` stops with a message saying so.
+  The license is bound to the machine's System ID (shown on
   the Order Information (Runtime) tab; it stays the same across a runtime restart and a reboot) and its expiry is
   in `C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs`. `tests.yml` fails with a clear
-  message once it has expired. A permanent TC1200 license is needed for unattended CI.
+  message once it has expired or lacks TC1200 or TF6701. Permanent TC1200 and TF6701 licenses are needed for
+  unattended CI.
 - **TcUnit sizing.** TcUnit's defaults (1000 suites x 100 tests x 1000 assertions) allocate about 78 MB of PLC
   data, which the user-mode runtime cannot start. The project overrides them to 32 / 32 / 256 in the
   `TcUnit` reference (`Parameters` in `BROTLibTests.plcproj`). TcUnit needs tests-per-suite <= suites, or it does
