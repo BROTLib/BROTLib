@@ -16,9 +16,10 @@ references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telesco
 | `FB_Blink_Tests` | `FB_BLINK` | off/on modes, timing per mode, measured high/low durations (real time, +-60 ms) |
 | `FB_InfluxLineProtocol_Tests` | `F_InfluxFieldValue`, `F_EscapeInfluxTag`, `F_TruncateInfluxEscaped` | integer / float / boolean / quoted typing (exponents are floats), escaping of tag values, field keys and measurement names, cutting an escaped string without splitting an escape pair |
 | `FB_AstroClockSync_Tests` | `FB_AstroClockSync` | the sync and validity logic behind `FB_AstroClock`: no sync and no validity before the first good read, no sync on a failed read, error counting, recovery |
-| `FB_InfluxMessage_Tests` | `FB_InfluxMessage` | characterisation of the MQTT command parser: single pair, tags dropped, trailing timestamp dropped, quotes stripped, only the first of several pairs returned (BROTLib#39), no space gives empty outputs. Expected values read from the code, not yet run |
+| `FB_InfluxMessage_Tests` | `FB_InfluxMessage` | the MQTT command parser: single pair, numbers, tags dropped, trailing timestamp dropped, quotes stripped, several pairs walked via `remaining` (BROTLib#39), tags and timestamp kept in `remaining`, no space gives empty outputs, outputs reset between calls |
+| `FB_Comm_MQTT_Influx_Tests` | `FB_Comm_MQTT_Influx._handleMQTTMessage` (with `FB_TelescopeStub`) | single-field messages as pyBROT and BROTgui send them, one-message `track`/`slew` with the data in any order, same-message data beats a stale buffer, incomplete pair dropped, buffer cleared after `track`, trailing timestamp, other measurement ignored, at most 8 fields |
 
-68 test cases in total.
+79 test cases in total.
 
 Expected values are either hand-derivable (sin/cos of 0, 45, 60, 90 degrees) or golden values printed by
 [`testing/golden_vectors.py`](../testing/golden_vectors.py). That script first checks the tracking formulas
@@ -91,11 +92,16 @@ that runtime while a run is going, and expect the library repository to change a
 
 ## Things to know
 
-- **Trial license.** The PLC trial license (TC1000, TC1100, TC1200) lasts 7 days and is renewed by hand (captcha):
-  XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License. It is bound to the machine's System ID (shown on
+- **Trial license.** The trial license (TC1000, TC1100, TC1200 and TF6701) lasts 7 days and is renewed by hand
+  (captcha): XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License. TF6701 (TC3 IoT Communication, MQTT) is
+  needed because `FB_Comm_MQTT_Influx_Tests` instantiates `FB_Comm_MQTT_Influx`, which contains the `Tc3_IotBase`
+  MQTT client (#39). The trial covers only the licenses in the list when it is generated, so check that TF6701 is
+  there; without it TwinCAT stays in Config after the restart and `Run-Tests.ps1` stops with a message saying so.
+  The license is bound to the machine's System ID (shown on
   the Order Information (Runtime) tab; it stays the same across a runtime restart and a reboot) and its expiry is
   in `C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs`. `tests.yml` fails with a clear
-  message once it has expired. A permanent TC1200 license is needed for unattended CI.
+  message once it has expired or lacks TC1200 or TF6701. Permanent TC1200 and TF6701 licenses are needed for
+  unattended CI.
 - **TcUnit sizing.** TcUnit's defaults (1000 suites x 100 tests x 1000 assertions) allocate about 78 MB of PLC
   data, which the user-mode runtime cannot start. The project overrides them to 32 / 32 / 256 in the
   `TcUnit` reference (`Parameters` in `BROTLibTests.plcproj`). TcUnit needs tests-per-suite <= suites, or it does

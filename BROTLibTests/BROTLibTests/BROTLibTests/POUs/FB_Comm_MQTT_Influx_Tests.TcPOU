@@ -1,0 +1,252 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_Comm_MQTT_Influx_Tests" Id="{34557123-6b20-450c-8e1e-e569b4e30879}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for the command dispatch of BROTLib.FB_Comm_MQTT_Influx (BROTLib#39): single-field messages as pyBROT and
+// BROTgui send them, and multi-field messages where track/slew must see the data of the same message. The handler is
+// called directly with a payload; no MQTT connection is made. A stub records what it asks the telescope to do.
+FUNCTION_BLOCK FB_Comm_MQTT_Influx_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	fbComm	: BROTLib.FB_Comm_MQTT_Influx;
+	stub	: FB_TelescopeStub;
+	bReady	: BOOL;
+	bSingle_Field_Messages_Still_Fill_The_Buffer	: BOOL;
+	bData_Before_Verb_In_One_Message	: BOOL;
+	bVerb_First_Uses_Data_From_The_Same_Message	: BOOL;
+	bSame_Message_Data_Beats_The_Buffer	: BOOL;
+	bIncomplete_Pair_Is_Dropped	: BOOL;
+	bBuffer_Is_Cleared_After_Track	: BOOL;
+	bSlew_Takes_Elevation_And_Azimuth_From_One_Message	: BOOL;
+	bTrailing_Timestamp_Does_Not_Break_The_Last_Field	: BOOL;
+	bOther_Measurement_Is_Ignored	: BOOL;
+	bFields_Beyond_The_Eighth_Are_Ignored	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF NOT bReady THEN
+	bReady := TRUE;
+	fbComm.Telescope := stub;
+END_IF
+Single_Field_Messages_Still_Fill_The_Buffer();
+Data_Before_Verb_In_One_Message();
+Verb_First_Uses_Data_From_The_Same_Message();
+Same_Message_Data_Beats_The_Buffer();
+Incomplete_Pair_Is_Dropped();
+Buffer_Is_Cleared_After_Track();
+Slew_Takes_Elevation_And_Azimuth_From_One_Message();
+Trailing_Timestamp_Does_Not_Break_The_Last_Field();
+Other_Measurement_Is_Ignored();
+Fields_Beyond_The_Eighth_Are_Ignored();
+]]></ST>
+    </Implementation>
+    <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
+      <Declaration><![CDATA[// Puts the handler and the stub back to a clean state; every test runs its body once.
+METHOD PRIVATE ResetHandler
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// drain whatever the previous test left in the handler's buffers: track and slew consume and clear them
+fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
+fbComm._handleMQTTMessage(sPayloadRcv := 'command slew=1');
+stub.ClearCounters();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Single_Field_Messages_Still_Fill_The_Buffer" Id="{bf448ccc-63d8-435d-9991-76e2552690de}">
+      <Declaration><![CDATA[// The way pyBROT and BROTgui send it today: three messages, the buffer is consumed by track.
+METHOD PRIVATE Single_Field_Messages_Still_Fill_The_Buffer
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Single_Field_Messages_Still_Fill_The_Buffer');
+IF NOT bSingle_Field_Messages_Still_Fill_The_Buffer THEN
+	bSingle_Field_Messages_Still_Fill_The_Buffer := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command declination=20.5');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'before track: number of Track calls');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'after track: number of Track calls');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'after track: right ascension');
+	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'after track: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Data_Before_Verb_In_One_Message" Id="{3a11763f-f81c-4a99-9829-5ab118ed367b}">
+      <Declaration><![CDATA[METHOD PRIVATE Data_Before_Verb_In_One_Message
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Data_Before_Verb_In_One_Message');
+IF NOT bData_Before_Verb_In_One_Message THEN
+	bData_Before_Verb_In_One_Message := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'one message: number of Track calls');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'one message: right ascension');
+	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'one message: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Verb_First_Uses_Data_From_The_Same_Message" Id="{e8a94e9c-48f1-4ccd-a98c-22d7e10d0a9a}">
+      <Declaration><![CDATA[// The data pass runs before the verb pass, so the field order does not matter.
+METHOD PRIVATE Verb_First_Uses_Data_From_The_Same_Message
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Verb_First_Uses_Data_From_The_Same_Message');
+IF NOT bVerb_First_Uses_Data_From_The_Same_Message THEN
+	bVerb_First_Uses_Data_From_The_Same_Message := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1,rightascension=10.5,declination=20.5');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'verb first: number of Track calls');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'verb first: right ascension');
+	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'verb first: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Same_Message_Data_Beats_The_Buffer" Id="{a02743b4-6532-4b68-8837-639d84cd727f}">
+      <Declaration><![CDATA[// An old buffer value must never be combined with the new target.
+METHOD PRIVATE Same_Message_Data_Beats_The_Buffer
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Same_Message_Data_Beats_The_Buffer');
+IF NOT bSame_Message_Data_Beats_The_Buffer THEN
+	bSame_Message_Data_Beats_The_Buffer := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=1.5');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command declination=2.5');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'stale buffer: number of Track calls');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'stale buffer: right ascension');
+	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'stale buffer: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Incomplete_Pair_Is_Dropped" Id="{fd35e970-9a15-4f5c-98a3-32b668e2db14}">
+      <Declaration><![CDATA[// Same as the buffered form: no declination, no Track call.
+METHOD PRIVATE Incomplete_Pair_Is_Dropped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Incomplete_Pair_Is_Dropped');
+IF NOT bIncomplete_Pair_Is_Dropped THEN
+	bIncomplete_Pair_Is_Dropped := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'declination missing: number of Track calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Buffer_Is_Cleared_After_Track" Id="{72b7c574-480d-4146-8423-48463225227c}">
+      <Declaration><![CDATA[// The second track finds an empty buffer and is dropped, the first call stays the last one.
+METHOD PRIVATE Buffer_Is_Cleared_After_Track
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Buffer_Is_Cleared_After_Track');
+IF NOT bBuffer_Is_Cleared_After_Track THEN
+	bBuffer_Is_Cleared_After_Track := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,track=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'second track without data: number of Track calls');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'second track without data: right ascension');
+	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'second track without data: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Slew_Takes_Elevation_And_Azimuth_From_One_Message" Id="{ed1e6218-9e8f-429c-99e1-f69d844d24e7}">
+      <Declaration><![CDATA[METHOD PRIVATE Slew_Takes_Elevation_And_Azimuth_From_One_Message
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Slew_Takes_Elevation_And_Azimuth_From_One_Message');
+IF NOT bSlew_Takes_Elevation_And_Azimuth_From_One_Message THEN
+	bSlew_Takes_Elevation_And_Azimuth_From_One_Message := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command slew=1,azimuth=120.5,elevation=45.5');
+	AssertEquals_INT(Expected := 1, Actual := stub.nSlew, Message := 'slew: number of Slew calls');
+	AssertEquals_LREAL(Expected := 120.5, Actual := stub.fSlewAz, Delta := 1.0E-9, Message := 'slew: azimuth');
+	AssertEquals_LREAL(Expected := 45.5, Actual := stub.fSlewAlt, Delta := 1.0E-9, Message := 'slew: altitude');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Trailing_Timestamp_Does_Not_Break_The_Last_Field" Id="{7eed211b-d43a-4fa7-ba14-ab60aba02482}">
+      <Declaration><![CDATA[METHOD PRIVATE Trailing_Timestamp_Does_Not_Break_The_Last_Field
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Trailing_Timestamp_Does_Not_Break_The_Last_Field');
+IF NOT bTrailing_Timestamp_Does_Not_Break_The_Last_Field THEN
+	bTrailing_Timestamp_Does_Not_Break_The_Last_Field := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,track=1 1700000000000000000');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'timestamp: number of Track calls');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'timestamp: right ascension');
+	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'timestamp: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Other_Measurement_Is_Ignored" Id="{7311dfe5-1b87-4e83-b0cf-0c4bd649d7e3}">
+      <Declaration><![CDATA[METHOD PRIVATE Other_Measurement_Is_Ignored
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Other_Measurement_Is_Ignored');
+IF NOT bOther_Measurement_Is_Ignored THEN
+	bOther_Measurement_Is_Ignored := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'status rightascension=10.5,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'measurement status: number of Track calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Fields_Beyond_The_Eighth_Are_Ignored" Id="{e6b89235-1e3d-47b1-8a05-9b4fa04bbd63}">
+      <Declaration><![CDATA[// At most 8 fields per message (a malformed message must not spin the scan cycle); the rest is logged and ignored.
+METHOD PRIVATE Fields_Beyond_The_Eighth_Are_Ignored
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Fields_Beyond_The_Eighth_Are_Ignored');
+IF NOT bFields_Beyond_The_Eighth_Are_Ignored THEN
+	bFields_Beyond_The_Eighth_Are_Ignored := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,x1=0,x2=0,x3=0,x4=0,x5=0,x6=0,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'track is the ninth field: number of Track calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
