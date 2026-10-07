@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_InfluxMessage_Tests" Id="{2ca087bf-b4b1-47e0-aac9-190586413b5b}" SpecialFunc="None">
+    <Declaration><![CDATA[// Characterisation tests for BROTLib.FB_InfluxMessage, the parser of incoming MQTT command payloads
+// (measurement[,tags] parameter=value[,parameter=value ...] [timestamp]). They pin what the parser does TODAY, so a
+// change for BROTLib#39 (return every pair, not only the first) shows exactly which behaviour moved.
+// Expected values were derived by reading the code; the first run on the user-mode runtime is what confirms them.
+FUNCTION_BLOCK FB_InfluxMessage_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Single_Pair();
+Numbers_Keep_Sign_And_Exponent();
+Tags_Are_Dropped();
+Trailing_Timestamp_Is_Dropped();
+Quoted_String_Value_Loses_Quotes();
+Only_First_Of_Several_Pairs();
+Several_Pairs_With_Timestamp();
+No_Space_Gives_Empty_Outputs();
+]]></ST>
+    </Implementation>
+    <Method Name="Check" Id="{d0adac4d-3454-4dd1-b854-6a63269daff5}">
+      <Declaration><![CDATA[// Parses sPayload with a fresh instance (method locals are re-initialised on every call) and asserts the three outputs;
+// the failure message names the payload.
+METHOD PRIVATE Check
+VAR_INPUT
+	sPayload		: STRING(255);
+	sMeasurement	: STRING(255);
+	sParameter		: STRING(255);
+	sValue			: STRING(255);
+END_VAR
+VAR
+	fb				: BROTLib.FB_InfluxMessage;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fb(sPayload := sPayload);
+AssertEquals_STRING(Expected := sMeasurement, Actual := fb.measurement, Message := CONCAT('measurement of: ', sPayload));
+AssertEquals_STRING(Expected := sParameter, Actual := fb.parameter, Message := CONCAT('parameter of: ', sPayload));
+AssertEquals_STRING(Expected := sValue, Actual := fb.value, Message := CONCAT('value of: ', sPayload));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Single_Pair" Id="{219c4306-c4b0-4a5c-8688-85c38747ebbf}">
+      <Declaration><![CDATA[METHOD PRIVATE Single_Pair
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Single_Pair');
+Check(sPayload := 'command park=1', sMeasurement := 'command', sParameter := 'park', sValue := '1');
+Check(sPayload := 'command track=1', sMeasurement := 'command', sParameter := 'track', sValue := '1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Numbers_Keep_Sign_And_Exponent" Id="{3545224d-8e02-4251-8cb1-e2d862ba1af7}">
+      <Declaration><![CDATA[METHOD PRIVATE Numbers_Keep_Sign_And_Exponent
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Numbers_Keep_Sign_And_Exponent');
+Check(sPayload := 'command rightascension=123.456', sMeasurement := 'command', sParameter := 'rightascension', sValue := '123.456');
+Check(sPayload := 'command declination=-56.7', sMeasurement := 'command', sParameter := 'declination', sValue := '-56.7');
+Check(sPayload := 'command offset=1.5E-3', sMeasurement := 'command', sParameter := 'offset', sValue := '1.5E-3');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Tags_Are_Dropped" Id="{92d5f67c-1816-49b5-adda-6bab737f3b52}">
+      <Declaration><![CDATA[// Tags after the measurement are accepted but not returned.
+METHOD PRIVATE Tags_Are_Dropped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Tags_Are_Dropped');
+Check(sPayload := 'command,site=a park=1', sMeasurement := 'command', sParameter := 'park', sValue := '1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Trailing_Timestamp_Is_Dropped" Id="{5f35481c-8ce9-45c2-8e3e-642bd10880e9}">
+      <Declaration><![CDATA[METHOD PRIVATE Trailing_Timestamp_Is_Dropped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Trailing_Timestamp_Is_Dropped');
+Check(sPayload := 'command park=1 1700000000000000000', sMeasurement := 'command', sParameter := 'park', sValue := '1');
+Check(sPayload := 'command,site=a track=1 1700000000000000000', sMeasurement := 'command', sParameter := 'track', sValue := '1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Quoted_String_Value_Loses_Quotes" Id="{6f06c1a6-a0e6-43f9-968b-f04c1f645e71}">
+      <Declaration><![CDATA[// The surrounding quotes of an Influx string value are stripped.
+METHOD PRIVATE Quoted_String_Value_Loses_Quotes
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Quoted_String_Value_Loses_Quotes');
+Check(sPayload := 'command name="abc"', sMeasurement := 'command', sParameter := 'name', sValue := 'abc');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Only_First_Of_Several_Pairs" Id="{a020cb02-8d27-4894-a748-36e352071f5b}">
+      <Declaration><![CDATA[// CHARACTERISATION of BROTLib#39: everything after the first comma is dropped today. When the parser returns
+// the remaining pairs, these expectations stay valid for the first pair and new tests cover the rest.
+METHOD PRIVATE Only_First_Of_Several_Pairs
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Only_First_Of_Several_Pairs');
+Check(sPayload := 'command rightascension=1.5,declination=2.5', sMeasurement := 'command', sParameter := 'rightascension', sValue := '1.5');
+Check(sPayload := 'command a=1,b=2,c=3', sMeasurement := 'command', sParameter := 'a', sValue := '1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Several_Pairs_With_Timestamp" Id="{22ad6754-2115-4cbf-a1e0-b595e435908d}">
+      <Declaration><![CDATA[// CHARACTERISATION of BROTLib#39, see Only_First_Of_Several_Pairs: the timestamp trails the LAST pair.
+METHOD PRIVATE Several_Pairs_With_Timestamp
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Several_Pairs_With_Timestamp');
+Check(sPayload := 'command a=1,b=2 1700000000000000000', sMeasurement := 'command', sParameter := 'a', sValue := '1');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Space_Gives_Empty_Outputs" Id="{f94a017d-30f2-44ee-9050-abe2fc81bf7e}">
+      <Declaration><![CDATA[// Without a space there is no field set: the block returns early and every output stays empty (fresh instance).
+METHOD PRIVATE No_Space_Gives_Empty_Outputs
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Space_Gives_Empty_Outputs');
+Check(sPayload := 'command', sMeasurement := '', sParameter := '', sValue := '');
+Check(sPayload := '', sMeasurement := '', sParameter := '', sValue := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
