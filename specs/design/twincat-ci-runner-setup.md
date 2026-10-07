@@ -163,10 +163,11 @@ section; copy `tcbuild.yml` from another repo of the org rather than the sketch 
 `pull_request`/`pull_request_target`. `shell: powershell`, not
 `pwsh` — a fresh machine may only have Windows PowerShell 5.1.
 
-**BROTLib is the exception:** it has two workflows, `tests.yml` on every push to any branch (installs BROTLib,
-which compiles it, then builds and runs BROTLibTests, see below) and `tcbuild.yml` only on pushes to `main` — the
-release merges — and on demand. A tag trigger would not work for the release build: `tag-release.yml` pushes
-tags with `GITHUB_TOKEN`, and events caused by that token do not start workflows.
+**BROTLib, AstroBROT and MONETcommon also have `tests.yml`:** it runs on every push to any branch (installs the
+library, which compiles it, then builds and runs the tests, see below) next to `tcbuild.yml`, which also runs on
+every push, so the check name `build` exists in every repo. A tag trigger would not work for the release build:
+`tag-release.yml` pushes tags with `GITHUB_TOKEN`, and events caused by that token do not start workflows.
+(Until 2026-10-07 these three ran `tcbuild.yml` only on pushes to `main`.)
 
 ### Running the tests (BROTLib)
 

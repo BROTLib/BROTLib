@@ -259,10 +259,9 @@ published at 1 s while slewing/tracking and 5 s when idle.
   (`.github/workflows/tcbuild.yml`,
   `release.yml`, `tag-release.yml`), not the older `build.ps1`/`build.yml`
   pipeline (removed). On the self-hosted runner (push only, never
-  `pull_request`) BROTLib runs `tests.yml` on every push (compiles BROTLib and
-  runs the tests) and `tcbuild.yml` on releases (push to `main`) and on demand;
-  the other repos of the org run `tcbuild.yml` on every push as their compile
-  check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
+  `pull_request`) BROTLib runs `tests.yml` (compiles BROTLib and runs the
+  tests) and `tcbuild.yml` (compile check) on every push; the other repos of the org run
+  `tcbuild.yml` on every push as their compile check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
 
 ---
 
@@ -302,6 +301,6 @@ runtime, because the 4024 real-time runtime does not run there. Setup, the one-c
 [BROTLibTests/README.md](BROTLibTests/README.md).
 
 CI: `tests.yml` runs the suites on the self-hosted runner on every push (installs the checked-out BROTLib, builds
-BROTLibTests, runs `Run-Tests.ps1`), and `tcbuild.yml` compiles BROTLib on every release (push to `main`) and on
+BROTLibTests, runs `Run-Tests.ps1`), and `tcbuild.yml` compiles BROTLib on every push and on
 demand. The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
 by hand, and `tests.yml` fails with a clear message once it has expired.
