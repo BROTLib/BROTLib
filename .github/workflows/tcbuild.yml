@@ -1,17 +1,17 @@
 name: TcBuild
 
-# Compile check on every release, plus on demand. `main` only receives release PRs (develop -> main, see
-# release.yml), so a push to main is a release. Not a tag trigger: tag-release.yml pushes the tag with
-# GITHUB_TOKEN, and events caused by that token do not start workflows. Ordinary pushes are covered by
-# tests.yml, which installs (so compiles) BROTLib and runs the tests.
-#
 # runs-on is a self-hosted runner and most of these repos are public. Therefore: `push` only, NEVER
 # `pull_request` / `pull_request_target` -- a PR from any fork would otherwise execute on the runner
 # (BROTLib#31; an earlier push+PR auto-trigger did exactly that and was reverted, see BROTLib
 # specs/design/twincat-ci-runner-setup.md). A push can only come from someone with write access.
+# Tags are ignored (the release flow tags after a build), and a newer push to the same branch
+# cancels a queued/running build so the single runner does not pile up.
+# Every repo of the org builds on every push, so the check name `build` exists everywhere. release.yml
+# dispatches this workflow for the version bump (a push made with GITHUB_TOKEN starts no workflow).
 on:
   push:
-    branches: [main]
+    branches: ['**']
+    tags-ignore: ['**']
   workflow_dispatch:
 
 concurrency:
