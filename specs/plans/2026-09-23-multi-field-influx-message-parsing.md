@@ -1,6 +1,6 @@
 # Multi-field Influx message parsing (BROTLib#39)
 
-**Status: proposed.** Nothing implemented. Split out of #6 (coordinates and commands arrive as
+**Status: proposed, revised 2026-10-07.** Parser change not implemented; pinning tests for today's behaviour are written (`FB_InfluxMessage_Tests`, not yet run). Split out of #6 (coordinates and commands arrive as
 separate messages with persistent buffers) — this plan covers the parser-side prerequisite only.
 
 ## Problem
@@ -38,11 +38,32 @@ messages, filling a shared buffer (`RaDec`/`AltAz` fields on `FB_Comm_MQTT_Influ
 - an incomplete pair (e.g. `declination` never arrives) is dropped with no error, no log, no
   reply — the caller has no way to know the command didn't happen.
 
-If a producer could send `command track,rightascension=123.4,declination=56.7` as **one** atomic
+If a producer could send `command track=1,rightascension=123.4,declination=56.7` as **one** atomic
 message instead of three, the whole buffer-staleness/mixing class of bug goes away by
 construction — there's no multi-message sequence left to get out of sync. This plan is the
 parser-side change that makes that possible; it does not itself change what BROTLib does with the
 fields once parsed (see "Not in this plan").
+
+## Correction (2026-10-07): the message format
+
+Earlier versions of this plan and #39 wrote the example as `command track,rightascension=123.4,...`. That
+is not valid line protocol: after the measurement comes a field set of `key=value` pairs, and `track` alone
+has no `=`. Today's verbs are sent as `command track=1` (the handler ignores the value), so the multi-field
+form is `command track=1,rightascension=123.4,declination=56.7`.
+
+## Ordering contract (new): data fields before the verb
+
+Dispatching the pairs in message order is not enough to make `track`/`slew` atomic. With
+`track=1,rightascension=...,declination=...` the loop would run `track` first, while `RaDec` still holds
+the old buffer, which is exactly the stale-coordinate bug this change is meant to remove. Pick one:
+
+1. **Contract:** producers send the data fields first (`rightascension=..,declination=..,track=1`). Simple,
+   but nothing stops a producer from getting it wrong.
+2. **Two passes in the handler (recommended):** first apply every non-verb field (`rightascension`,
+   `declination`, `elevation`, `azimuth`, `temperature`, ...), then run the verbs (`track`, `slew`, `park`,
+   ...). Same-message data then always wins over the buffer, in any field order.
+
+Either way the buffer stays for single-field producers until they are migrated.
 
 ## Design
 
@@ -88,7 +109,8 @@ just the remaining field-set fragment?) needs care: `FB_InfluxMessage.sPayload` 
 parsing once. Two options:
 
 1. Reconstruct a synthetic payload each loop (`measurement || ' ' || remaining`) and re-run the
-   full parse — simplest, re-does needless work (measurement/tag split) every iteration but that's
+   full parse (simplest variant: let `FB_InfluxMessage` output the next full payload itself, `remaining` =
+   measurement + ' ' + rest, so the caller just feeds `remaining` back as `sPayload`) — simplest, re-does needless work (measurement/tag split) every iteration but that's
    cheap.
 2. Add a second, lighter method/mode that parses just a field-set fragment (skip the
    measurement/comma-tag step) for iterations after the first — more code, avoids redundant work.
@@ -109,18 +131,30 @@ handful of fields per message.
 
 ## Tests
 
-- TcUnit (BROTLibTests): extend `FB_InfluxMessage`'s existing test coverage (check if any exists;
-  if not, add fresh) with multi-field payloads — 1 field (unchanged behavior), 2 fields, the
-  maximum the 255-char buffer allows, a trailing timestamp combined with multiple fields (the
-  timestamp-stripping fix from #24 needs to keep working after the *last* field, not after the
-  first comma).
-- `testing/` Python mirror (matching the existing `check_influx_and_logic.py` convention): a
-  reference implementation of the remainder-loop logic, checked against hand-built multi-field
-  Influx lines.
+**Pinning tests, written first (`BROTLibTests/.../FB_InfluxMessage_Tests.TcPOU`, 8 cases).** There was no
+coverage of `FB_InfluxMessage` before. They pin today's behaviour with a fresh instance per case: a single
+pair, numbers with sign and exponent, tags dropped, a trailing timestamp dropped, quotes of a string value
+stripped, **only the first of several pairs returned** (characterisation of #39, to be extended when it is
+fixed), the timestamp after the last of several pairs, and no space giving empty outputs. The expected values
+were derived by reading the code, so the first run on the user-mode runtime confirms them; a failure there
+means my reading was wrong, not that the parser regressed.
+
+**Not pinned, because the behaviour is uncertain without a run:** a payload with no `=` in the field set
+(what `FindAndSplit` leaves in the outputs when the separator is missing), a double space after the
+measurement, a value that itself contains `=`, outputs kept from a previous call on the same instance
+(the early `RETURN` does not reset them; harmless in `_handleMQTTMessage`, where the instance is a method
+local).
+
+**After the fix:** 2 fields, the maximum the 255-character buffer allows, the 8-iteration cap, a trailing
+timestamp after the *last* field of several, and the two-pass handler ordering (data fields in any order
+before the verb).
+
+- `testing/` Python mirror (matching the existing `check_influx_and_logic.py` convention): a reference
+  implementation of the remainder-loop logic, checked against hand-built multi-field Influx lines.
 
 ## Open questions
 
-1. Does anything currently on the wire send a multi-field message today, relying on BROTLib
+1. **Still open, not checkable from this repo:** does anything currently on the wire send a multi-field message today, relying on BROTLib
    dropping everything past the first comma as (accidental) truncation? Not found in this repo's
    own call sites, but pybrotlib/pyobs-brot or another external producer is worth checking before
    this ships, in case something depends on today's drop-the-rest behavior.

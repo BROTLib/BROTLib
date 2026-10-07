@@ -37,6 +37,9 @@
     <Compile Include="POUs\FB_InfluxLineProtocol_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_InfluxMessage_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_BlinkTimingProbe.TcPOU">
       <SubType>Code</SubType>
     </Compile>
