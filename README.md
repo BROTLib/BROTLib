@@ -47,10 +47,9 @@ which all other BROT projects are built:
 BROTLib/
 ├── BROTLib.sln                  # TwinCAT solution
 ├── BROTLib/
-│   ├── BROTLib.tsproj           # TwinCAT system project
+│   ├── BROTLib.tspproj          # standalone PLC project (no system part)
 │   ├── BROTLib/
 │   │   ├── BROTLib.plcproj      # PLC library project
-│   │   ├── PlcTask.TcTTO        # PLC task
 │   │   ├── DUTs/                # Enumerations and structures
 │   │   │   ├── E_TCSCommand.TcDUT
 │   │   │   ├── E_TCSErrors.TcDUT
@@ -285,8 +284,8 @@ consumed by **HalfBROT**, **MONETRoof**, **MONETcommon**, **IAG50cm**,
 
 ## Building and deployment
 
-The library is built with TwinCAT 3.1 in TwinCAT XAE (PLC task 10 ms,
-priority 20; the system project is 3.1.4024.66, the PLC project is authored
+The library is built with TwinCAT 3.1 in TwinCAT XAE (standalone PLC project, no
+task or target; the project file is 3.1.4024.66, the PLC project is authored
 with 3.1.4026.x — the project was created on Build 4024 and is edited on
 4026). It is distributed as a compiled TwinCAT library and referenced from the
 application projects' generated `_Libraries/` folders.
