@@ -29,7 +29,7 @@ jobs:
           if ($env:TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Tag must look like v0.4.1, got '$env:TAG'" }
 
       - name: Checkout tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.tag }}
 
