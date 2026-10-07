@@ -27,7 +27,7 @@ jobs:
   test:
     runs-on: [self-hosted, twincat, windows]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The PLC needs a license. The 7-day trial is renewed by hand; fail with a clear message instead of a
       # cryptic activation error once it has run out.
