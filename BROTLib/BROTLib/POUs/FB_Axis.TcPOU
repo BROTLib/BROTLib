@@ -228,7 +228,7 @@ IF (MoveDone OR HomeDone OR JogDone) AND NOT Axis_Status.StandStill THEN
 	StopAxis := TRUE;
 END_IF
 *)
-IF MoveDone AND (NOT Axis_Modulo.Busy OR NOT Axis_Move.Busy) THEN
+IF MoveDone AND NOT Axis_Modulo.Busy AND NOT Axis_Move.Busy THEN
 	MoveAxis := FALSE;
 END_IF
 
