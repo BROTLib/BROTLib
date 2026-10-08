@@ -23,17 +23,8 @@ VAR
 	bDut1Received		: BOOL;
 	tonDut1Stale		: TON := (PT := T#10M);
 END_VAR
-VAR PERSISTENT
-	EOFF				: LREAL;	// elevation encoder zero offset
-	AN_E				: LREAL;	// azimuth axis offset/misalignment north-south
-	AE_E				: LREAL;	// azimuth axis offset/misalignment east-west
-	TF					: LREAL;	// gravitational flexure correction at the horizon
-	AOFF				: LREAL;	// azimuth encoder zero offset
-	BNP					: LREAL;	// collimation error of the electromagnetic axis
-	AN_A				: LREAL;	// azimuth axis offset/misalignment north-south
-	AE_A				: LREAL;	// azimuth axis offset/misalignment east-west,
-	NPAE				: LREAL;	// Non-perpendicularity between the mount azimuth and elevation axes
-END_VAR]]></Declaration>
+// The pointing-model coefficients live in FB_PointingModelForward, set by the caller (#10).
+]]></Declaration>
     <Implementation>
       <ST><![CDATA[SUPER^();]]></ST>
     </Implementation>

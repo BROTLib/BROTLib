@@ -31,7 +31,9 @@ on-wire format from tracing the code, since the spec itself isn't accessible fro
 	fTimeOffset			: LREAL := 0.0;		// absolute offset for time
 	fHorizon			: LREAL := 1.0;		// ELEVATION below which value the telescope will not go
 	
-	bEstopTriggered		: BOOL	:= FALSE;	// TODO: CHANGE
+	// TRUE while the E-stop is triggered. The caller must connect it to its safety handling (MONETS/MONETN MAIN:
+	// SafetyHandling.estop); left unconnected, the E-stop is never reported as STATUS.GLOBAL = 1 (#10).
+	bEstopTriggered		: BOOL	:= FALSE;
 	bMainReady			: BOOL	:= TRUE;
 	
 	telescopeConfig		: ST_TelescopeConfig;
@@ -40,6 +42,8 @@ VAR
 	fbComm 				: I_Comm;
 	
 	TCS_command			: E_TCSCommand;	// actual command from the TCS
+	// fJd/fLst are published by _PublishTelemetry, but this block never sets them or calls fbTime: the derived
+	// block must (MONETcommon's FB_MonetTelescopeControl does, gated on fbTime.bValid). Otherwise both read 0 (#10).
 	fJd					: LREAL;	// current Julian Date calculated from system time
 	fLst				: LREAL;	// local siderial time calculated from Julian date in hours
 	fElevationCalc		: LREAL;	// elevation calulated when ra and dec are set by TCS 
