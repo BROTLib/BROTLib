@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_SetpointEnableExecute_Tests" Id="{4aae6fad-044a-4890-bc62-a6aac0fa5b47}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_SetpointEnableExecute, FB_Axis's setpoint-enable Execute logic (#9). Each call is one cycle.
+FUNCTION_BLOCK F_SetpointEnableExecute_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Normal_Track();
+Busy_Keeps_Execute();
+Error_Drops_Execute_And_Holds_Off();
+Reset_Rearms();
+End_Of_Track_Rearms();
+Error_With_Reset_Drops_First();
+]]></ST>
+    </Implementation>
+    <Method Name="Normal_Track" Id="{4f89c79a-0ae7-46cc-a010-84f9e69bb1f3}">
+      <Declaration><![CDATA[// Request sets Execute; once the block is done and the request has ended, Execute drops.
+METHOD PRIVATE Normal_Track
+VAR
+	bFailed	: BOOL;
+	bExecute	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Normal_Track');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := TRUE, Actual := bExecute, Message := 'request: Execute');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := TRUE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := TRUE, Actual := bExecute, Message := 'done, still requested: Execute');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := FALSE, Tracking := FALSE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := TRUE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := FALSE, Actual := bExecute, Message := 'request ended, done: Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := bFailed, Message := 'never failed: Failed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Busy_Keeps_Execute" Id="{e45a175b-d0d1-4215-9e07-9c1a208c82f6}">
+      <Declaration><![CDATA[// The request ends while the block is busy: Execute stays until it is done.
+METHOD PRIVATE Busy_Keeps_Execute
+VAR
+	bFailed	: BOOL;
+	bExecute	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Busy_Keeps_Execute');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := FALSE, Tracking := FALSE, Reset := FALSE, Execute := bExecute, Busy := TRUE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := TRUE, Actual := bExecute, Message := 'busy: Execute');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := FALSE, Tracking := FALSE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := TRUE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := FALSE, Actual := bExecute, Message := 'done: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Drops_Execute_And_Holds_Off" Id="{39efcba8-4174-47a5-9bd7-8f53cb9325ce}">
+      <Declaration><![CDATA[// The #9 latch: before, Execute stayed TRUE after an error and the axis could never track again.
+METHOD PRIVATE Error_Drops_Execute_And_Holds_Off
+VAR
+	bFailed	: BOOL;
+	bExecute	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Drops_Execute_And_Holds_Off');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := TRUE, Failed := bFailed);
+AssertEquals_BOOL(Expected := FALSE, Actual := bExecute, Message := 'error: Execute');
+AssertEquals_BOOL(Expected := TRUE, Actual := bFailed, Message := 'error: Failed');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := FALSE, Actual := bExecute, Message := 'error cleared, still requested: no retry: Execute');
+AssertEquals_BOOL(Expected := TRUE, Actual := bFailed, Message := 'still held off: Failed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset_Rearms" Id="{1a1f92ab-082c-4f98-bab0-23f243ea4df2}">
+      <Declaration><![CDATA[METHOD PRIVATE Reset_Rearms
+VAR
+	bFailed	: BOOL;
+	bExecute	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Reset_Rearms');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := TRUE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := TRUE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := TRUE, Actual := bExecute, Message := 'reset: rising edge again: Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := bFailed, Message := 'reset: Failed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="End_Of_Track_Rearms" Id="{3b90686f-f6ed-4382-985f-38aca9a01a6a}">
+      <Declaration><![CDATA[METHOD PRIVATE End_Of_Track_Rearms
+VAR
+	bFailed	: BOOL;
+	bExecute	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('End_Of_Track_Rearms');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := TRUE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := FALSE, Tracking := FALSE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := FALSE, Actual := bExecute, Message := 'track ended: Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := bFailed, Message := 'track ended: Failed');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := TRUE, Actual := bExecute, Message := 'new track request: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_With_Reset_Drops_First" Id="{d3f17293-6c17-41ce-b1f1-655a6894b1cb}">
+      <Declaration><![CDATA[// Error and Reset in the same cycle: Execute still drops once, so the next enable is a rising edge.
+METHOD PRIVATE Error_With_Reset_Drops_First
+VAR
+	bFailed	: BOOL;
+	bExecute	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_With_Reset_Drops_First');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := FALSE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := TRUE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := TRUE, Failed := bFailed);
+AssertEquals_BOOL(Expected := FALSE, Actual := bExecute, Message := 'error and reset: Execute');
+bExecute := BROTLib.F_SetpointEnableExecute(Request := TRUE, Tracking := TRUE, Reset := TRUE, Execute := bExecute, Busy := FALSE, Done := FALSE, Error := FALSE, Failed := bFailed);
+AssertEquals_BOOL(Expected := TRUE, Actual := bExecute, Message := 'next cycle: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

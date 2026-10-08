@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_SetpointEnableExecute" Id="{7cbefcc5-16bd-43c0-ae2b-b3f025ede4f4}" SpecialFunc="None">
+    <Declaration><![CDATA[// Next value of FB_Axis's MC_ExtSetPointGenEnable.Execute (#9). Pure logic, so it can be tested without an NC axis.
+// After an error Execute drops: an MC block clears Error only when Execute falls, and only a later rising edge can
+// enable it again (before #9 Execute stayed TRUE, so the axis could never track again). Failed then holds off a
+// retry until Reset or the end of the track request, instead of retrying every second cycle.
+FUNCTION F_SetpointEnableExecute : BOOL
+VAR_INPUT
+	Request		: BOOL;		// tracking wanted and possible (Tracking AND Ready AND Calibrated AND NOT StopAxis)
+	Tracking	: BOOL;		// the track request itself; its end re-arms after an error
+	Reset		: BOOL;		// FB_Axis.Reset; re-arms after an error
+	Execute		: BOOL;		// the current Execute
+	Busy		: BOOL;		// MC_ExtSetPointGenEnable outputs of the last call
+	Done		: BOOL;
+	Error		: BOOL;
+END_VAR
+VAR_IN_OUT
+	Failed		: BOOL;		// TRUE from an error until Reset or the end of the track request
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF Error THEN
+	Failed := TRUE;
+	F_SetpointEnableExecute := FALSE;
+	RETURN;
+END_IF
+
+IF Reset OR NOT Tracking THEN
+	Failed := FALSE;
+END_IF
+
+IF Request AND NOT Failed THEN
+	F_SetpointEnableExecute := TRUE;
+ELSIF Failed OR (NOT Busy AND Done) THEN
+	F_SetpointEnableExecute := FALSE;
+ELSE
+	// e.g. the request ended while the block is still busy: keep Execute until it is done
+	F_SetpointEnableExecute := Execute;
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

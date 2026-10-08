@@ -90,6 +90,7 @@ VAR
 	Axis_Home:		MC_Home;
 	Axis_Jog: 		MC_Jog;
 	Axis_SetpointEnable:	MC_ExtSetPointGenEnable;
+	SetpointEnableFailed:	BOOL;	// setpoint enable failed; no retry until Reset or the end of the track request (#9)
 	Axis_SetpointDisable:	MC_ExtSetPointGenDisable;
 	StopAllowed:	BOOL;
 	// Direction for Axis_SetpointFeed
@@ -165,11 +166,16 @@ END_IF
 
 
 isTracking := Tracking AND ABS(Position - ActualPosition) < (TrackEnvelope/3600.0);
-IF Tracking AND Ready AND Calibrated AND NOT StopAxis THEN
-	Axis_SetpointEnable.Execute := TRUE;
-ELSIF NOT Axis_SetpointEnable.Busy AND Axis_SetpointEnable.Done THEN
-	Axis_SetpointEnable.Execute := FALSE;
-END_IF
+// drops Execute on an error and re-arms on Reset or a new track request (#9), see F_SetpointEnableExecute
+Axis_SetpointEnable.Execute := F_SetpointEnableExecute(
+	Request :=	Tracking AND Ready AND Calibrated AND NOT StopAxis,
+	Tracking :=	Tracking,
+	Reset :=	Reset,
+	Execute :=	Axis_SetpointEnable.Execute,
+	Busy :=		Axis_SetpointEnable.Busy,
+	Done :=		Axis_SetpointEnable.Done,
+	Error :=	Axis_SetpointEnable.Error,
+	Failed :=	SetpointEnableFailed);
 
 Axis_SetpointEnable(Axis := AxisRef,
 	Position :=		TrackPosition,	// final destination
@@ -321,6 +327,7 @@ Busy := 	Axis_SetpointEnable.Busy OR
 
 Error := 	Axis_Power.Error OR
 			Axis_SetpointEnable.Error OR
+			SetpointEnableFailed OR		// keeps a setpoint enable error visible after Execute dropped (#9)
 			Axis_Reset.Error OR
 			Axis_Modulo.Error OR
 			Axis_Move.Error OR
