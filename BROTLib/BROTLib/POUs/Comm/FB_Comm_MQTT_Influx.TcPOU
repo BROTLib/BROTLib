@@ -55,6 +55,9 @@ VAR_INPUT
 	value			: STRING(255);
 	sPayloadRcv		: STRING(255);	// the whole payload, only for the log messages
 END_VAR
+VAR
+	fValue			: LREAL;	// a number accepted by _ParseLREAL, before it is written
+END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[IF parameter = 'power' AND Telescope <> 0 THEN
@@ -97,28 +100,57 @@ ELSIF parameter = 'stop' AND Telescope <> 0 THEN
 ELSIF parameter = 'reset' AND Telescope <> 0 THEN
 	Telescope.Reset();
 ELSIF parameter = 'nasmyth' AND Nasmyth <> 0 THEN
-	Nasmyth.SetNasmyth(STRING_TO_USINT(value));
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 255.0, fValue => fValue) THEN
+		Nasmyth.SetNasmyth(LREAL_TO_USINT(fValue));
+	END_IF
+// Every number below goes through _ParseLREAL: text that is not a number, NaN/inf and values outside the range
+// are rejected with a log entry instead of being written (#27). The ranges only catch garbage; the limits of the
+// mount, focus and derotator are still the consumer's job. Angles in degrees.
+// A rejected coordinate clears its buffer, so a following track/slew is dropped as incomplete instead of using
+// a value buffered by an earlier message.
 ELSIF parameter = 'rightascension' THEN
-	RaDec.RightAscension := STRING_TO_LREAL(value);
+	IF NOT _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 360.0, fValue => RaDec.RightAscension) THEN
+		RaDec.RightAscension := GVL_Math.LREAL_MIN;
+	END_IF
 ELSIF parameter = 'declination' THEN
-	RaDec.Declination := STRING_TO_LREAL(value);
+	IF NOT _ParseLREAL(parameter := parameter, value := value, fMin := -90.0, fMax := 90.0, fValue => RaDec.Declination) THEN
+		RaDec.Declination := GVL_Math.LREAL_MIN;
+	END_IF
 ELSIF parameter = 'elevation' THEN
-	AltAz.Altitude := STRING_TO_LREAL(value);
+	IF NOT _ParseLREAL(parameter := parameter, value := value, fMin := -90.0, fMax := 90.0, fValue => AltAz.Altitude) THEN
+		AltAz.Altitude := GVL_Math.LREAL_MIN;
+	END_IF
 ELSIF parameter = 'azimuth' THEN
-	AltAz.Azimuth := STRING_TO_LREAL(value);
+	IF NOT _ParseLREAL(parameter := parameter, value := value, fMin := -360.0, fMax := 360.0, fValue => AltAz.Azimuth) THEN
+		AltAz.Azimuth := GVL_Math.LREAL_MIN;
+	END_IF
 ELSIF parameter = 'temperature' THEN
-	Temperature := STRING_TO_LREAL(value);
-	bWeatherMessageReceived := TRUE;
+	// deg C; 0.0 is also the "no data" sentinel, see the declaration
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -60.0, fMax := 60.0, fValue => fValue) THEN
+		Temperature := fValue;
+		bWeatherMessageReceived := TRUE;
+	END_IF
 ELSIF parameter = 'humidity' THEN
-	Humidity := STRING_TO_LREAL(value);
-	bWeatherMessageReceived := TRUE;
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 100.0, fValue => fValue) THEN
+		Humidity := fValue;
+		bWeatherMessageReceived := TRUE;
+	END_IF
 ELSIF parameter = 'pressure' THEN
-	Pressure := STRING_TO_LREAL(value);
-	bWeatherMessageReceived := TRUE;
+	// hPa; 0.0 is FB_CO_REFRACT's "estimate from altitude" sentinel and stays allowed
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 1100.0, fValue => fValue) THEN
+		Pressure := fValue;
+		bWeatherMessageReceived := TRUE;
+	END_IF
 ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
-	AltAzTelescope.Dut1 := STRING_TO_LREAL(value);
+	// seconds; |UT1-UTC| is kept below 0.9 s by definition
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -1.0, fMax := 1.0, fValue => fValue) THEN
+		AltAzTelescope.Dut1 := fValue;
+	END_IF
 ELSIF parameter = 'focus' AND Focus <> 0 THEN
-	Focus.Position := STRING_TO_LREAL(value);
+	// unit and travel depend on the telescope; this only rejects garbage, the focus axis enforces its limits
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -1.0E6, fMax := 1.0E6, fValue => fValue) THEN
+		Focus.Position := fValue;
+	END_IF
 ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
 	MirrorCovers.Open();
 ELSIF parameter = 'cover_close' AND MirrorCovers <> 0 THEN
@@ -152,21 +184,65 @@ ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
 ELSIF parameter = 'dome_reset' AND Dome <> 0 THEN
 	Dome.Reset();
 ELSIF parameter = 'filter' AND Filter <> 0 THEN
-	Filter.SetFilter(STRING_TO_USINT(value));
+	// garbage used to become filter 0
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 255.0, fValue => fValue) THEN
+		Filter.SetFilter(LREAL_TO_USINT(fValue));
+	END_IF
 ELSIF (parameter = 'derotator' OR parameter = 'derotatoroffset') AND AltAzTelescope <> 0 THEN
 	// two client-facing names for the same thing -- I_AltAzTelescope only has one derotator
 	// property (DerotatorOffset), there's no separate "absolute derotator position" concept
-	AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -360.0, fMax := 360.0, fValue => fValue) THEN
+		AltAzTelescope.DerotatorOffset := fValue;
+	END_IF
+// pointing offsets: 10 degrees is far beyond any real offset. Near the zenith the consumers still divide the
+// azimuth offset by COS(elevation), so they need their own cap there (#27).
 ELSIF parameter = 'elevationoffset' AND AltAzTelescope <> 0 THEN
-	AltAzTelescope.AltitudeOffset := STRING_TO_LREAL(value);
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -10.0, fMax := 10.0, fValue => fValue) THEN
+		AltAzTelescope.AltitudeOffset := fValue;
+	END_IF
 ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
-	AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -10.0, fMax := 10.0, fValue => fValue) THEN
+		AltAzTelescope.AzimuthOffset := fValue;
+	END_IF
 ELSIF parameter = 'declinationoffset' AND RaDecTelescope <> 0 THEN
-	RaDecTelescope.DeclinationOffset := STRING_TO_LREAL(value);
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -10.0, fMax := 10.0, fValue => fValue) THEN
+		RaDecTelescope.DeclinationOffset := fValue;
+	END_IF
 ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
-	RaDecTelescope.HourAngleOffset := STRING_TO_LREAL(value);
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := -10.0, fMax := 10.0, fValue => fValue) THEN
+		RaDecTelescope.HourAngleOffset := fValue;
+	END_IF
 ELSE
 	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ParseLREAL" Id="{c8d3d723-7616-446a-8ff6-0828ada7a8e6}">
+      <Declaration><![CDATA[// Converts the value of a command field to a number. Returns FALSE, with a log entry, when the text is not a
+// number (STRING_TO_LREAL would turn it into 0.0, a valid coordinate), or when the number is NaN, infinite or
+// outside fMin..fMax (#27). fValue is only meaningful when it returns TRUE.
+METHOD PRIVATE _ParseLREAL : BOOL
+VAR_INPUT
+	parameter		: STRING(255);
+	value			: STRING(255);
+	fMin			: LREAL;
+	fMax			: LREAL;
+END_VAR
+VAR_OUTPUT
+	fValue			: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fValue := 0.0;
+IF F_IsNumericValue(sValue := value) THEN
+	fValue := STRING_TO_LREAL(value);
+	// written this way round so that NaN, which fails every comparison, is rejected too
+	_ParseLREAL := fValue >= fMin AND fValue <= fMax;
+END_IF
+IF NOT _ParseLREAL THEN
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT %s rejected: not a number or out of range',
+		CONCAT(CONCAT(parameter, '='), value));
 END_IF
 ]]></ST>
       </Implementation>

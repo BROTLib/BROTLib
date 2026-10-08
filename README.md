@@ -7,7 +7,7 @@ Institut für Astrophysik Göttingen (Georg-August-Universität Göttingen).
 
 It is written entirely in IEC 61131-3 Structured Text for the **Beckhoff
 TwinCAT 3** platform and defines the shared abstractions — telescope control
-state machines, axis and observatory-subsystem interfaces, coordinate types,
+base classes, axis and observatory-subsystem interfaces, coordinate types,
 pointing models, MQTT/InfluxDB communication and event logging — on top of
 which all other BROT projects are built:
 
@@ -74,7 +74,7 @@ BROTLib/
 │   │       │                    # F_DerotatorPosition2, F_Derotatorvelocity
 │   │       ├── Telescope/       # FB_BaseTelescopeControl,
 │   │       │                    # FB_AltAzTelescopeControl,
-│   │       │                    # FB_RaDecTelescopeControl
+│   │       │                    # FB_RaDecTelescopeControl (unfinished)
 │   │       └── ...              # FB_AstroClock, FB_Axis, FB_BaseAxis,
 │   │                            # FB_EventLog, FB_InfluxMessage, FB_Horn,
 │   │                            # FB_BLINK, FB_ButtonEnable, FB_LightTimer,
@@ -97,8 +97,10 @@ BROTLib/
 
 ## Library architecture
 
-BROTLib provides the reusable core for both **Alt-Az** and **equatorial
-(HA/Dec)** mount types. The library is organised into four layers:
+BROTLib provides the reusable core for **Alt-Az** mounts. For **equatorial
+(HA/Dec)** mounts there is the `I_RaDecTelescope` interface and an unfinished
+`FB_RaDecTelescopeControl`, meant for IAG50cm eventually. The library is
+organised into four layers:
 
 1. **Interfaces** — abstract contracts for every observatory subsystem, so the
    application code (and HMI) depends on interfaces, not on concrete
@@ -115,24 +117,30 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
    | `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics` | Telescope infrastructure |
    | `I_Comm` | Telemetry/log publishing (`Publish`, `PublishLog`) |
 
-2. **Telescope control** — the command/state layer:
+2. **Telescope control** — base classes for the command/state layer. The
+   state machine itself is not in the library (see below):
 
-   - `FB_BaseTelescopeControl` — abstract base for all telescope types: TCS
-     command inputs, coordinate handling, MQTT telemetry, auto-park and
-     command timers, the sidereal-rate constant.
-   - `FB_AltAzTelescopeControl` — Alt-Az extension: pointing model, derotator,
-     EOFF/AN/AE/TF error terms, `FB_EQ2HOR`/`FB_HOR2EQ` transforms.
-   - `FB_RaDecTelescopeControl` — equatorial (HA/Dec) mount extension.
+   - `FB_BaseTelescopeControl` — abstract base: the TCS command inputs and
+     `I_Telescope` methods, the variables the derived state machines share
+     (timers, events, and `fJd`/`fLst`, which the derived block must set), and
+     the MQTT telemetry (`_PublishTelemetry`).
+   - `FB_AltAzTelescopeControl` — Alt-Az extension: offset, derotator and DUT1
+     inputs (`I_AltAzTelescope`) and their telemetry. The coordinate transforms
+     and the pointing model are called by the derived block.
+   - `FB_RaDecTelescopeControl` — equatorial (HA/Dec) extension, **unfinished**
+     and not used yet; meant for IAG50cm once it moves off its standalone
+     `FB_TelescopeControl` (see Key components).
 
-   **Command model** — telescope behaviour is expressed through the command
-   enumeration `E_TCSCommand` (`no_command`, `gohome`, `park`, `track`, `goto`,
-   `stop`, `slew`, `poweron`) and a **command-priority dispatcher** shared by
-   all BROT applications: `power > stop > park > gohome > goto > slew > track >
-   no_command`. Commands are executed as stage-based sub-state machines
-   (`CASE nStage` in the concrete implementations, e.g. MONETcommon's
-   `FB_MonetTelescopeControl`), with `fReadyState` (0 shutdown … 1 ready, −1
+   **Command model** — the library defines the command enumeration
+   `E_TCSCommand` (`no_command`, `gohome`, `park`, `track`, `goto`, `stop`,
+   `slew`, `poweron`). The command-priority dispatching (`power > stop > park >
+   gohome > goto > slew > track > no_command`) and the stage-based sub-state
+   machines (`CASE nStage`) live in the concrete implementations, each with its
+   own copy (#25): MONETcommon's `FB_MonetTelescopeControl` (MONET/S and
+   MONET/N, derived from `FB_AltAzTelescopeControl`) and IAG50cm's standalone
+   `FB_TelescopeControl`. They report `fReadyState` (0 shutdown … 1 ready, −1
    error), `nMotionState` (0 stopped / 1 moving / 8 tracking) and per-command
-   timeouts reported as telemetry. (An earlier 8-state machine described in
+   timeouts as telemetry. (An earlier 8-state machine described in
    `specs/design/repository-structure.md` was removed in 2026; no `E_TelescopeState` enum exists in the
    current code.)
 
@@ -157,13 +165,18 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
   telemetry publishing. The command state machine itself is not here — it's
   a stage-based `CASE nStage` in each concrete implementation (see the note
   below).
-- **`FB_AltAzTelescopeControl`** — Alt-Az implementation with
-  `FB_PointingModelForward`/`FB_PointingModelInversion` (Tpoint-style,
-  9-term), derotator position/velocity calculation and the EOFF/AN/AE/TF
-  pointing-error terms.
-- **`FB_RaDecTelescopeControl`** — equatorial implementation for HA/Dec
-  mounts. Not consumed by any BROT application yet — every current
-  application (IAG50cm included) extends `FB_AltAzTelescopeControl`.
+- **`FB_AltAzTelescopeControl`** — Alt-Az extension: offset, derotator and
+  DUT1 inputs and their telemetry. MONETcommon's `FB_MonetTelescopeControl`
+  derives from it and calls the pointing model
+  (`FB_PointingModelForward`/`FB_PointingModelInversion`, Tpoint-style,
+  9-term) and the derotator calculation itself.
+- **`FB_RaDecTelescopeControl`** — equatorial extension for HA/Dec mounts,
+  meant for IAG50cm (which today runs its own standalone
+  `FB_TelescopeControl`). **Unfinished, not used by any application:** `fJD`
+  is never set, `fRightAscensionCurrent`/`fDeclinationCurrent` are never
+  read in, the pointing and velocity code is commented out, and its
+  `hor2eq` call relies on the AstroBROT refraction default, which is the
+  wrong direction for a measured altitude (#10).
 
 ### Axes and pointing
 

@@ -101,7 +101,11 @@ CASE state OF
 2:
   	// subscribe
 	fbMqttClient.Execute(bConnect := TRUE);
-	IF fbMqttClient.Subscribe(sTopic:=sTopicSub, eQoS:=TcIotMqttQos.AtMostOnceDelivery) THEN
+	// QoS 1 so that a command (stop!) is not lost silently (#27). It only takes effect if the sender publishes
+	// with QoS 1 too (the broker delivers at the lower of the two). A command can then arrive twice: a repeated
+	// single-field track/slew finds the coordinate buffer consumed and is dropped, a repeated multi-field one goes
+	// to the same target again; the other commands only set a state that is already set.
+	IF fbMqttClient.Subscribe(sTopic:=sTopicSub, eQoS:=TcIotMqttQos.AtLeastOnceDelivery) THEN
 		bConnected := TRUE;
 		// birth message: overwrites the retained 'offline' left by an earlier unclean disconnect
 		sOnlinePayload := 'online';
