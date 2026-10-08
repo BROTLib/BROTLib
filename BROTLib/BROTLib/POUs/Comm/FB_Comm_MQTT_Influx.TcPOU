@@ -235,7 +235,7 @@ VAR
 	sKey			: STRING(255);
 	sFieldVal		: STRING(255);
 	sTopic			: STRING(255);
-	sTimestamp		: STRING(20);
+	sTimestamp		: STRING(255);	// F_STRING takes a T_MaxString by reference
 	sFormat			: STRING(40);
 END_VAR]]></Declaration>
       <Implementation>
