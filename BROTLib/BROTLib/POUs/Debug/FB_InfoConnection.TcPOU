@@ -1,13 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
   <POU Name="FB_InfoConnection" Id="{20866d00-a67f-4183-9603-a0bbdd91ae1d}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK FB_InfoConnection
+    <Declaration><![CDATA[// Decodes the Map State / Map Diag bytes of a TwinSAFE (FSoE) connection into text for debugging.
+// Map Diag (Beckhoff H0003 "TwinSAFE Diagnostik"): bits 0-3 hold a numeric error code (1..12),
+// bits 4-7 are independent flags. Bit 4 is confirmed there; the texts of bits 5-7 are the ones this
+// block always used.
+FUNCTION_BLOCK FB_InfoConnection
 VAR_INPUT
 	stInfoData	:ST_InfoDataConnection;
 END_VAR
 VAR_OUTPUT
 	sState		:STRING;
-	sDiag		:STRING;
+	sDiag		:STRING(255);	// error code text followed by any set flags, separated by '; '
+	nDiagCode	:USINT;			// bits 0-3 of usiMapDiag
+	bSlaveError			:BOOL;	// bit 4: error detected by the FSoE slave
+	bSlaveFailsafe		:BOOL;	// bit 5: FSoE slave reports failsafe value active
+	bStartUp			:BOOL;	// bit 6: start-up
+	bMasterFailsafe		:BOOL;	// bit 7: FSoE master reports failsafe value active
 	bChannel1	:BOOL;
 	bChannel2	:BOOL;
 	bChannel3	:BOOL;
@@ -15,95 +24,79 @@ VAR_OUTPUT
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[IF stInfoData.usiMapState = 100 THEN
-	sState:='State Reset';
-ELSIF stInfoData.usiMapState = 101 THEN
-	sState:='State Session';
-ELSIF stInfoData.usiMapState = 102 THEN
-	sState:='State Connection';
-ELSIF stInfoData.usiMapState = 103 THEN
-	sState:='State Parameter';
-ELSIF stInfoData.usiMapState = 104 THEN
-	sState:='State Data';
-ELSIF stInfoData.usiMapState = 105 THEN
-	sState:='State Shutdown';
+      <ST><![CDATA[CASE stInfoData.usiMapState OF
+	100: sState := 'State Reset';
+	101: sState := 'State Session';
+	102: sState := 'State Connection';
+	103: sState := 'State Parameter';
+	104: sState := 'State Data';
+	105: sState := 'State Shutdown';
 ELSE
-	sState:='Error';
-END_IF
+	sState := 'Error';
+END_CASE
 
-IF stInfoData.usiMapDiag = 0 THEN
-	sDiag:='No error';
-ELSIF	stInfoData.usiMapDiag.0 = TRUE THEN
-	sDiag:='Invalid Command';
-ELSIF	stInfoData.usiMapDiag.1 = TRUE THEN
-	sDiag:='Unknown Command';
-ELSIF	(stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.0)= TRUE THEN
-	sDiag:='Invalid Connection ID';
-ELSIF	 stInfoData.usiMapDiag.2= TRUE THEN
-	sDiag:='Invalid CRC';
-ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.2)= TRUE THEN
-	sDiag:='Watchdog expired';
-ELSIF	(stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.2)= TRUE THEN
-	sDiag:='Invalid FSoE address';
-ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.2)= TRUE THEN
-	sDiag:='Invalid data';
-ELSIF	stInfoData.usiMapDiag.3= TRUE THEN
-	sDiag:='Invalid Com.-Parameter length';
-ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.3)= TRUE THEN
-	sDiag:='Invalid Com.-Parameter ';
-ELSIF	(stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.3)= TRUE THEN
-	sDiag:='Invalid User.-Parameter length';
-ELSIF	(stInfoData.usiMapDiag.0 AND stInfoData.usiMapDiag.1 AND stInfoData.usiMapDiag.3)= TRUE THEN
-	sDiag:='Invalid User.-Parameter ';
-ELSIF	(stInfoData.usiMapDiag.2 AND stInfoData.usiMapDiag.3)= TRUE THEN
-	sDiag:='FSoE Master Reset  ';
-ELSIF	stInfoData.usiMapDiag.4= TRUE THEN
-	sDiag:='Error by FSoE Slave detected';
-ELSIF	stInfoData.usiMapDiag.5= TRUE THEN
-	sDiag:='FSoE Slave reports Failsafe value active';
-ELSIF	stInfoData.usiMapDiag.6= TRUE THEN
-	sDiag:='StartUp';
-ELSIF	stInfoData.usiMapDiag.7= TRUE THEN
-	sDiag:='FSoE Master reports Failsafe value active';
+// the low nibble is a number, not a set of bits: 3 is "Invalid Connection ID", not "Invalid Command"
+nDiagCode := stInfoData.usiMapDiag AND 16#0F;
+CASE nDiagCode OF
+	0:  sDiag := '';
+	1:  sDiag := 'Invalid Command';
+	2:  sDiag := 'Unknown Command';
+	3:  sDiag := 'Invalid Connection ID';
+	4:  sDiag := 'Invalid CRC';
+	5:  sDiag := 'Watchdog expired';
+	6:  sDiag := 'Invalid FSoE address';
+	7:  sDiag := 'Invalid data';
+	8:  sDiag := 'Invalid Com.-Parameter length';
+	9:  sDiag := 'Invalid Com.-Parameter';
+	10: sDiag := 'Invalid User-Parameter length';
+	11: sDiag := 'Invalid User-Parameter';
+	12: sDiag := 'FSoE Master Reset';
 ELSE
-	sDiag:='Error';
+	sDiag := CONCAT('Unknown error code ', USINT_TO_STRING(nDiagCode));
+END_CASE
+
+// the high nibble is flags that can be set together with any code
+bSlaveError		:= stInfoData.usiMapDiag.4;
+bSlaveFailsafe	:= stInfoData.usiMapDiag.5;
+bStartUp		:= stInfoData.usiMapDiag.6;
+bMasterFailsafe	:= stInfoData.usiMapDiag.7;
+IF bSlaveError THEN
+	_Append('Error by FSoE Slave detected');
+END_IF
+IF bSlaveFailsafe THEN
+	_Append('FSoE Slave reports Failsafe value active');
+END_IF
+IF bStartUp THEN
+	_Append('StartUp');
+END_IF
+IF bMasterFailsafe THEN
+	_Append('FSoE Master reports Failsafe value active');
+END_IF
+IF sDiag = '' THEN
+	sDiag := 'No error';
 END_IF
 
 (*Signals*)
 bChannel1 := stInfoData.bySignal.0;
 bChannel2 := stInfoData.bySignal.1;
 bChannel3 := stInfoData.bySignal.2;
-bChannel4 := stInfoData.bySignal.3;]]></ST>
+bChannel4 := stInfoData.bySignal.3;
+]]></ST>
     </Implementation>
-    <LineIds Name="FB_InfoConnection">
-      <LineId Id="26" Count="0" />
-      <LineId Id="28" Count="1" />
-      <LineId Id="31" Count="1" />
-      <LineId Id="34" Count="1" />
-      <LineId Id="37" Count="1" />
-      <LineId Id="40" Count="1" />
-      <LineId Id="43" Count="1" />
-      <LineId Id="46" Count="3" />
-      <LineId Id="51" Count="1" />
-      <LineId Id="54" Count="1" />
-      <LineId Id="57" Count="1" />
-      <LineId Id="60" Count="1" />
-      <LineId Id="63" Count="1" />
-      <LineId Id="66" Count="1" />
-      <LineId Id="69" Count="1" />
-      <LineId Id="72" Count="1" />
-      <LineId Id="75" Count="1" />
-      <LineId Id="78" Count="1" />
-      <LineId Id="81" Count="1" />
-      <LineId Id="84" Count="1" />
-      <LineId Id="87" Count="1" />
-      <LineId Id="90" Count="1" />
-      <LineId Id="93" Count="1" />
-      <LineId Id="96" Count="1" />
-      <LineId Id="99" Count="1" />
-      <LineId Id="102" Count="1" />
-      <LineId Id="115" Count="4" />
-      <LineId Id="9" Count="0" />
-    </LineIds>
+    <Method Name="_Append" Id="{25ba46a9-3cb8-456c-879c-1ebc03ba1be4}">
+      <Declaration><![CDATA[// Appends sText to sDiag, separated by '; ' when sDiag is not empty.
+METHOD PRIVATE _Append
+VAR_INPUT
+	sText	: STRING;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF sDiag <> '' THEN
+	sDiag := CONCAT(sDiag, '; ');
+END_IF
+sDiag := CONCAT(sDiag, sText);
+]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

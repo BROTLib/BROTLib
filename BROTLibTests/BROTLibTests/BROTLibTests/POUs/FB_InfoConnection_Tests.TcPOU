@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_InfoConnection_Tests" Id="{9ba81a7c-661f-411a-9f55-078023fc03ff}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_InfoConnection, the TwinSAFE connection diagnostics decoder (#12).
+FUNCTION_BLOCK FB_InfoConnection_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	fbInfo	: BROTLib.FB_InfoConnection;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[No_Error();
+Decodes_Every_Code();
+Unknown_Codes();
+Flags_Without_Code();
+Code_And_Flags();
+States();
+]]></ST>
+    </Implementation>
+    <Method Name="Check" Id="{a3bafceb-3aa3-43ae-9153-2ceb0d97abba}">
+      <Declaration><![CDATA[// Runs fbInfo with usiMapDiag := nDiag and asserts sDiag = sExpected.
+METHOD PRIVATE Check
+VAR_INPUT
+	nDiag		: USINT;
+	sExpected	: STRING(255);
+END_VAR
+VAR
+	stData		: BROTLib.ST_InfoDataConnection;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[stData.usiMapDiag := nDiag;
+fbInfo(stInfoData := stData);
+AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := fbInfo.sDiag,
+	Message := CONCAT('sDiag for usiMapDiag = ', USINT_TO_STRING(nDiag)));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Error" Id="{b7aaf614-fe4d-4eec-8014-660a88d714ef}">
+      <Declaration><![CDATA[METHOD PRIVATE No_Error
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Error');
+Check(nDiag := 0, sExpected := 'No error');
+AssertEquals_USINT(Expected := 0, Actual := fbInfo.nDiagCode, Message := 'nDiagCode');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Decodes_Every_Code" Id="{062b52ea-31d4-4e68-a479-a6801be268b8}">
+      <Declaration><![CDATA[METHOD PRIVATE Decodes_Every_Code
+VAR
+	aTexts	: ARRAY[1..12] OF STRING := ['Invalid Command', 'Unknown Command', 'Invalid Connection ID', 'Invalid CRC', 'Watchdog expired', 'Invalid FSoE address', 'Invalid data', 'Invalid Com.-Parameter length', 'Invalid Com.-Parameter', 'Invalid User-Parameter length', 'Invalid User-Parameter', 'FSoE Master Reset'];
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Decodes_Every_Code');
+// 3, 5, 6, 7, 9, 10 and 11 decoded to 'Invalid Command' or 'Unknown Command' before #12
+FOR i := 1 TO 12 DO
+	Check(nDiag := INT_TO_USINT(i), sExpected := aTexts[i]);
+	AssertEquals_USINT(Expected := INT_TO_USINT(i), Actual := fbInfo.nDiagCode, Message := aTexts[i]);
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Unknown_Codes" Id="{90c48904-d1cc-488b-9386-4d6fac8493f8}">
+      <Declaration><![CDATA[METHOD PRIVATE Unknown_Codes
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Unknown_Codes');
+Check(nDiag := 13, sExpected := 'Unknown error code 13');
+Check(nDiag := 15, sExpected := 'Unknown error code 15');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Flags_Without_Code" Id="{8a93766c-091f-4100-ac4c-9aadf80246c7}">
+      <Declaration><![CDATA[METHOD PRIVATE Flags_Without_Code
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Flags_Without_Code');
+Check(nDiag := 16#10, sExpected := 'Error by FSoE Slave detected');
+AssertTrue(Condition := fbInfo.bSlaveError, Message := 'bSlaveError');
+Check(nDiag := 16#40, sExpected := 'StartUp');
+AssertTrue(Condition := fbInfo.bStartUp, Message := 'bStartUp');
+AssertFalse(Condition := fbInfo.bSlaveError, Message := 'bSlaveError cleared');
+Check(nDiag := 16#A0, sExpected := 'FSoE Slave reports Failsafe value active; FSoE Master reports Failsafe value active');
+AssertTrue(Condition := fbInfo.bSlaveFailsafe AND fbInfo.bMasterFailsafe, Message := 'failsafe flags');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Code_And_Flags" Id="{5393cc02-ae5e-4928-b27b-915cbd63bc0e}">
+      <Declaration><![CDATA[METHOD PRIVATE Code_And_Flags
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Code_And_Flags');
+// before #12 any set low bit hid the flags
+Check(nDiag := 16#15, sExpected := 'Watchdog expired; Error by FSoE Slave detected');
+Check(nDiag := 16#FC, sExpected := 'FSoE Master Reset; Error by FSoE Slave detected; FSoE Slave reports Failsafe value active; StartUp; FSoE Master reports Failsafe value active');
+AssertEquals_USINT(Expected := 12, Actual := fbInfo.nDiagCode, Message := 'nDiagCode');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="States" Id="{cb62e711-4739-4f57-979e-ae1724ae1129}">
+      <Declaration><![CDATA[METHOD PRIVATE States
+VAR
+	stData	: BROTLib.ST_InfoDataConnection;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('States');
+stData.usiMapState := 104;
+fbInfo(stInfoData := stData);
+AssertEquals_STRING(Expected := 'State Data', Actual := fbInfo.sState, Message := 'state 104');
+stData.usiMapState := 7;
+fbInfo(stInfoData := stData);
+AssertEquals_STRING(Expected := 'Error', Actual := fbInfo.sState, Message := 'state 7');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
