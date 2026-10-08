@@ -21,6 +21,9 @@ concurrency:
 jobs:
   build:
     runs-on: [self-hosted, twincat, windows]
+    permissions:
+      contents: read
+      statuses: write   # the commit status below
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -36,3 +39,18 @@ jobs:
           }
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0
+
+      # A workflow_dispatch run (release.yml dispatches one for the version bump) is not linked to the
+      # release PR, so its `build` check run does not satisfy the required `build` check on main and the PR
+      # stays blocked (IAG #6). A commit status is tied to the SHA only: report this job's result as one.
+      - name: Report the result as commit status `build`
+        if: always() && github.event_name == 'workflow_dispatch'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" `
+            -f state="$env:STATE" -f context=build -f description="TcBuild (dispatched run)" -f target_url="$env:RUN_URL"
+          if ($LASTEXITCODE -ne 0) { throw "posting the commit status failed with exit code $LASTEXITCODE" }
