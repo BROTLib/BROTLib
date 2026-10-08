@@ -24,8 +24,14 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   BROTLib#9's six findings re-verified against the merged `FB_Axis` (only one was fixed as a side effect of the
   `FB_Axis2`/`FB_Axis3` unification): the `Axis_SetpointEnable.Execute` error latch, `Axis_Home`'s stale
   reference position, the self-mutating `VAR_INPUT`s (flagged as a separate bigger effort), the unverified
-  `MC_Power` default question, and the `OR`/`AND` busy-check fix. **proposed**, nothing implemented
+  `MC_Power` default question, and the `OR`/`AND` busy-check fix. **partly implemented**: `OR`/`AND` in v0.6.1,
+  the latch on PR #61, `MC_Power` answered, the reference and the flags moved to the 2026-10-08 plan
 
 - [2026-10-06-fb-axis-rehome-check-and-0.5.5-release.md](2026-10-06-fb-axis-rehome-check-and-0.5.5-release.md) —
   handover: the `FB_Axis` re-home fix (`6dabd5a`) is on `develop` but unreleased and never run on a PLC; what is
   unknown (`MC_Home.Busy` timing), the on-site check, and the 0.5.5 release steps. **proposed**
+- [2026-10-08-fb-axis-home-position-and-command-handshake.md](2026-10-08-fb-axis-home-position-and-command-handshake.md) —
+  `FB_Axis` interface change, all repos together: mandatory homing reference (#62) and command methods
+  `Move`/`Home(fReference)`/`Stop` (#63); merge order (BROTLib then HalfBROT back to back), IAG50cm to the new
+  version, telescope checks. Design: `fb-axis-command-interface.md`. **accepted**, not started (B2; IAG50cm focus
+  homes to its stored last position)

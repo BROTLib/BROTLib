@@ -1,6 +1,14 @@
 # FB_Axis latching and self-mutation fixes (BROTLib#9)
 
-**Status: proposed.** Nothing implemented. Covers #9's six findings, re-verified against the
+**Status: partly implemented (2026-10-08).** Finding 6 (`OR`/`AND`) in v0.6.1 (#55); finding 1 (setpoint-enable
+latch) on a PR (#61, with a stateful hold-off instead of the `NOT Error` below, which would retry every second cycle);
+findings 3 and 4 moved to a design doc and their own plan
+([fb-axis-command-interface.md](../design/fb-axis-command-interface.md),
+[2026-10-08-fb-axis-home-position-and-command-handshake.md](2026-10-08-fb-axis-home-position-and-command-handshake.md),
+issues #62, #63); finding 5 answered: `Tc2_MC2.MC_Power` has no default for `Enable_Positive`/`Enable_Negative`
+(FALSE, read from the compiled `.tmc` of IAG50cm and MONETS), and all seven `fbAxis(...)` calls assign both, so
+`FB_Axis`'s `TRUE` default affects no caller today. The text below is the original proposal.
+Originally: nothing implemented. Covers #9's six findings, re-verified against the
 merged `FB_Axis` (post `FB_Axis2`+`FB_Axis3` unification, `349617e`) rather than the now-deleted
 `FB_Axis2` the issue was originally filed against — only one of the six turned out to be fixed by
 that merge as a side effect. See also `specs/plans/2026-09-23-multi-field-influx-message-parsing.md`
