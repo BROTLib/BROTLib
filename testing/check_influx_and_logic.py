@@ -6,6 +6,7 @@
 4. FB_InfoConnection.sDiag decoding (cascade of bit tests)
 5. FB_EventLog._LevelToString: bit-test vs a combined Level value
 6. FB_InfluxMessage: quoted value, trailing timestamp (#24)
+7. FB_InfluxMessage multi-field walk (`remaining`) and the two-pass handler (BROTLib#39)
 Run: python3 check_influx_and_logic.py
 """
 
@@ -84,6 +85,61 @@ def parse_influx_message(payload, strip_timestamp_and_quotes=True):
     return measurement, parameter, value
 
 
+def parse_one(payload):
+    """FB_InfluxMessage after #39: the first pair plus `remaining`, a complete payload for the next pair."""
+    measurement = parameter = value = remaining = ""
+    if " " not in payload:
+        return measurement, parameter, value, remaining
+    measurement_tags, _, parameter_value = payload.partition(" ")
+    measurement = measurement_tags.partition(",")[0]
+    if "," in parameter_value:
+        first, _, rest = parameter_value.partition(",")
+        remaining = measurement_tags + " " + rest
+        parameter_value = first
+    parameter, _, value = parameter_value.partition("=")
+    value = value.split(" ", 1)[0]
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        value = value[1:-1]
+    return measurement, parameter, value, remaining
+
+
+MAX_FIELDS = 8
+
+
+def walk(payload, verb_pass):
+    """FB_Comm_MQTT_Influx._DispatchPass: yields the (parameter, value) pairs that belong to this pass."""
+    nxt, n = payload, 0
+    while nxt != "" and n < MAX_FIELDS:
+        n += 1
+        measurement, parameter, value, nxt = parse_one(nxt)
+        if measurement != "command":
+            return
+        if (parameter in ("track", "slew")) == verb_pass:
+            yield parameter, value
+
+
+class Handler:
+    """The buffer-and-consume part of FB_Comm_MQTT_Influx, with a stub telescope that records Track() calls."""
+    def __init__(self):
+        self.ra = self.dec = None
+        self.tracks = []
+
+    def apply(self, parameter, value):
+        if parameter == "rightascension":
+            self.ra = float(value)
+        elif parameter == "declination":
+            self.dec = float(value)
+        elif parameter == "track":
+            if self.ra is not None and self.dec is not None:
+                self.tracks.append((self.ra, self.dec))
+            self.ra = self.dec = None
+
+    def handle(self, payload):
+        for verb_pass in (False, True):
+            for parameter, value in walk(payload, verb_pass):
+                self.apply(parameter, value)
+
+
 def diag_connection(v):                 # FB_InfoConnection.sDiag cascade, in source order
     b = lambda n: bool(v >> n & 1)
     if v == 0: return "No error"
@@ -159,3 +215,36 @@ if __name__ == "__main__":
         flag = "" if old == new else "   <-- old kept the quotes/timestamp in value"
         print(f"   {payload!r}")
         print(f"     old value={old[2]!r}  new value={new[2]!r}{flag}")
+
+    print("\n7. multi-field walk and two-pass handler (expected values of the TcUnit cases)")
+    ok = True
+
+    def check(label, got, want):
+        global ok
+        good = got == want
+        ok &= good
+        print(f"   {'ok ' if good else 'BAD'} {label}: {got!r}" + ("" if good else f"   want {want!r}"))
+
+    check("walk a=1,b=2,c=3", [parse_one(p)[:4] for p in ("command a=1,b=2,c=3", "command b=2,c=3", "command c=3")],
+          [("command", "a", "1", "command b=2,c=3"), ("command", "b", "2", "command c=3"), ("command", "c", "3", "")])
+    check("tags and timestamp kept", parse_one("command,site=x a=1,b=2 1700000000000000000"),
+          ("command", "a", "1", "command,site=x b=2 1700000000000000000"))
+    check("last pair loses the timestamp", parse_one("command,site=x b=2 1700000000000000000"), ("command", "b", "2", ""))
+    check("no space", parse_one("command"), ("", "", "", ""))
+    for label, messages, want in (
+        ("single-field messages", ["command rightascension=10.5", "command declination=20.5", "command track=1"], [(10.5, 20.5)]),
+        ("data before verb", ["command rightascension=10.5,declination=20.5,track=1"], [(10.5, 20.5)]),
+        ("verb first", ["command track=1,rightascension=10.5,declination=20.5"], [(10.5, 20.5)]),
+        ("stale buffer loses", ["command rightascension=1.5", "command declination=2.5",
+                                "command rightascension=10.5,declination=20.5,track=1"], [(10.5, 20.5)]),
+        ("incomplete pair", ["command rightascension=10.5,track=1"], []),
+        ("second track is dropped", ["command rightascension=10.5,declination=20.5,track=1", "command track=1"], [(10.5, 20.5)]),
+        ("timestamp after the last field", ["command rightascension=10.5,declination=20.5,track=1 1700000000000000000"], [(10.5, 20.5)]),
+        ("other measurement", ["status rightascension=10.5,declination=20.5,track=1"], []),
+        ("track is the ninth field", ["command rightascension=10.5,declination=20.5,x1=0,x2=0,x3=0,x4=0,x5=0,x6=0,track=1"], []),
+    ):
+        h = Handler()
+        for m in messages:
+            h.handle(m)
+        check(label, h.tracks, want)
+    print("   all consistent with the TcUnit expectations" if ok else "   MISMATCH")

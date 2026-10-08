@@ -13,6 +13,9 @@ VAR_OUTPUT
 	parameter:		STRING(255) := '';
 	// value (variable content)
 	value:			STRING(255) := '';
+	// the payload for the NEXT parameter=value pair ("measurement[,tags] rest-of-field-set[ timestamp]"),
+	// '' if this was the last pair. Feed it back in as sPayload to walk a multi-field message.
+	remaining:		STRING(255) := '';
 END_VAR
 VAR
 	space_position:		INT;
@@ -21,6 +24,7 @@ VAR
 	measurement_tags:	STRING(255);
 	parameter_value: 	STRING(255);
 	bResultSplit: 		BOOL;
+	sRest:				STRING(255);
 	// definition of the space separator
 	spaceSeparator:		STRING(1) := ' ';
 	// definition of the comma separator
@@ -34,12 +38,18 @@ END_VAR
 parse message in influx format:
 	measurement parameter=value
 	measurement,tag1=tag1value parameter=value
-	TODO:
-	measurement,tag1=tag1value parameter1=value1,parameter2=value2
+	measurement,tag1=tag1value parameter1=value1,parameter2=value2 [timestamp]
 
-Multiple parameter/value pairs are ignored for now.
-tags are not supported.
+Returns the FIRST parameter=value pair. If there are more, 'remaining' holds a complete payload for the next
+pair (measurement and tags in front, timestamp kept at the end), so the caller feeds it straight back in.
+Tags are accepted but not returned. A quoted string value that contains a comma or a space is not handled.
 *)
+
+// start from empty outputs every call: a caller that reuses the instance must not see the previous pair again
+measurement := '';
+parameter := '';
+value := '';
+remaining := '';
 
 //separate measurement from parameter, value
 bResultSplit := FindAndSplit( pSeparator     := ADR(spaceSeparator), pSrcString := ADR(sPayload), 
@@ -66,13 +76,15 @@ IF comma_position = 0 THEN
                               bSearchFromRight := FALSE );
 
 ELSE
-	// we have more than one parameter value pair
+	// we have more than one parameter value pair: everything after the first comma is the next pair(s),
+	// handed back with the measurement and tags in front (the space between them was consumed above)
+	sRest := MID(parameter_value, LEN(parameter_value) - comma_position, comma_position + 1);
+	remaining := CONCAT(CONCAT(measurement_tags, spaceSeparator), sRest);
 	parameter_value := LEFT(parameter_value, comma_position-1);
 	bResultSplit := FindAndSplit( pSeparator     := ADR(equialSeparator), pSrcString := ADR(parameter_value), 
                               pLeftString    := ADR(parameter), nLeftSize  := SIZEOF(parameter), 
                               pRightString   := ADR(value), nRightSize := SIZEOF(value),
                               bSearchFromRight := FALSE );
-	// TODO: return the rest an re-parse
 END_IF
 
 // a trailing Influx timestamp (measurement[,tags] field_set timestamp) ends up appended to value,

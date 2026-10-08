@@ -37,128 +37,178 @@ END_IF]]></ST>
       <Declaration><![CDATA[METHOD _handleMQTTMessage : BOOL
 VAR_INPUT
 	sPayloadRcv		: STRING(255);
-END_VAR
-VAR
-	measurement		: STRING(255);
-	parameter		: STRING(255);
-	value			: STRING(255);
-	influxMessage	: FB_InfluxMessage;	
 END_VAR]]></Declaration>
       <Implementation>
-        <ST><![CDATA[influxMessage(  sPayload := sPayloadRcv, measurement => measurement, parameter => parameter, value => value);
-IF measurement = 'command' THEN
-	IF parameter = 'power' AND Telescope <> 0 THEN
-		// there is no power-off command: Park() serves that role
-		IF STRING_TO_UINT(value) = 1 THEN
-			Telescope.CoverAutoOpen := TRUE;
-			Telescope.Init();
-		ELSIF STRING_TO_UINT(value) = 2 THEN
-			Telescope.CoverAutoOpen := FALSE;
-			Telescope.Init();
-		ELSE
-			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT power: unrecognized value (want 1 or 2) %s', sPayloadRcv);
-		END_IF
-	ELSIF parameter = 'park' AND Telescope <> 0 THEN
-		Telescope.Park();
-	ELSIF parameter = 'gohome' AND Telescope <> 0 THEN
-		Telescope.Home();
-	ELSIF parameter = 'track' AND Telescope <> 0 THEN
-		// rightascension/declination arrive as separate messages beforehand and are buffered here
-		// (see #6/#39 -- a multi-field message would remove the need for this buffer-and-consume
-		// pattern entirely); an incomplete pair used to be dropped with no error, no log, nothing
-		IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
-			Telescope.Track(RaDec.RightAscension, RaDec.Declination);
-		ELSE
-			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT track: rightascension/declination incomplete, command dropped %s', sPayloadRcv);
-		END_IF
-		RaDec.RightAscension := GVL_Math.LREAL_MIN;
-		RaDec.Declination := GVL_Math.LREAL_MIN;
-	ELSIF parameter = 'slew' AND Telescope <> 0 THEN
-		// see 'track' above -- same buffer-and-consume pattern, same incomplete-pair gap
-		IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
-			Telescope.Slew(AltAz.Azimuth, AltAz.Altitude);
-		ELSE
-			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT slew: azimuth/elevation incomplete, command dropped %s', sPayloadRcv);
-		END_IF
-		AltAz.Azimuth := GVL_Math.LREAL_MIN;
-		AltAz.Altitude := GVL_Math.LREAL_MIN;
-	ELSIF parameter = 'stop' AND Telescope <> 0 THEN
-		Telescope.Stop();
-	ELSIF parameter = 'reset' AND Telescope <> 0 THEN
-		Telescope.Reset();
-	ELSIF parameter = 'nasmyth' AND Nasmyth <> 0 THEN
-		Nasmyth.SetNasmyth(STRING_TO_USINT(value));
-	ELSIF parameter = 'rightascension' THEN
-		RaDec.RightAscension := STRING_TO_LREAL(value);
-	ELSIF parameter = 'declination' THEN
-		RaDec.Declination := STRING_TO_LREAL(value);
-	ELSIF parameter = 'elevation' THEN
-		AltAz.Altitude := STRING_TO_LREAL(value);
-	ELSIF parameter = 'azimuth' THEN
-		AltAz.Azimuth := STRING_TO_LREAL(value);
-	ELSIF parameter = 'temperature' THEN
-		Temperature := STRING_TO_LREAL(value);
-		bWeatherMessageReceived := TRUE;
-	ELSIF parameter = 'humidity' THEN
-		Humidity := STRING_TO_LREAL(value);
-		bWeatherMessageReceived := TRUE;
-	ELSIF parameter = 'pressure' THEN
-		Pressure := STRING_TO_LREAL(value);
-		bWeatherMessageReceived := TRUE;
-	ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
-		AltAzTelescope.Dut1 := STRING_TO_LREAL(value);
-	ELSIF parameter = 'focus' AND Focus <> 0 THEN
-		Focus.Position := STRING_TO_LREAL(value);
-	ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
-		MirrorCovers.Open();
-	ELSIF parameter = 'cover_close' AND MirrorCovers <> 0 THEN
-		MirrorCovers.Close();	
-	ELSIF parameter = 'dome_open' THEN
-		IF Dome <> 0 THEN
-			Dome.Open();
-		ELSIF Roof <> 0 THEN
-			Roof.Open();
-		END_IF
-	ELSIF parameter = 'dome_close' THEN
-		IF Dome <> 0 THEN
-			Dome.Close();
-		ELSIF Roof <> 0 THEN
-			Roof.Close();
-		END_IF
-	ELSIF parameter = 'dome_stop' AND (Dome <> 0 OR Roof <> 0) THEN
-		IF Dome <> 0 THEN
-			Dome.Stop();
-		ELSIF Roof <> 0 THEN
-			Roof.Stop();
-		END_IF		
-	ELSIF parameter = 'dome_park' AND Dome <> 0 THEN
-		Dome.Park();
-	ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
-		IF value = '1'THEN
-			Dome.Track();
-		ELSE
-			Dome.StopTrack();
-		END_IF	
-	ELSIF parameter = 'dome_reset' AND Dome <> 0 THEN
-		Dome.Reset();
-	ELSIF parameter = 'filter' AND Filter <> 0 THEN
-		Filter.SetFilter(STRING_TO_USINT(value));
-	ELSIF (parameter = 'derotator' OR parameter = 'derotatoroffset') AND AltAzTelescope <> 0 THEN
-		// two client-facing names for the same thing -- I_AltAzTelescope only has one derotator
-		// property (DerotatorOffset), there's no separate "absolute derotator position" concept
-		AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
-	ELSIF parameter = 'elevationoffset' AND AltAzTelescope <> 0 THEN
-		AltAzTelescope.AltitudeOffset := STRING_TO_LREAL(value);
-	ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
-		AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
-	ELSIF parameter = 'declinationoffset' AND RaDecTelescope <> 0 THEN
-		RaDecTelescope.DeclinationOffset := STRING_TO_LREAL(value);
-	ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
-		RaDecTelescope.HourAngleOffset := STRING_TO_LREAL(value);
+        <ST><![CDATA[// A message can carry several parameter=value pairs (command a=1,b=2). Data fields (rightascension, declination,
+// elevation, azimuth, ...) are applied first and track/slew last, so they always use the coordinates of this
+// message, whatever the field order; for a single-field message nothing changes (BROTLib#39).
+_DispatchPass(sPayloadRcv := sPayloadRcv, bVerbPass := FALSE);
+_DispatchPass(sPayloadRcv := sPayloadRcv, bVerbPass := TRUE);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ApplyField" Id="{b1996a41-13ee-4523-87f0-a3610dac6f65}">
+      <Declaration><![CDATA[// Runs one parameter=value pair of a 'command' message. Same dispatch as before the multi-field change (BROTLib#39).
+METHOD PRIVATE _ApplyField
+VAR_INPUT
+	parameter		: STRING(255);
+	value			: STRING(255);
+	sPayloadRcv		: STRING(255);	// the whole payload, only for the log messages
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF parameter = 'power' AND Telescope <> 0 THEN
+	// there is no power-off command: Park() serves that role
+	IF STRING_TO_UINT(value) = 1 THEN
+		Telescope.CoverAutoOpen := TRUE;
+		Telescope.Init();
+	ELSIF STRING_TO_UINT(value) = 2 THEN
+		Telescope.CoverAutoOpen := FALSE;
+		Telescope.Init();
 	ELSE
-		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
+		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT power: unrecognized value (want 1 or 2) %s', sPayloadRcv);
 	END_IF
-END_IF]]></ST>
+ELSIF parameter = 'park' AND Telescope <> 0 THEN
+	Telescope.Park();
+ELSIF parameter = 'gohome' AND Telescope <> 0 THEN
+	Telescope.Home();
+ELSIF parameter = 'track' AND Telescope <> 0 THEN
+	// rightascension/declination are buffered here: they arrive either as separate messages beforehand (pyBROT,
+	// BROTgui today) or in the same message as track (the data pass in _DispatchPass runs first, BROTLib#39);
+	// an incomplete pair is dropped with a log entry
+	IF RaDec.RightAscension > GVL_Math.LREAL_MIN AND RaDec.Declination > GVL_Math.LREAL_MIN THEN
+		Telescope.Track(RaDec.RightAscension, RaDec.Declination);
+	ELSE
+		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT track: rightascension/declination incomplete, command dropped %s', sPayloadRcv);
+	END_IF
+	RaDec.RightAscension := GVL_Math.LREAL_MIN;
+	RaDec.Declination := GVL_Math.LREAL_MIN;
+ELSIF parameter = 'slew' AND Telescope <> 0 THEN
+	// see 'track' above -- same buffer-and-consume pattern, same incomplete-pair gap
+	IF AltAz.Azimuth > GVL_Math.LREAL_MIN AND AltAz.Altitude > GVL_Math.LREAL_MIN THEN
+		Telescope.Slew(AltAz.Azimuth, AltAz.Altitude);
+	ELSE
+		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT slew: azimuth/elevation incomplete, command dropped %s', sPayloadRcv);
+	END_IF
+	AltAz.Azimuth := GVL_Math.LREAL_MIN;
+	AltAz.Altitude := GVL_Math.LREAL_MIN;
+ELSIF parameter = 'stop' AND Telescope <> 0 THEN
+	Telescope.Stop();
+ELSIF parameter = 'reset' AND Telescope <> 0 THEN
+	Telescope.Reset();
+ELSIF parameter = 'nasmyth' AND Nasmyth <> 0 THEN
+	Nasmyth.SetNasmyth(STRING_TO_USINT(value));
+ELSIF parameter = 'rightascension' THEN
+	RaDec.RightAscension := STRING_TO_LREAL(value);
+ELSIF parameter = 'declination' THEN
+	RaDec.Declination := STRING_TO_LREAL(value);
+ELSIF parameter = 'elevation' THEN
+	AltAz.Altitude := STRING_TO_LREAL(value);
+ELSIF parameter = 'azimuth' THEN
+	AltAz.Azimuth := STRING_TO_LREAL(value);
+ELSIF parameter = 'temperature' THEN
+	Temperature := STRING_TO_LREAL(value);
+	bWeatherMessageReceived := TRUE;
+ELSIF parameter = 'humidity' THEN
+	Humidity := STRING_TO_LREAL(value);
+	bWeatherMessageReceived := TRUE;
+ELSIF parameter = 'pressure' THEN
+	Pressure := STRING_TO_LREAL(value);
+	bWeatherMessageReceived := TRUE;
+ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
+	AltAzTelescope.Dut1 := STRING_TO_LREAL(value);
+ELSIF parameter = 'focus' AND Focus <> 0 THEN
+	Focus.Position := STRING_TO_LREAL(value);
+ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
+	MirrorCovers.Open();
+ELSIF parameter = 'cover_close' AND MirrorCovers <> 0 THEN
+	MirrorCovers.Close();	
+ELSIF parameter = 'dome_open' THEN
+	IF Dome <> 0 THEN
+		Dome.Open();
+	ELSIF Roof <> 0 THEN
+		Roof.Open();
+	END_IF
+ELSIF parameter = 'dome_close' THEN
+	IF Dome <> 0 THEN
+		Dome.Close();
+	ELSIF Roof <> 0 THEN
+		Roof.Close();
+	END_IF
+ELSIF parameter = 'dome_stop' AND (Dome <> 0 OR Roof <> 0) THEN
+	IF Dome <> 0 THEN
+		Dome.Stop();
+	ELSIF Roof <> 0 THEN
+		Roof.Stop();
+	END_IF		
+ELSIF parameter = 'dome_park' AND Dome <> 0 THEN
+	Dome.Park();
+ELSIF parameter = 'dome_track' AND Dome <> 0 THEN
+	IF value = '1'THEN
+		Dome.Track();
+	ELSE
+		Dome.StopTrack();
+	END_IF	
+ELSIF parameter = 'dome_reset' AND Dome <> 0 THEN
+	Dome.Reset();
+ELSIF parameter = 'filter' AND Filter <> 0 THEN
+	Filter.SetFilter(STRING_TO_USINT(value));
+ELSIF (parameter = 'derotator' OR parameter = 'derotatoroffset') AND AltAzTelescope <> 0 THEN
+	// two client-facing names for the same thing -- I_AltAzTelescope only has one derotator
+	// property (DerotatorOffset), there's no separate "absolute derotator position" concept
+	AltAzTelescope.DerotatorOffset := STRING_TO_LREAL(value);
+ELSIF parameter = 'elevationoffset' AND AltAzTelescope <> 0 THEN
+	AltAzTelescope.AltitudeOffset := STRING_TO_LREAL(value);
+ELSIF parameter = 'azimuthoffset' AND AltAzTelescope <> 0 THEN
+	AltAzTelescope.AzimuthOffset := STRING_TO_LREAL(value);
+ELSIF parameter = 'declinationoffset' AND RaDecTelescope <> 0 THEN
+	RaDecTelescope.DeclinationOffset := STRING_TO_LREAL(value);
+ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
+	RaDecTelescope.HourAngleOffset := STRING_TO_LREAL(value);
+ELSE
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DispatchPass" Id="{7e928bbe-332a-4f98-8267-b812825faa63}">
+      <Declaration><![CDATA[// Walks the parameter=value pairs of a payload via FB_InfluxMessage.remaining and applies the ones that belong to
+// this pass: bVerbPass FALSE applies everything except track/slew, TRUE applies only track/slew. Running the
+// data pass first means track/slew always see the coordinates of the SAME message (any field order), and a
+// single-field message behaves exactly as before. At most MAX_FIELDS pairs are walked per message.
+METHOD PRIVATE _DispatchPass
+VAR_INPUT
+	sPayloadRcv		: STRING(255);
+	bVerbPass		: BOOL;
+END_VAR
+VAR
+	influxMessage	: FB_InfluxMessage;
+	sNext			: STRING(255);
+	nFields			: INT;
+	bVerb			: BOOL;
+END_VAR
+VAR CONSTANT
+	MAX_FIELDS		: INT := 8;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[sNext := sPayloadRcv;
+WHILE sNext <> '' AND nFields < MAX_FIELDS DO
+	nFields := nFields + 1;
+	influxMessage(sPayload := sNext);
+	IF influxMessage.measurement <> 'command' THEN
+		RETURN;
+	END_IF
+	bVerb := influxMessage.parameter = 'track' OR influxMessage.parameter = 'slew';
+	IF bVerb = bVerbPass THEN
+		_ApplyField(parameter := influxMessage.parameter, value := influxMessage.value, sPayloadRcv := sPayloadRcv);
+	END_IF
+	sNext := influxMessage.remaining;
+END_WHILE
+IF sNext <> '' AND NOT bVerbPass THEN
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT more than 8 fields in one message, the rest is ignored %s', sPayloadRcv);
+END_IF
+]]></ST>
       </Implementation>
     </Method>
     <Method Name="Publish" Id="{0b9304dc-7cd5-4e61-ac34-34dd3afe6924}">
@@ -185,6 +235,8 @@ VAR
 	sKey			: STRING(255);
 	sFieldVal		: STRING(255);
 	sTopic			: STRING(255);
+	sTimestamp		: STRING(255);	// F_STRING takes a T_MaxString by reference
+	sFormat			: STRING(40);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
@@ -196,13 +248,31 @@ sHost := F_EscapeInfluxTag(HostName, TRUE);
 sKey := F_EscapeInfluxTag(parameter, TRUE);
 sFieldVal := F_InfluxFieldValue(value);
 
+// retain message if value is boolean: booleans are meant to be published on change only, so a subscriber that
+// connects later gets the current state from the broker
+bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
+retain_message := bIsBool;
+
+// a retained line carries the time it was published, so a replay after a Telegraf restart is stored at that time
+// and not at the time of the replay (#38). Consumers must accept the optional timestamp (pyBROT#40).
+sTimestamp := '';
+IF retain_message THEN
+	sTimestamp := F_InfluxTimestamp(F_GetSystemTime());
+END_IF
+IF sTimestamp <> '' THEN
+	sFormat := '%s,location=%s,host=%s %s=%s %s';
+ELSE
+	sFormat := '%s,location=%s,host=%s %s=%s';
+END_IF
+
 fbFormat(
-	sFormat 	:= '%s,location=%s,host=%s %s=%s',
+	sFormat 	:= sFormat,
 	arg1 		:= F_STRING(sDomain),
 	arg2 		:= F_STRING(sLocation),
 	arg3 		:= F_STRING(sHost),
 	arg4 		:= F_STRING(sKey),
 	arg5 		:= F_STRING(sFieldVal),
+	arg6 		:= F_STRING(sTimestamp),
 	sOut 		=> sPayloadPub,
 	bError 		=> bError,
 	nErrID 		=> nErrID
@@ -220,10 +290,6 @@ IF bError OR LEN(sPayloadPub) >= 255 THEN
 	Publish := published;
 	RETURN;
 END_IF
-
-// retain message if value is boolean
-bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
-retain_message := bIsBool;
 
 // publish under a per-subsystem sub-topic (domain is already the Influx measurement, e.g.
 // 'telescope'/'power'/'electronics'/'hydraulics'/'diagnostics') so a consumer that only cares

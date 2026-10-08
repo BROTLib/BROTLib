@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # TcXaeShell Solution File, Format Version 11.00
 VisualStudioVersion = 15.0.33403.129
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{B1E792BE-AA5F-4E3C-8C82-674BF9C0715B}") = "BROTLib", "BROTLib\BROTLib.tsproj", "{A46C50F4-4F67-4A5F-9957-2B17C076595D}"
+Project("{DFBE7525-6864-4E62-8B2E-D530D69D9D96}") = "BROTLib", "BROTLib\BROTLib.tspproj", "{A46C50F4-4F67-4A5F-9957-2B17C076595D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

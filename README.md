@@ -47,10 +47,9 @@ which all other BROT projects are built:
 BROTLib/
 ├── BROTLib.sln                  # TwinCAT solution
 ├── BROTLib/
-│   ├── BROTLib.tsproj           # TwinCAT system project
+│   ├── BROTLib.tspproj          # standalone PLC project (no system part)
 │   ├── BROTLib/
 │   │   ├── BROTLib.plcproj      # PLC library project
-│   │   ├── PlcTask.TcTTO        # PLC task
 │   │   ├── DUTs/                # Enumerations and structures
 │   │   │   ├── E_TCSCommand.TcDUT
 │   │   │   ├── E_TCSErrors.TcDUT
@@ -189,8 +188,13 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
 - **`FB_Comm_MQTT_Influx`** — concrete MQTT + InfluxDB telemetry publisher.
   Publishes measurements in Influx line protocol; used by every BROT
   application (topics such as `MONETN/Telemetry`, `50cm/Telemetry`, ...).
-- **`FB_InfluxMessage`** — parses single Influx line-protocol messages
-  (`measurement,tags parameter=value`) received on the command topic.
+  Boolean values are retained by the broker and carry a unix-ns timestamp
+  (`F_InfluxTimestamp`), so a replay is stored at the time of the change
+  (see `specs/design/mqtt-telemetry-patterns.md`).
+- **`FB_InfluxMessage`** — parses Influx line-protocol messages (`measurement,tags parameter=value[,parameter=value ...]`)
+  received on the command topic, one pair at a time (`remaining` holds the payload for the next pair).
+  `FB_Comm_MQTT_Influx` walks up to 8 pairs per message and applies `track`/`slew` last, so they see the
+  coordinates of the same message.
 - **`F_EscapeInfluxString`** / **`F_IsNumericValue`** — Influx string escaping
   and strict numeric validation (incl. scientific notation).
 - **`FB_EventLog`** — structured event/error logging with severity and message
@@ -260,10 +264,9 @@ published at 1 s while slewing/tracking and 5 s when idle.
   (`.github/workflows/tcbuild.yml`,
   `release.yml`, `tag-release.yml`), not the older `build.ps1`/`build.yml`
   pipeline (removed). On the self-hosted runner (push only, never
-  `pull_request`) BROTLib runs `tests.yml` on every push (compiles BROTLib and
-  runs the tests) and `tcbuild.yml` on releases (push to `main`) and on demand;
-  the other repos of the org run `tcbuild.yml` on every push as their compile
-  check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
+  `pull_request`) BROTLib runs `tests.yml` (compiles BROTLib and runs the
+  tests) and `tcbuild.yml` (compile check) on every push; the other repos of the org run
+  `tcbuild.yml` on every push as their compile check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
 
 ---
 
@@ -285,8 +288,8 @@ consumed by **HalfBROT**, **MONETRoof**, **MONETcommon**, **IAG50cm**,
 
 ## Building and deployment
 
-The library is built with TwinCAT 3.1 in TwinCAT XAE (PLC task 10 ms,
-priority 20; the system project is 3.1.4024.66, the PLC project is authored
+The library is built with TwinCAT 3.1 in TwinCAT XAE (standalone PLC project, no
+task or target; the project file is 3.1.4024.66, the PLC project is authored
 with 3.1.4026.x — the project was created on Build 4024 and is edited on
 4026). It is distributed as a compiled TwinCAT library and referenced from the
 application projects' generated `_Libraries/` folders.
@@ -295,7 +298,7 @@ TwinCAT OS (ARM/x64) all build on this library.
 
 ## Testing
 
-`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (60 test cases:
+`BROTLibTests/` holds TcUnit tests for the pure functions and the deterministic function blocks (79 test cases:
 Influx value typing and escaping, `F_YREAL`, the tracking velocity and derotator functions, the pointing model and
 its inversion, `FB_BLINK`, `FB_Axis` without an NC axis, the sync logic of `FB_AstroClock`, the Influx line protocol
 helpers). TcBuild only compiles, so running them needs a TwinCAT runtime; on Windows 11 that is the user-mode
@@ -303,6 +306,7 @@ runtime, because the 4024 real-time runtime does not run there. Setup, the one-c
 [BROTLibTests/README.md](BROTLibTests/README.md).
 
 CI: `tests.yml` runs the suites on the self-hosted runner on every push (installs the checked-out BROTLib, builds
-BROTLibTests, runs `Run-Tests.ps1`), and `tcbuild.yml` compiles BROTLib on every release (push to `main`) and on
+BROTLibTests, runs `Run-Tests.ps1`), and `tcbuild.yml` compiles BROTLib on every push and on
 demand. The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
-by hand, and `tests.yml` fails with a clear message once it has expired.
+by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tests.yml` fails
+with a clear message once it has expired or lacks a license the tests need.

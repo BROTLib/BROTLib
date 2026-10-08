@@ -1,6 +1,6 @@
 # FB_Axis re-home fix: PLC check and the 0.5.5 release (handover)
 
-**Status: checked on the IAG50cm PLC (2026-10-06, see "Result"); release 0.5.5 still to do.** The code change is on `develop` (`6dabd5a`) but unreleased.
+**Status: done (2026-10-06).** Checked on the IAG50cm PLC (see "Result"); released as v0.5.5 (PR #45, `.library` attached) and installed on the IAG50cm engineering PC. Still to do: rebuild MONETN/MONETS against it, and decide on the IAG50cm pin (still `0.5.4` in the repo). The code change is `6dabd5a`.
 This is a handover: everything below is what the next person (or session) needs to finish it.
 
 Repos: BROTLib (the change), HalfBROT / MONETcommon / MONETN / MONETS / IAG50cm (consumers).

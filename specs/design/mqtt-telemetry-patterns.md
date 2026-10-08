@@ -1,6 +1,6 @@
 # MQTT telemetry patterns: retain, on-change vs. interval, and LWT
 
-Status: informational/reference, written 2026-09-09 out of a discussion about whether MONET/S's telemetry is sufficient for debugging (see IAG's own specs, `plans/2026-09-09-static-review-and-live-ads-findings.md`, kept private since it covers a live incident). Not a proposal for a specific change by itself — see IAG's own `plans/` for the concrete follow-up.
+Status: informational/reference, written 2026-09-09, updated 2026-10-08 for the retained-line timestamp (#38) and the LWT that #5 added. Written out of a discussion about whether MONET/S's telemetry is sufficient for debugging (see IAG's own specs, `plans/2026-09-09-static-review-and-live-ads-findings.md`, kept private since it covers a live incident). Not a proposal for a specific change by itself — see IAG's own `plans/` for the concrete follow-up.
 
 ## Does the MQTT broker store the last value for late subscribers?
 
@@ -15,7 +15,17 @@ retain_message := bIsBool;
 published := fbMqttClient.Publish(..., bRetain := retain_message, ...);
 ```
 
-Boolean-valued fields (`MainReady`, `MasterError`, hydraulics state flags, etc.) are retained; numeric/string fields (positions, RA/Dec, telescope info strings) are not. This is a reasonable split as it stands — retaining a continuously-changing float doesn't buy much, but retaining a boolean means a dashboard opening mid-session, or Telegraf reconnecting, sees current state immediately rather than waiting for the next timer tick.
+Boolean-valued fields (`MainReady`, `MasterError`, hydraulics state flags, etc.) are retained; numeric/string fields (positions, RA/Dec, telescope info strings) are not. The reason is that booleans are meant to be published on change only, which can mean hours between two messages, while floats like RA/Dec change all the time and go out on a timer anyway. Retaining a boolean means a dashboard opening mid-session, or Telegraf reconnecting, sees current state immediately rather than waiting for the next change. HalfBROT's `FB_HydraulicsControl` relies on this: it publishes its flags only when its status word changes.
+
+### Retained lines carry a timestamp (#38)
+
+The broker replays a retained message unchanged. Without a timestamp in the line, Telegraf stores the replay at the time it receives it, so a flag that last changed at 02:13 (or a PLC that has been dead for hours) shows up as fresh data at the moment Telegraf reconnects. Since #38, `Publish()` appends the optional Influx line-protocol timestamp to every retained line, in unix nanoseconds from `F_GetSystemTime()` via `F_InfluxTimestamp`:
+
+```
+hydraulics,location=base,host=CX-1234 BrakeOpen=true 1791462896000000000
+```
+
+Non-retained lines carry no timestamp; Telegraf stamps them on receipt, which is within milliseconds of the publish. If the PLC clock reads before 1970 the timestamp is left off. Every consumer that parses the raw MQTT payload must accept the trailing timestamp: Telegraf (`data_format = "influx"`, nanosecond precision by default) does; pyBROT's `MQTTTransport` does from pyBROT#40 on. Do not deploy a BROTLib with this change before the pyBROT that BROTgui and pyobs-brot use has it, or every retained `true` is read as `False`.
 
 ## Interval-based vs. publish-on-change
 
@@ -26,11 +36,11 @@ Two different kinds of telemetry warrant two different publish strategies:
 
 For debugging classes like a `bInterrupted` deadlock, on-change + retain is the combination that matters: it means the state was actually observable in Influx/MQTT at the moment it happened, not just inferable after the fact via a live ADS read.
 
-## Last Will and Testament (LWT) — unused, relevant to a disabled MQTT watchdog
+## Last Will and Testament (LWT)
 
 MQTT clients can register a **Last Will and Testament** message with the broker at connect time — a message the *broker* publishes automatically if that client disconnects ungracefully (crash, network drop, power loss), without any code in the client needing to run at the moment of failure. This is a broker-side mechanism, so it fires even on a hard crash where the client never gets a chance to publish anything itself.
 
-`FB_Comm_MQTT` does not use this today — the current design (`bConnected` reassigned every cycle from `fbMqttClient.bConnected`, state machine drops back to reconnect on disconnect) is entirely polling-based from the PLC's own side. LWT would give any *other* subscriber (not just the PLC's own reconnect logic) an immediate, broker-guaranteed signal that the connection dropped — useful for monitoring/dashboards independent of the PLC's own watchdog, and worth considering if connection-health visibility for external consumers becomes a priority. Not currently proposed as a required change — noted here because it came up directly in the same conversation as a watchdog/`bConnected` design discussion.
+Since #5, `FB_Comm_MQTT` registers a last will on `{sTopicPublish}/status` (`'offline'`, retained) and publishes a retained `'online'` there once it is connected and subscribed. That is the connection-level half of the stale-retained-values problem: the timestamp above tells Influx *when* a replayed value was true, the status topic tells a dashboard that the PLC behind the retained values is gone. No consumer reads the status topic yet (pyBROT#36).
 
 ## Practical implication for adding new telemetry fields
 

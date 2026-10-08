@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_InfluxMessage_Tests" Id="{2ca087bf-b4b1-47e0-aac9-190586413b5b}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_InfluxMessage, the parser of incoming MQTT command payloads
+// (measurement[,tags] parameter=value[,parameter=value ...] [timestamp]). Since BROTLib#39 it returns the first pair
+// and a 'remaining' payload for the next one; the first five cases are the behaviour it had before and still has.
+FUNCTION_BLOCK FB_InfluxMessage_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Single_Pair();
+Numbers_Keep_Sign_And_Exponent();
+Tags_Are_Dropped();
+Trailing_Timestamp_Is_Dropped();
+Quoted_String_Value_Loses_Quotes();
+Several_Pairs_Walk_Via_Remaining();
+Remaining_Keeps_Tags_And_Timestamp();
+No_Space_Gives_Empty_Outputs();
+Outputs_Are_Reset_Between_Calls();
+]]></ST>
+    </Implementation>
+    <Method Name="Check" Id="{5d8801ea-6478-4932-a54e-fd63aeea1f0e}">
+      <Declaration><![CDATA[// Parses sPayload with a fresh instance (method locals are re-initialised on every call) and asserts all four outputs;
+// the failure message names the payload.
+METHOD PRIVATE Check
+VAR_INPUT
+	sPayload		: STRING(255);
+	sMeasurement	: STRING(255);
+	sParameter		: STRING(255);
+	sValue			: STRING(255);
+	sRemaining		: STRING(255);
+END_VAR
+VAR
+	fb				: BROTLib.FB_InfluxMessage;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fb(sPayload := sPayload);
+AssertEquals_STRING(Expected := sMeasurement, Actual := fb.measurement, Message := CONCAT('measurement of: ', sPayload));
+AssertEquals_STRING(Expected := sParameter, Actual := fb.parameter, Message := CONCAT('parameter of: ', sPayload));
+AssertEquals_STRING(Expected := sValue, Actual := fb.value, Message := CONCAT('value of: ', sPayload));
+AssertEquals_STRING(Expected := sRemaining, Actual := fb.remaining, Message := CONCAT('remaining of: ', sPayload));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Single_Pair" Id="{286000a7-8542-4166-a65a-e6d730acb706}">
+      <Declaration><![CDATA[METHOD PRIVATE Single_Pair
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Single_Pair');
+Check(sPayload := 'command park=1', sMeasurement := 'command', sParameter := 'park', sValue := '1', sRemaining := '');
+Check(sPayload := 'command track=1', sMeasurement := 'command', sParameter := 'track', sValue := '1', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Numbers_Keep_Sign_And_Exponent" Id="{58cc6ecb-649a-45ab-aef1-22f858967728}">
+      <Declaration><![CDATA[METHOD PRIVATE Numbers_Keep_Sign_And_Exponent
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Numbers_Keep_Sign_And_Exponent');
+Check(sPayload := 'command rightascension=123.456', sMeasurement := 'command', sParameter := 'rightascension', sValue := '123.456', sRemaining := '');
+Check(sPayload := 'command declination=-56.7', sMeasurement := 'command', sParameter := 'declination', sValue := '-56.7', sRemaining := '');
+Check(sPayload := 'command offset=1.5E-3', sMeasurement := 'command', sParameter := 'offset', sValue := '1.5E-3', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Tags_Are_Dropped" Id="{772faf51-26ca-436f-afbb-7b22bc149e4f}">
+      <Declaration><![CDATA[// Tags after the measurement are accepted but not returned.
+METHOD PRIVATE Tags_Are_Dropped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Tags_Are_Dropped');
+Check(sPayload := 'command,site=a park=1', sMeasurement := 'command', sParameter := 'park', sValue := '1', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Trailing_Timestamp_Is_Dropped" Id="{187d8304-18df-498c-8557-8c14a8f47662}">
+      <Declaration><![CDATA[METHOD PRIVATE Trailing_Timestamp_Is_Dropped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Trailing_Timestamp_Is_Dropped');
+Check(sPayload := 'command park=1 1700000000000000000', sMeasurement := 'command', sParameter := 'park', sValue := '1', sRemaining := '');
+Check(sPayload := 'command,site=a track=1 1700000000000000000', sMeasurement := 'command', sParameter := 'track', sValue := '1', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Quoted_String_Value_Loses_Quotes" Id="{89e6a9ca-7a7f-4360-b017-83efd8db2b74}">
+      <Declaration><![CDATA[// The surrounding quotes of an Influx string value are stripped.
+METHOD PRIVATE Quoted_String_Value_Loses_Quotes
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Quoted_String_Value_Loses_Quotes');
+Check(sPayload := 'command name="abc"', sMeasurement := 'command', sParameter := 'name', sValue := 'abc', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Several_Pairs_Walk_Via_Remaining" Id="{4c812607-d0b1-4e34-95fc-d39245ae03f7}">
+      <Declaration><![CDATA[// BROTLib#39: the first pair is returned and 'remaining' is a complete payload for the next one; feeding it back in
+// walks the whole field set.
+METHOD PRIVATE Several_Pairs_Walk_Via_Remaining
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Several_Pairs_Walk_Via_Remaining');
+Check(sPayload := 'command a=1,b=2,c=3', sMeasurement := 'command', sParameter := 'a', sValue := '1', sRemaining := 'command b=2,c=3');
+Check(sPayload := 'command b=2,c=3', sMeasurement := 'command', sParameter := 'b', sValue := '2', sRemaining := 'command c=3');
+Check(sPayload := 'command c=3', sMeasurement := 'command', sParameter := 'c', sValue := '3', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Remaining_Keeps_Tags_And_Timestamp" Id="{9ec6c84e-84eb-4eef-a0e1-14a8398b02bb}">
+      <Declaration><![CDATA[// The tags stay in front and the timestamp stays at the end; it is dropped from the value of the last pair.
+METHOD PRIVATE Remaining_Keeps_Tags_And_Timestamp
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Remaining_Keeps_Tags_And_Timestamp');
+Check(sPayload := 'command,site=x a=1,b=2 1700000000000000000', sMeasurement := 'command', sParameter := 'a', sValue := '1', sRemaining := 'command,site=x b=2 1700000000000000000');
+Check(sPayload := 'command,site=x b=2 1700000000000000000', sMeasurement := 'command', sParameter := 'b', sValue := '2', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Space_Gives_Empty_Outputs" Id="{f31b51ba-7b9a-4c87-b65c-f6c7887a038c}">
+      <Declaration><![CDATA[// Without a space there is no field set: the block returns early and every output stays empty.
+METHOD PRIVATE No_Space_Gives_Empty_Outputs
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Space_Gives_Empty_Outputs');
+Check(sPayload := 'command', sMeasurement := '', sParameter := '', sValue := '', sRemaining := '');
+Check(sPayload := '', sMeasurement := '', sParameter := '', sValue := '', sRemaining := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Outputs_Are_Reset_Between_Calls" Id="{60896571-f8bf-4703-98c6-bbd64dc7dfac}">
+      <Declaration><![CDATA[METHOD PRIVATE Outputs_Are_Reset_Between_Calls
+VAR
+	fb	: BROTLib.FB_InfluxMessage;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Outputs_Are_Reset_Between_Calls');
+// a caller that reuses the instance (the multi-field loop does) must never see the previous pair again
+fb(sPayload := 'command a=1,b=2');
+AssertEquals_STRING(Expected := 'a', Actual := fb.parameter, Message := 'first call returns a');
+fb(sPayload := 'command');
+AssertEquals_STRING(Expected := '', Actual := fb.measurement, Message := 'measurement is reset');
+AssertEquals_STRING(Expected := '', Actual := fb.parameter, Message := 'parameter is reset');
+AssertEquals_STRING(Expected := '', Actual := fb.value, Message := 'value is reset');
+AssertEquals_STRING(Expected := '', Actual := fb.remaining, Message := 'remaining is reset');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

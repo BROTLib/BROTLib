@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.5.5</ProjectVersion>
+    <ProjectVersion>0.6.0</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
@@ -114,6 +114,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Comm\F_InfluxFieldValue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_InfluxTimestamp.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\Comm\F_IsNumericValue.TcPOU">
