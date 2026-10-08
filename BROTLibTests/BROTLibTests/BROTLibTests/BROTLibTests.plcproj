@@ -52,6 +52,9 @@
     <Compile Include="POUs\FB_EscapeInfluxString_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_InfoConnection_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_IsNumericValue_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
