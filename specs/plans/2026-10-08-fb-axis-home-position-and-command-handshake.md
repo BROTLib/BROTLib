@@ -1,17 +1,18 @@
 # FB_Axis: mandatory homing reference and command methods
 
-**Status: proposed (2026-10-08).** Nothing implemented. Design:
+**Status: accepted (2026-10-08), not started.** Nothing implemented. Design:
 [fb-axis-command-interface.md](../design/fb-axis-command-interface.md). Breaking changes accepted, all repos are
 updated together (decision 2026-10-08). Issues: BROTLib #62 (homing reference), #63 (command flags);
 HalfBROT #46, IAG50cm #21 (migration); IAG50cm #20 (focus reference decision).
 
 Repos: BROTLib, HalfBROT, IAG50cm (code); MONETcommon, MONETS, MONETN (rebuild and telescope checks only).
 
-## Decisions needed before step 2
+## Decisions (2026-10-08)
 
-- [ ] **IAG50cm focus reference** (design A): `telescopeConfig.focusHome`, a persistent last known position, or a
-      reference switch. Until decided the migration keeps today's behaviour (`fPosition`) with a TODO.
-- [ ] **B2 or B1** for the command flags: the design recommends B2 (command methods). Confirm.
+- [x] **IAG50cm focus reference**: stored last known position (`FB_AxisControl.fLastPosition`, persistent, unused
+      today), fallback `focusHome` with a warning on the first start (to confirm in step 4). Reference switch:
+      IAG50cm#22.
+- [x] **Command flags**: B2, command methods.
 
 ## Steps
 
@@ -39,7 +40,7 @@ Repos: BROTLib, HalfBROT, IAG50cm (code); MONETcommon, MONETS, MONETN (rebuild a
    CI: build against the BROTLib branch (install it on the runner first, see below).
 
 4. **IAG50cm** (same branch name): hour angle, declination (`Home` never called; homing stays `FB_LatchHome`),
-   focus (`Home(<decision from above>)`); move from `BROTLib, 0.5.5` to the new version. Also takes BROTLib 0.6.x's
+   focus (store `fLastPosition` while calibrated, `Home(fLastPosition)`, first-start fallback); move from `BROTLib, 0.5.5` to the new version. Also takes BROTLib 0.6.x's
    changes (RA telemetry in degrees, timestamped retained lines): deploy the 50 cm PLC together with consumers that
    expect degrees (pybrotlib >= 1.5.0 without `ra_in_hours`).
 
@@ -70,4 +71,5 @@ test run, so do not run other repos' CI in between.
 - [BROTLib #63](https://github.com/BROTLib/BROTLib/issues/63): command flags written by both sides (design B)
 - [HalfBROT #46](https://github.com/BROTLib/HalfBROT/issues/46): migrate the four axis blocks
 - [IAG50cm #21](https://github.com/BROTLib/IAG50cm/issues/21): migrate the three axis blocks, move to the new BROTLib
-- [IAG50cm #20](https://github.com/BROTLib/IAG50cm/issues/20): focus homing reference decision
+- [IAG50cm #20](https://github.com/BROTLib/IAG50cm/issues/20): focus homing reference decision (decided: stored last position)
+- [IAG50cm #22](https://github.com/BROTLib/IAG50cm/issues/22): install a reference switch on the focus

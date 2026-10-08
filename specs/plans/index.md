@@ -33,4 +33,5 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
 - [2026-10-08-fb-axis-home-position-and-command-handshake.md](2026-10-08-fb-axis-home-position-and-command-handshake.md) —
   `FB_Axis` interface change, all repos together: mandatory homing reference (#62) and command methods
   `Move`/`Home(fReference)`/`Stop` (#63); merge order (BROTLib then HalfBROT back to back), IAG50cm to the new
-  version, telescope checks. Design: `fb-axis-command-interface.md`. **proposed**, two decisions open
+  version, telescope checks. Design: `fb-axis-command-interface.md`. **accepted**, not started (B2; IAG50cm focus
+  homes to its stored last position)

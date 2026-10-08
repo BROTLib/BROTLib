@@ -3,7 +3,8 @@
 Repos: BROTLib (`FB_Axis`, `FB_BaseAxis`), HalfBROT (azimuth, elevation, derotator, focus axes; used by
 MONETcommon, MONETS, MONETN), IAG50cm (hour angle, declination, focus axes)
 
-**Status: proposed (2026-10-08).** Nothing implemented. Covers the two `FB_Axis` interface changes left over from
+**Status: accepted (2026-10-08), not implemented.** Decisions: B2 (command methods); IAG50cm focus homes to its
+stored last known position, a reference switch is IAG50cm#22. Covers the two `FB_Axis` interface changes left over from
 BROTLib#9 that are not bug fixes but interface decisions: (A) a mandatory homing reference position, (B) who owns
 the command flags (`MoveAxis`, `HomeAxis`, `StopAxis`, `Jog_Forward`, `Jog_Backwards`). Work order and status:
 [2026-10-08-fb-axis-home-position-and-command-handshake.md](../plans/2026-10-08-fb-axis-home-position-and-command-handshake.md).
@@ -80,21 +81,20 @@ Rejected alternatives:
 | HalfBROT azimuth, elevation, derotator | `HomePosition := fCalibPosition` |
 | HalfBROT focus | `HomePosition := SEL(fLastPposition > 0.0, fHomingPosition, fLastPposition)` (same choice it makes for `fPosition` today) |
 | IAG50cm hour angle, declination | `HomePosition := 0.0` with a comment that homing goes through `FB_LatchHome` (they never set `HomeAxis`) |
-| IAG50cm focus | **decision needed**, see below |
+| IAG50cm focus | stored last known position (decided, see below) |
 
 The `fPosition := fCalibPosition` / `fPosition := fHomingPosition` lines in the HalfBROT blocks stay for now: they
 also make the move right after homing go to the calibration position (`homeDelay`). Removing them is a separate
 clean-up once the move is made explicit.
 
-**Open decision, IAG50cm focus:** it has no reference switch (`MC_ForceCalibration`), so "homing" means "declare the
-current position to be X". What should X be?
-1. `telescopeConfig.focusHome` (16.3): only correct if the focus was parked there before the power cut.
-2. A persistent last known position (like HalfBROT's `fLastPposition`): correct as long as nothing moved the focus
-   while unpowered.
-3. Fit a reference switch and use real homing.
-
-Until decided, the migration passes `fPosition` explicitly (`HomePosition := fPosition`, today's behaviour) with a
-`TODO` pointing at the IAG50cm issue, so the interface change does not silently change this axis.
+**IAG50cm focus (decided 2026-10-08, IAG50cm#20):** it has no reference switch (`MC_ForceCalibration`), so
+"homing" means "declare the current position to be X". X is the **stored last known position**: `FB_AxisControl`
+already declares `VAR PERSISTENT fLastPosition : LREAL := -1.0` (unused today); `FB_FocusControl` stores
+`fActualPosition` there while calibrated and homes with `Home(fLastPosition)`. First start without a stored value
+(`< 0`): proposed fallback `telescopeConfig.focusHome` with a warning in the log (to confirm when implementing).
+Limits: wrong if the focus moved while unpowered, and depends on the persistent value surviving the power cut. The
+proper fix is a reference switch with real homing (IAG50cm#22). Rejected: `focusHome` alone (only right if the
+focus was parked there).
 
 ### Compatibility
 
@@ -139,9 +139,9 @@ latch a request that `FB_Axis` turns into a rising `Execute` and clears itself o
 `fbAxis.Move(...)`), so the telescope state machines (MONETcommon, IAG50cm) do not change. Jog stays a level input
 (`Jog_Forward`/`Jog_Backwards`, read-only), since it is a held button.
 
-**Recommendation:** with breaking changes accepted (2026-10-08), **B2**, done in the same round as A (A becomes the
-`fReference` argument of `Home`). B1 is the fallback if B2 turns out bigger than expected at implementation time; it
-can be done in an afternoon. The `I_Axis` property setters keep the telescope-facing interface stable either way.
+**Decision (2026-10-08): B2**, done in the same round as A (A becomes the `fReference` argument of `Home`). B1
+stays the fallback only if B2 turns out much bigger than expected at implementation time. The `I_Axis` property
+setters keep the telescope-facing interface stable.
 
 ### What must be checked before B1
 
