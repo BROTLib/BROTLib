@@ -3,7 +3,8 @@
   <POU Name="FB_InfluxLineProtocol_Tests" Id="{ea30723a-cebb-49b0-9f80-d4500a2c4800}" SpecialFunc="None">
     <Declaration><![CDATA[// Tests for the InfluxDB line protocol helpers behind FB_Comm_MQTT_Influx.Publish / PublishLog (BROTLib issue #4):
 // F_InfluxFieldValue (integer / float / boolean / quoted string), F_EscapeInfluxTag (tag values, field keys, measurement
-// names) and F_TruncateInfluxEscaped (cut an escaped string without splitting an escape pair).
+// names), F_TruncateInfluxEscaped (cut an escaped string without splitting an escape pair) and F_InfluxTimestamp
+// (FILETIME to unix ns, #38).
 FUNCTION_BLOCK FB_InfluxLineProtocol_Tests EXTENDS TcUnit.FB_TestSuite
 ]]></Declaration>
     <Implementation>
@@ -19,6 +20,10 @@ Measurement_Name_Keeps_Equals();
 Truncate_Leaves_Short_Input();
 Truncate_Cuts_Plain_Text();
 Truncate_Does_Not_Split_Escape_Pairs();
+Timestamp_Unix_Epoch_Is_Zero();
+Timestamp_Known_Date();
+Timestamp_Keeps_100ns_Resolution();
+Timestamp_Before_1970_Is_Empty();
 ]]></ST>
     </Implementation>
     <Method Name="CheckValue" Id="{e7b124b1-8beb-4aa5-b737-6b188a6c52e4}">
@@ -239,6 +244,74 @@ CheckTruncate(sInput := 'a\\b', nMax := 2, sExpected := 'a');
 CheckTruncate(sInput := 'a\\b', nMax := 3, sExpected := 'a\\');
 // three backslashes: an escaped backslash and the start of an escaped quote
 CheckTruncate(sInput := 'x\\\"y', nMax := 4, sExpected := 'x\\');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckTimestamp" Id="{ef4bed6a-14fb-4f28-9d59-504eb77b1a45}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckTimestamp
+VAR_INPUT
+	nFileTime	: ULINT;
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_InfluxTimestamp(nFileTime := nFileTime),
+	Message := CONCAT('F_InfluxTimestamp on FILETIME: ', ULINT_TO_STRING(nFileTime)));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timestamp_Unix_Epoch_Is_Zero" Id="{f83cdba4-c674-48e5-b08f-9895467f351b}">
+      <Declaration><![CDATA[METHOD PRIVATE Timestamp_Unix_Epoch_Is_Zero
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timestamp_Unix_Epoch_Is_Zero');
+// 1970-01-01 00:00:00 UTC as FILETIME (100 ns since 1601-01-01)
+CheckTimestamp(nFileTime := 116444736000000000, sExpected := '0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timestamp_Known_Date" Id="{8b05c029-1aaf-4279-b236-39ff6d86f3c4}">
+      <Declaration><![CDATA[METHOD PRIVATE Timestamp_Known_Date
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timestamp_Known_Date');
+// 2026-10-08 12:34:56 UTC = unix 1791462896 s
+CheckTimestamp(nFileTime := 134359364960000000, sExpected := '1791462896000000000');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timestamp_Keeps_100ns_Resolution" Id="{3273a7eb-65f0-4ccc-9952-3818d9475441}">
+      <Declaration><![CDATA[METHOD PRIVATE Timestamp_Keeps_100ns_Resolution
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timestamp_Keeps_100ns_Resolution');
+CheckTimestamp(nFileTime := 116444736000000001, sExpected := '100');
+CheckTimestamp(nFileTime := 116444736012345678, sExpected := '1234567800');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timestamp_Before_1970_Is_Empty" Id="{a3f7f30c-0cfe-42d9-86be-9e6ebfd4d352}">
+      <Declaration><![CDATA[METHOD PRIVATE Timestamp_Before_1970_Is_Empty
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timestamp_Before_1970_Is_Empty');
+// an unset clock: no timestamp, the receiver stamps the line
+CheckTimestamp(nFileTime := 0, sExpected := '');
+CheckTimestamp(nFileTime := 116444735999999999, sExpected := '');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

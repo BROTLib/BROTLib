@@ -116,6 +116,9 @@
     <Compile Include="POUs\Comm\F_InfluxFieldValue.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Comm\F_InfluxTimestamp.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Comm\F_IsNumericValue.TcPOU">
       <SubType>Code</SubType>
     </Compile>
