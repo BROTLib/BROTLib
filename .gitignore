@@ -282,3 +282,6 @@ VSSettings/
 
 # The one vendored library: TcUnit, needed to build and run BROTLibTests (see BROTLibTests/vendor/README.md)
 !BROTLibTests/vendor/tcunit.library
+
+# IntelliJ/PyCharm module files
+*.iml
