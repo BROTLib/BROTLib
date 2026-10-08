@@ -19,6 +19,10 @@ VAR
 	bTrailing_Timestamp_Does_Not_Break_The_Last_Field	: BOOL;
 	bOther_Measurement_Is_Ignored	: BOOL;
 	bFields_Beyond_The_Eighth_Are_Ignored	: BOOL;
+	bNon_Numeric_Coordinate_Is_Rejected	: BOOL;
+	bOut_Of_Range_Coordinates_Are_Rejected	: BOOL;
+	bRange_Limits_Are_Accepted	: BOOL;
+	bRejected_Value_Clears_The_Buffer	: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -36,6 +40,10 @@ Slew_Takes_Elevation_And_Azimuth_From_One_Message();
 Trailing_Timestamp_Does_Not_Break_The_Last_Field();
 Other_Measurement_Is_Ignored();
 Fields_Beyond_The_Eighth_Are_Ignored();
+Non_Numeric_Coordinate_Is_Rejected();
+Out_Of_Range_Coordinates_Are_Rejected();
+Range_Limits_Are_Accepted();
+Rejected_Value_Clears_The_Buffer();
 ]]></ST>
     </Implementation>
     <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
@@ -243,6 +251,87 @@ IF NOT bFields_Beyond_The_Eighth_Are_Ignored THEN
 	ResetHandler();
 	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,x1=0,x2=0,x3=0,x4=0,x5=0,x6=0,track=1');
 	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'track is the ninth field: number of Track calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Non_Numeric_Coordinate_Is_Rejected" Id="{70e0277b-64c7-4892-988c-3be963d7f592}">
+      <Declaration><![CDATA[// STRING_TO_LREAL turns garbage into 0.0, a valid coordinate; it must not reach Track (#27).
+METHOD PRIVATE Non_Numeric_Coordinate_Is_Rejected
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Non_Numeric_Coordinate_Is_Rejected');
+IF NOT bNon_Numeric_Coordinate_Is_Rejected THEN
+	bNon_Numeric_Coordinate_Is_Rejected := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=abc,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'rightascension=abc: number of Track calls');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=nan,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'declination=nan: number of Track calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Out_Of_Range_Coordinates_Are_Rejected" Id="{c629a73e-2263-4856-a25c-456cd6c5bfe9}">
+      <Declaration><![CDATA[METHOD PRIVATE Out_Of_Range_Coordinates_Are_Rejected
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Out_Of_Range_Coordinates_Are_Rejected');
+IF NOT bOut_Of_Range_Coordinates_Are_Rejected THEN
+	bOut_Of_Range_Coordinates_Are_Rejected := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=95,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'declination=95: number of Track calls');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=1e999,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'rightascension=1e999: number of Track calls');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command elevation=120,azimuth=10,slew=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nSlew, Message := 'elevation=120: number of Slew calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Range_Limits_Are_Accepted" Id="{2234caa2-2a82-426e-91ed-05b02e9efd06}">
+      <Declaration><![CDATA[// The limits themselves are valid values; so are signs and exponents.
+METHOD PRIVATE Range_Limits_Are_Accepted
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Range_Limits_Are_Accepted');
+IF NOT bRange_Limits_Are_Accepted THEN
+	bRange_Limits_Are_Accepted := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=0,declination=-90,track=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'ra=0, dec=-90: number of Track calls');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=360,declination=+9e1,track=1');
+	AssertEquals_INT(Expected := 2, Actual := stub.nTrack, Message := 'ra=360, dec=+9e1: number of Track calls');
+	AssertEquals_LREAL(Expected := 90.0, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'dec=+9e1: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Rejected_Value_Clears_The_Buffer" Id="{70e7ff01-12c5-4d27-8596-129dcb4f5565}">
+      <Declaration><![CDATA[// A rejected coordinate must not fall back to one buffered by an earlier message: the track is dropped instead.
+METHOD PRIVATE Rejected_Value_Clears_The_Buffer
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Rejected_Value_Clears_The_Buffer');
+IF NOT bRejected_Value_Clears_The_Buffer THEN
+	bRejected_Value_Clears_The_Buffer := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=1.5');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=abc,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'buffered ra, then ra=abc: number of Track calls');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
