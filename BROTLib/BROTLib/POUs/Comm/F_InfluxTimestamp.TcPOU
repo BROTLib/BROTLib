@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_InfluxTimestamp" Id="{f0a1024f-7d71-4d91-84a6-d3ae1fca3cd4}" SpecialFunc="None">
+    <Declaration><![CDATA[// Influx line-protocol timestamp (unix nanoseconds) from a Windows FILETIME (100 ns since 1601-01-01 UTC, as
+// returned by F_GetSystemTime). Empty for a time before 1970, so the caller leaves the timestamp off and the
+// receiver stamps the line instead. (#38)
+FUNCTION F_InfluxTimestamp : STRING(20)
+VAR_INPUT
+	nFileTime	: ULINT;
+END_VAR
+VAR CONSTANT
+	FILETIME_UNIX_EPOCH	: ULINT := 116444736000000000;	// 1970-01-01 00:00:00 UTC as FILETIME
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF nFileTime < FILETIME_UNIX_EPOCH THEN
+	F_InfluxTimestamp := '';
+	RETURN;
+END_IF
+
+F_InfluxTimestamp := ULINT_TO_STRING((nFileTime - FILETIME_UNIX_EPOCH) * 100);
+]]></ST>
+    </Implementation>
+    <LineIds Name="F_InfluxTimestamp">
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

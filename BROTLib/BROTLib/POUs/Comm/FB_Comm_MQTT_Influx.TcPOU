@@ -235,6 +235,8 @@ VAR
 	sKey			: STRING(255);
 	sFieldVal		: STRING(255);
 	sTopic			: STRING(255);
+	sTimestamp		: STRING(20);
+	sFormat			: STRING(40);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
@@ -246,13 +248,31 @@ sHost := F_EscapeInfluxTag(HostName, TRUE);
 sKey := F_EscapeInfluxTag(parameter, TRUE);
 sFieldVal := F_InfluxFieldValue(value);
 
+// retain message if value is boolean: booleans are meant to be published on change only, so a subscriber that
+// connects later gets the current state from the broker
+bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
+retain_message := bIsBool;
+
+// a retained line carries the time it was published, so a replay after a Telegraf restart is stored at that time
+// and not at the time of the replay (#38). Consumers must accept the optional timestamp (pyBROT#40).
+sTimestamp := '';
+IF retain_message THEN
+	sTimestamp := F_InfluxTimestamp(F_GetSystemTime());
+END_IF
+IF sTimestamp <> '' THEN
+	sFormat := '%s,location=%s,host=%s %s=%s %s';
+ELSE
+	sFormat := '%s,location=%s,host=%s %s=%s';
+END_IF
+
 fbFormat(
-	sFormat 	:= '%s,location=%s,host=%s %s=%s',
+	sFormat 	:= sFormat,
 	arg1 		:= F_STRING(sDomain),
 	arg2 		:= F_STRING(sLocation),
 	arg3 		:= F_STRING(sHost),
 	arg4 		:= F_STRING(sKey),
 	arg5 		:= F_STRING(sFieldVal),
+	arg6 		:= F_STRING(sTimestamp),
 	sOut 		=> sPayloadPub,
 	bError 		=> bError,
 	nErrID 		=> nErrID
@@ -270,10 +290,6 @@ IF bError OR LEN(sPayloadPub) >= 255 THEN
 	Publish := published;
 	RETURN;
 END_IF
-
-// retain message if value is boolean
-bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
-retain_message := bIsBool;
 
 // publish under a per-subsystem sub-topic (domain is already the Influx measurement, e.g.
 // 'telescope'/'power'/'electronics'/'hydraulics'/'diagnostics') so a consumer that only cares

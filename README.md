@@ -188,6 +188,9 @@ BROTLib provides the reusable core for both **Alt-Az** and **equatorial
 - **`FB_Comm_MQTT_Influx`** — concrete MQTT + InfluxDB telemetry publisher.
   Publishes measurements in Influx line protocol; used by every BROT
   application (topics such as `MONETN/Telemetry`, `50cm/Telemetry`, ...).
+  Boolean values are retained by the broker and carry a unix-ns timestamp
+  (`F_InfluxTimestamp`), so a replay is stored at the time of the change
+  (see `specs/design/mqtt-telemetry-patterns.md`).
 - **`FB_InfluxMessage`** — parses Influx line-protocol messages (`measurement,tags parameter=value[,parameter=value ...]`)
   received on the command topic, one pair at a time (`remaining` holds the payload for the next pair).
   `FB_Comm_MQTT_Influx` walks up to 8 pairs per message and applies `track`/`slew` last, so they see the
