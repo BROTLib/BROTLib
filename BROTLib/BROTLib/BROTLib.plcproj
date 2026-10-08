@@ -197,6 +197,9 @@
     <Compile Include="Telescope\FB_BaseTelescopeControl.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Telescope\FB_RaDecTelescopeControl.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\ST_TelescopeConfig.TcDUT">
       <SubType>Code</SubType>
     </Compile>
