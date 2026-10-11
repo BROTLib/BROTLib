@@ -1,6 +1,8 @@
 # FB_Axis: mandatory homing reference and command methods
 
-**Status: accepted (2026-10-08), not started.** Nothing implemented. Design:
+**Status: in progress (2026-10-11).** Steps 1-4 done on branches `feature/fb-axis-command-methods` (BROTLib,
+HalfBROT, IAG50cm, MONETcommon): BROTLib tests 106/106, HalfBROT/IAG50cm build on CI; MONETcommon/MONETS/MONETN
+built locally against them. Not merged, not run on a telescope. Steps 5-6 open. Design:
 [fb-axis-command-interface.md](../design/fb-axis-command-interface.md). Breaking changes accepted, all repos are
 updated together (decision 2026-10-08). Issues: BROTLib #62 (homing reference), #63 (command flags);
 HalfBROT #46, IAG50cm #21 (migration); IAG50cm #20 (focus reference decision).

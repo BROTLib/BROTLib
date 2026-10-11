@@ -3,7 +3,9 @@
 Repos: BROTLib (`FB_Axis`, `FB_BaseAxis`), HalfBROT (azimuth, elevation, derotator, focus axes; used by
 MONETcommon, MONETS, MONETN), IAG50cm (hour angle, declination, focus axes)
 
-**Status: accepted (2026-10-08), not implemented.** Decisions: B2 (command methods); IAG50cm focus homes to its
+**Status: implemented on branches (2026-10-11), not merged, not run on a telescope.** `feature/fb-axis-command-methods`
+in BROTLib, HalfBROT, IAG50cm, MONETcommon; see "Implementation notes" at the end for where it differs from the text
+below. Decisions: B2 (command methods); IAG50cm focus homes to its
 stored last known position, a reference switch is IAG50cm#22. Covers the two `FB_Axis` interface changes left over from
 BROTLib#9 that are not bug fixes but interface decisions: (A) a mandatory homing reference position, (B) who owns
 the command flags (`MoveAxis`, `HomeAxis`, `StopAxis`, `Jog_Forward`, `Jog_Backwards`). Work order and status:
@@ -152,6 +154,35 @@ setters keep the telescope-facing interface stable.
   2026-10-06 re-home check) still works without the self-clear.
 - Jog: confirm with the pendant on one telescope that releasing the button stops the axis (it must already, since
   the button level is passed every cycle).
+
+## Implementation notes (2026-10-11)
+
+What the implementation changed against the design above, found while building:
+
+- **`MoveTo()`, not `Move()`**: `MOVE` is a reserved IEC 61131-3 operator; TwinCAT rejects a method with that name.
+- **`MoveTo()` takes no target.** `Position` stays an input and is both the move target (taken at the next call) and
+  the tracking target, which the tracking section already read every cycle. A target passed into the method from
+  the `I_Axis` setter would skip the axis blocks' `LIMIT(fMinPosition, fPosition, fMaxPosition)`, which runs in their
+  body before the `fbAxis(...)` call.
+- **`VAR_IN_OUT CONSTANT` accepts only variables** on this TwinCAT version (3.1.4024): literals and expressions are
+  compile errors ("needs variable as input"). Still mandatory per call, which was the point; callers with an
+  expression put it into a local variable first (HalfBROT focus).
+- **`FB_AxisCommand`** holds the request -> `Execute` logic for move, home and stop (pure, 7 TcUnit cases): rising
+  `Execute` once allowed (one cycle low first if still TRUE), **released on `Done`** (`MC_Stop` must not be held, it
+  keeps the axis in Stopping; this also gives the same one-cycle `Done` pulse the telescope state machines saw
+  before), kept on an error until the next request or `Reset`. Outputs `MovePending`/`HomePending` on `FB_Axis`.
+- **Adapter in the `I_Axis` setters**, so the telescope state machines are unchanged: `MoveAxis`/`StopAxis`
+  (each repo's `FB_AxisControl`) and `HomeAxis` (BROTLib's `FB_BaseAxis`) call `MoveTo()`/`Stop()`/`_StartHoming()`
+  on FALSE -> TRUE; `MoveAxis := FALSE` calls `CancelMove()`. `bMoveAxis`/`bHomeAxis`/`bStopAxis` stay the levels the
+  telescopes read and the axis blocks clear on the done outputs. Internal starts in the axis blocks go through the
+  properties (`THIS^.HomeAxis := TRUE`). MONETcommon and IAG50cm wrote the raw `bMoveAxis := FALSE` in 11 places;
+  those now use the property, so a pending move is dropped too.
+- **`_StartHoming` is `ABSTRACT` in `FB_BaseAxis`**: every concrete axis block must implement it (compile-time
+  check like the reference itself). IAG50cm hour angle and declination implement it empty (they home through
+  `FB_LatchHome`).
+- **`Stop()` drops pending `MoveTo()`/`Home()`**, so they do not start after a stop.
+- **Behaviour changes** (to check on the telescopes): a move that lost `Ready` no longer restarts by itself when
+  `Ready` returns; `Reset` releases a stuck command, which clears its MC error.
 
 ## Not covered here
 
