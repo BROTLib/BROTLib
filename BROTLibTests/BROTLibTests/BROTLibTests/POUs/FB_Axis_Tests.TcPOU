@@ -170,13 +170,13 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Move_Is_Ignored_Without_Calibration');
-fbAxis.MoveAxis := TRUE;
 fbAxis.Position := 50.0;
+fbAxis.Move();
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.Calibrated, Message := 'a fresh axis is not calibrated');
 AssertFalse(Condition := fbAxis.MoveDone, Message := 'no move without calibration');
-AssertTrue(Condition := fbAxis.MoveAxis, Message := 'the request is kept, not consumed');
+AssertTrue(Condition := fbAxis.MovePending, Message := 'the request is kept, not consumed');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -190,12 +190,12 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Home_Request_Is_Kept_While_Not_Homed');
-fbAxis.HomeAxis := TRUE;
+fbAxis.Home(fReference := 0.0);
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.Calibrated, Message := 'not calibrated without Homed');
 AssertFalse(Condition := fbAxis.HomeDone, Message := 'HomeDone is low while not homed');
-AssertTrue(Condition := fbAxis.HomeAxis, Message := 'the home request stays set until the axis is homed');
+AssertTrue(Condition := fbAxis.HomePending, Message := 'the home request waits until the axis is ready');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
