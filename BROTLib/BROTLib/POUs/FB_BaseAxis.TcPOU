@@ -6,7 +6,7 @@ VAR_INPUT
 	bEnable				: BOOL;		// enable the axis and its position control loop
 	bReset				: BOOL;		// reset the axis
 	bSoEReset			: BOOL;		// diagnostic reset
-	bHomeAxis			: BOOL;		// Home the axis
+	bHomeAxis			: BOOL;		// homing requested (level); set it through the HomeAxis property, which starts the homing
 	fPosition			: LREAL;	// position to move the axis to
 	fVelocity			: LREAL;	// set the Velocity of the axis
 	bMoveNeg			: BOOL;		// decrease position
@@ -111,6 +111,15 @@ END_VAR
         </Implementation>
       </Get>
     </Property>
+    <Method Name="_StartHoming" Id="{926ae9bb-4b2a-44f2-bb17-3dc0d44941f6}">
+      <Declaration><![CDATA[// Start homing: call fbAxis.Home(<reference position>) (#62). Abstract, so every axis block has to say what its
+// reference is; a block that homes some other way (e.g. IAG50cm FB_LatchHome) implements it empty.
+METHOD ABSTRACT _StartHoming : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="FB_Init" Id="{c74882ff-aa80-4625-bc9f-1892a4f93fe8}">
       <Declaration><![CDATA[//FB_Init is always available implicitly and it is used primarily for initialization.
 //The return value is not evaluated. For a specific influence, you can also declare the
@@ -141,7 +150,15 @@ END_VAR
 END_VAR
 ]]></Declaration>
         <Implementation>
-          <ST><![CDATA[bHomeAxis := HomeAxis;]]></ST>
+          <ST><![CDATA[// FALSE -> TRUE starts homing through _StartHoming, where each axis block passes its reference position to
+// fbAxis.Home() (#62, #63); FALSE drops a request that has not started yet. bHomeAxis stays the level that the axis
+// blocks and the telescopes see (the axis block clears it on HomeDone).
+IF HomeAxis AND NOT bHomeAxis THEN
+	_StartHoming();
+ELSIF NOT HomeAxis THEN
+	fbAxis.CancelHome();
+END_IF
+bHomeAxis := HomeAxis;]]></ST>
         </Implementation>
       </Set>
     </Property>

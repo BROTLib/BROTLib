@@ -31,6 +31,10 @@ no IAG-private infrastructure/credential/incident details — those stay in IAG'
   detailed `FB_Axis2` (BROTLib) vs. `FB_Axis3` (IAG50cm) comparison referenced by
   the axis-unification plan above. *reference*
   (Repos: BROTLib, IAG50cm)
+- [fb-axis-command-interface.md](fb-axis-command-interface.md) — `FB_Axis` interface: a mandatory homing
+  reference instead of the move target (BROTLib#62), and one owner for the command flags, recommended as command
+  methods `Move`/`Home(fReference)`/`Stop` (BROTLib#63); inventory of the seven `fbAxis(...)` call sites.
+  *accepted, not implemented* (Repos: BROTLib, HalfBROT, IAG50cm)
 - [custom-library-versioning.md](custom-library-versioning.md) — `Global_Version`/
   `stLibVersion_<Name>` design (renamed from an earlier `GVL_Version`/`stVersion` scheme to match
   Beckhoff's own convention, confirmed to merge into the compiler's auto-generated symbol) plus the

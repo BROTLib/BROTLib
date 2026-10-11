@@ -7,13 +7,8 @@ VAR_INPUT
 	Enable:		BOOL;
 	// reset the axis after error
 	Reset: 		BOOL;
-	// Move the Axis to a given position
-	MoveAxis: 	BOOL;
-	// HomeAxis;
-	HomeAxis:	BOOL;
-	// Stop the axis
-	StopAxis:	BOOL;
-	// position to move to
+	// target position: of the move started by MoveTo() (taken at the next call) and of tracking. Commands are the
+	// methods MoveTo(), Home(fReference), Stop(), CancelMove(), CancelHome() (#63); there are no command inputs.
 	Position: 	LREAL;
 	// maximum velocity
 	Velocity:	LREAL := 10.0;
@@ -27,9 +22,9 @@ VAR_INPUT
 	Enable_Positive:	BOOL := TRUE;
 	// Enable movement in negative direction (considering limit switch)
 	Enable_Negative:	BOOL := TRUE;
-	// jog forward
+	// jog forward while TRUE (a level, e.g. a pendant button; read only)
 	Jog_Forward:		BOOL := FALSE;
-	// jog backward
+	// jog backward while TRUE (a level, read only)
 	Jog_Backwards:		BOOL := FALSE;
 	// calibration input for homing
 	bCalibrationCam:	BOOL;
@@ -47,6 +42,10 @@ VAR_OUTPUT
 	JogDone:	BOOL;
 	// the axis has stopped
 	StopDone: 	BOOL;
+	// a MoveTo() is waiting to start (axis not Ready/Calibrated yet, or the one-cycle low before a restart)
+	MovePending:	BOOL;
+	// a Home() is waiting to start (axis not Ready yet)
+	HomePending:	BOOL;
 	// the axis was calibrated and has come to a standstill
 	HomeDone:	BOOL;
 	// the axis is ready
@@ -90,6 +89,11 @@ VAR
 	Axis_Home:		MC_Home;
 	Axis_Jog: 		MC_Jog;
 	Axis_SetpointEnable:	MC_ExtSetPointGenEnable;
+	MoveCommand:	FB_AxisCommand;	// MoveTo()/CancelMove() (#63)
+	HomeCommand:	FB_AxisCommand;	// Home()/CancelHome()
+	StopCommand:	FB_AxisCommand;	// Stop()
+	HomeReference:	LREAL;			// reference position of the last Home() (#62)
+	SetpointEnableFailed:	BOOL;	// setpoint enable failed; no retry until Reset or the end of the track request (#9)
 	Axis_SetpointDisable:	MC_ExtSetPointGenDisable;
 	StopAllowed:	BOOL;
 	// Direction for Axis_SetpointFeed
@@ -165,11 +169,16 @@ END_IF
 
 
 isTracking := Tracking AND ABS(Position - ActualPosition) < (TrackEnvelope/3600.0);
-IF Tracking AND Ready AND Calibrated AND NOT StopAxis THEN
-	Axis_SetpointEnable.Execute := TRUE;
-ELSIF NOT Axis_SetpointEnable.Busy AND Axis_SetpointEnable.Done THEN
-	Axis_SetpointEnable.Execute := FALSE;
-END_IF
+// drops Execute on an error and re-arms on Reset or a new track request (#9), see F_SetpointEnableExecute
+Axis_SetpointEnable.Execute := F_SetpointEnableExecute(
+	Request :=	Tracking AND Ready AND Calibrated AND NOT StopCommand.Execute AND NOT StopCommand.Pending,
+	Tracking :=	Tracking,
+	Reset :=	Reset,
+	Execute :=	Axis_SetpointEnable.Execute,
+	Busy :=		Axis_SetpointEnable.Busy,
+	Done :=		Axis_SetpointEnable.Done,
+	Error :=	Axis_SetpointEnable.Error,
+	Failed :=	SetpointEnableFailed);
 
 Axis_SetpointEnable(Axis := AxisRef,
 	Position :=		TrackPosition,	// final destination
@@ -187,10 +196,12 @@ Axis_SetpointDisable(Axis := AxisRef,
 
 (* end of tracking section  ********************************************** *)
 
+MoveCommand(Allowed := Ready AND Calibrated, Reset := Reset, Done := Axis_Modulo.Done OR Axis_Move.Done);
+MovePending := MoveCommand.Pending;
 IF isModuloAxis THEN
 	Axis_Modulo(
 		Axis := 		AxisRef,
-		Execute := 		MoveAxis AND Ready AND Calibrated,
+		Execute := 		MoveCommand.Execute,
 		Position := 	Position,
 		Velocity :=		Velocity,
 		Direction := 	MC_Shortest_Way,
@@ -198,7 +209,7 @@ IF isModuloAxis THEN
 ELSE
 	Axis_Move(
 		Axis := 		AxisRef,
-		Execute := 		MoveAxis AND Ready AND Calibrated,
+		Execute := 		MoveCommand.Execute,
 		Position := 	Position,
 		Velocity := 	Velocity,
 		Done => 		MoveDone);
@@ -212,47 +223,24 @@ Axis_Jog(
 	Axis := 		AxisRef);
 
 
+HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done);
+HomePending := HomeCommand.Pending;
 Axis_Home(
 	Axis := 			AxisRef,
-	Execute := 			HomeAxis AND Ready,
-	// NOTE: the reference position is the Position input (also the MoveAxis target), not a separate
-	// home position. HalfBROT and the IAG50cm focus axis rely on this (they set Position to the
-	// calibration position before homing), so do not change without migrating callers.
-	Position := 		Position,
+	Execute := 			HomeCommand.Execute,
+	Position := 		HomeReference,	// from Home(fReference), never the move target (#62)
 	HomingMode :=		HomingMode,
 	bCalibrationCam := 	bCalibrationCam,
 	Done => 			HomeDone);
-
-(*
-IF (MoveDone OR HomeDone OR JogDone) AND NOT Axis_Status.StandStill THEN
-	StopAxis := TRUE;
-END_IF
-*)
-IF MoveDone AND NOT Axis_Modulo.Busy AND NOT Axis_Move.Busy THEN
-	MoveAxis := FALSE;
-END_IF
-
-IF JogDone THEN
-	Jog_Forward := FALSE;
-	Jog_Backwards := FALSE;
-END_IF
 
 IF Axis_Status.Status.Homed THEN
 	Calibrated := TRUE;
 	// NOTE: HomeDone is a level (TRUE while the axis is homed), not a one-cycle pulse; IAG50cm's
 	// FB_HourAngleControl/FB_DeclinationControl combine it with FB_LatchHome.Done. Use Calibrated.
 	HomeDone := TRUE;
-	// do not cancel a re-home request in the cycle it starts on an already-homed axis
-	IF NOT Axis_Home.Busy THEN
-		HomeAxis := FALSE;
-	END_IF
 ELSE
 	Calibrated := FALSE;
 	HomeDone := FALSE;
-END_IF
-
-IF StopDone THEN
-	StopAxis := FALSE;
 END_IF
 
 StopAllowed :=	Axis_Status.StandStill OR
@@ -261,9 +249,10 @@ StopAllowed :=	Axis_Status.StandStill OR
 				Axis_Status.SynchronizedMotion OR
 				Axis_Status.Homing;
 
+StopCommand(Allowed := StopAllowed, Reset := Reset, Done := Axis_Stop.Done);
 Axis_Stop(
 	Axis := 	AxisRef,
-	Execute := 	StopAxis AND StopAllowed,
+	Execute := 	StopCommand.Execute,
 	Done => 	StopDone);
 (*
 Axis_Position(
@@ -321,6 +310,7 @@ Busy := 	Axis_SetpointEnable.Busy OR
 
 Error := 	Axis_Power.Error OR
 			Axis_SetpointEnable.Error OR
+			SetpointEnableFailed OR		// keeps a setpoint enable error visible after Execute dropped (#9)
 			Axis_Reset.Error OR
 			Axis_Modulo.Error OR
 			Axis_Move.Error OR
@@ -357,6 +347,71 @@ StandStill := Axis_Status.StandStill;
 Homing :=	Axis_Status.Homing;
 // InPosition := AxisRef.NcToPlc.TargetPos;]]></ST>
     </Implementation>
+    <Method Name="MoveTo" Id="{784bf5f8-2806-405c-9e5e-c434da6fb245}">
+      <Declaration><![CDATA[// Move to Position as passed in the next call (so the caller's limits on Position apply). Starts once the axis is
+// Ready and Calibrated; a MoveTo() while moving restarts with the new Position. MoveDone pulses when it is reached.
+METHOD MoveTo : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MoveCommand.Request();
+MovePending := TRUE;
+MoveTo := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Home" Id="{ed6fdeba-4192-411f-b040-7e71e16b4feb}">
+      <Declaration><![CDATA[// Home the axis. fReference is the reference position (MC_ForceCalibration: set as the current position; cam homing:
+// the position at the cam). VAR_IN_OUT CONSTANT so that every call has to pass it (#62); it must be a variable (TwinCAT
+// rejects literals and expressions here). Starts once the axis is Ready.
+METHOD Home : BOOL
+VAR_IN_OUT CONSTANT
+	fReference	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[HomeReference := fReference;
+HomeCommand.Request();
+HomePending := TRUE;
+Home := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop" Id="{3f23c5e2-5b72-477a-8fc0-71b441e818d2}">
+      <Declaration><![CDATA[// Stop the axis (MC_Stop). Also drops pending MoveTo()/Home() requests, so they do not start after the stop.
+METHOD Stop : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MoveCommand.Cancel();
+HomeCommand.Cancel();
+MovePending := FALSE;
+HomePending := FALSE;
+StopCommand.Request();
+Stop := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CancelMove" Id="{806802e2-c3b4-4c4c-a991-a730460dd426}">
+      <Declaration><![CDATA[// Drop a pending MoveTo() that has not started yet (e.g. the axis was not ready). A running move is not stopped.
+METHOD CancelMove : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[MoveCommand.Cancel();
+MovePending := FALSE;
+CancelMove := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CancelHome" Id="{45236ce3-06ce-4fda-bd4a-949a09bd3699}">
+      <Declaration><![CDATA[// Drop a pending Home() that has not started yet. A running homing is not stopped.
+METHOD CancelHome : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[HomeCommand.Cancel();
+HomePending := FALSE;
+CancelHome := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_Axis">
       <LineId Id="1" Count="0" />
     </LineIds>

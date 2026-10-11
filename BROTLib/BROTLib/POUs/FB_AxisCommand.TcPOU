@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_AxisCommand" Id="{6041f5ac-9472-4769-b33e-356cd686b9c8}" SpecialFunc="None">
+    <Declaration><![CDATA[// One command channel of FB_Axis: move, home or stop (#63). Request() latches a request; the body, called once per
+// cycle before the MC block, turns it into a rising Execute as soon as Allowed (if Execute is still TRUE from the last
+// command it is held FALSE for one cycle first, so the MC block sees an edge). Execute is released when the block
+// reports Done: MC_Stop must not be held (it keeps the axis in Stopping), and it gives the same one-cycle Done pulse as
+// the old caller-cleared flags. On an error Execute stays TRUE, so the block keeps its Error, until the next request
+// or Reset. Pure logic, tested without an NC axis (FB_AxisCommand_Tests).
+FUNCTION_BLOCK FB_AxisCommand
+VAR_INPUT
+	Allowed		: BOOL;		// the MC block may start now (e.g. Ready AND Calibrated); a request waits until then
+	Reset		: BOOL;		// drops a pending request and releases Execute, which clears the MC block's error
+	Done		: BOOL;		// Done of the MC block from its last call
+END_VAR
+VAR_OUTPUT
+	Execute		: BOOL;		// for the MC block's Execute
+	Pending		: BOOL;		// a request is waiting for Allowed or for the one-cycle low
+END_VAR
+VAR
+	Requested	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF Reset THEN
+	Requested := FALSE;
+	Execute := FALSE;
+ELSIF Requested THEN
+	IF Execute THEN
+		Execute := FALSE;		// still TRUE from the last command: one cycle low, so the next TRUE is an edge
+	ELSIF Allowed THEN
+		Execute := TRUE;
+		Requested := FALSE;
+	END_IF
+ELSIF Done THEN
+	Execute := FALSE;
+END_IF
+Pending := Requested;
+]]></ST>
+    </Implementation>
+    <Method Name="Request" Id="{26b59de3-122c-4932-976b-b0fd76baa95c}">
+      <Declaration><![CDATA[// Latch a request; it starts at the next call once Allowed. A request while the last command is still
+// executing restarts it.
+METHOD Request : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Requested := TRUE;
+Pending := TRUE;
+Request := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel" Id="{b55da50c-2f48-4137-b912-7c2a4ea3436b}">
+      <Declaration><![CDATA[// Drop a pending request. A command that has already started is not stopped (use the stop channel).
+METHOD Cancel : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Requested := FALSE;
+Pending := FALSE;
+Cancel := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
