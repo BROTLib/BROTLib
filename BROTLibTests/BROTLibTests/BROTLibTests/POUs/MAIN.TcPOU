@@ -17,6 +17,7 @@ VAR
 	fbCommMqttInfluxTests		: FB_Comm_MQTT_Influx_Tests;
 	fbInfoConnectionTests		: FB_InfoConnection_Tests;
 	fbSetpointEnableTests		: F_SetpointEnableExecute_Tests;
+	fbAxisCommandTests		: FB_AxisCommand_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

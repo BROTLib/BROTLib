@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_AxisCommand_Tests" Id="{5f290697-5ee2-4554-a2b1-c3b1204db5b4}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_AxisCommand, the request -> Execute logic behind FB_Axis.Move/Home/Stop (#63). Each fbCmd(...)
+// call is one cycle; Done is what the MC block reported in its last call.
+FUNCTION_BLOCK FB_AxisCommand_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Idle_Without_Request();
+Request_Gives_Rising_Edge();
+Waits_Until_Allowed();
+Request_While_Running_Retriggers();
+Error_Keeps_Execute();
+Reset_Releases_And_Drops();
+Cancel_Drops_Pending();
+]]></ST>
+    </Implementation>
+    <Method Name="Idle_Without_Request" Id="{234a4bd0-443d-44b3-bbca-f42eeacf4f93}">
+      <Declaration><![CDATA[METHOD PRIVATE Idle_Without_Request
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Idle_Without_Request');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'idle: Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'idle: Pending');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Request_Gives_Rising_Edge" Id="{7ca20c41-e167-4882-98e4-136fd368c369}">
+      <Declaration><![CDATA[// Request, Execute rises at the next call; Done releases it (one-cycle Done pulse as before).
+METHOD PRIVATE Request_Gives_Rising_Edge
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Request_Gives_Rising_Edge');
+fbCmd.Request();
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Pending, Message := 'after Request: Pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'started: Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'started: Pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'running: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'done: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Waits_Until_Allowed" Id="{1ab8d4a7-15d8-4b86-a836-82bc4fd80027}">
+      <Declaration><![CDATA[METHOD PRIVATE Waits_Until_Allowed
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Waits_Until_Allowed');
+fbCmd.Request();
+fbCmd(Allowed := FALSE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'not allowed: Execute');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Pending, Message := 'not allowed: Pending');
+fbCmd(Allowed := FALSE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'still not allowed: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'allowed: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Request_While_Running_Retriggers" Id="{ea1d5138-80b9-40ce-925b-26d689f9d864}">
+      <Declaration><![CDATA[// A new request while Execute is TRUE: one cycle low, then high again (a new edge).
+METHOD PRIVATE Request_While_Running_Retriggers
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Request_While_Running_Retriggers');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'one cycle low: Execute');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Pending, Message := 'low cycle: Pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'high again: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Keeps_Execute" Id="{7a99bc93-da9d-4abd-9c0a-729dae32d131}">
+      <Declaration><![CDATA[// No Done (the MC block reports an error instead): Execute stays, so the block keeps its Error.
+METHOD PRIVATE Error_Keeps_Execute
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Keeps_Execute');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'no Done: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset_Releases_And_Drops" Id="{f59c922c-cc94-4de1-b668-ca21a5f43e99}">
+      <Declaration><![CDATA[METHOD PRIVATE Reset_Releases_And_Drops
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Reset_Releases_And_Drops');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd(Allowed := TRUE, Reset := TRUE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'reset: Execute');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := TRUE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'request dropped by reset: Pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'nothing after reset: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel_Drops_Pending" Id="{e1a2a80b-2433-49ef-8a0e-8995c97ded72}">
+      <Declaration><![CDATA[METHOD PRIVATE Cancel_Drops_Pending
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Cancel_Drops_Pending');
+fbCmd.Request();
+fbCmd(Allowed := FALSE, Reset := FALSE, Done := FALSE);
+fbCmd.Cancel();
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'cancelled: Pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'allowed later: nothing starts: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
