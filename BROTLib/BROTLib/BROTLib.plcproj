@@ -143,6 +143,9 @@
     <Compile Include="POUs\FB_AstroClockSync.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_SetpointEnableExecute.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_Axis.TcPOU">
       <SubType>Code</SubType>
     </Compile>
