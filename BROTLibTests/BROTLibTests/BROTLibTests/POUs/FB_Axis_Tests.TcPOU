@@ -186,11 +186,12 @@ TEST_FINISHED();
 VAR
 	fbAxis	: FB_Axis;
 	axisRef	: AXIS_REF;
+	fReference	: LREAL := 0.0;
 END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Home_Request_Is_Kept_While_Not_Homed');
-fbAxis.Home(fReference := 0.0);
+fbAxis.Home(fReference := fReference);
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.Calibrated, Message := 'not calibrated without Homed');

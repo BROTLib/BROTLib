@@ -361,8 +361,8 @@ MoveTo := TRUE;
     </Method>
     <Method Name="Home" Id="{ed6fdeba-4192-411f-b040-7e71e16b4feb}">
       <Declaration><![CDATA[// Home the axis. fReference is the reference position (MC_ForceCalibration: set as the current position; cam homing:
-// the position at the cam). VAR_IN_OUT CONSTANT so that every call has to pass it (#62); literals and expressions are
-// accepted. Starts once the axis is Ready.
+// the position at the cam). VAR_IN_OUT CONSTANT so that every call has to pass it (#62); it must be a variable (TwinCAT
+// rejects literals and expressions here). Starts once the axis is Ready.
 METHOD Home : BOOL
 VAR_IN_OUT CONSTANT
 	fReference	: LREAL;
@@ -397,7 +397,7 @@ METHOD CancelMove : BOOL
       <Implementation>
         <ST><![CDATA[MoveCommand.Cancel();
 MovePending := FALSE;
-CancelMoveTo := TRUE;
+CancelMove := TRUE;
 ]]></ST>
       </Implementation>
     </Method>
