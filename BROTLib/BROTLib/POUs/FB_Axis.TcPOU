@@ -7,8 +7,8 @@ VAR_INPUT
 	Enable:		BOOL;
 	// reset the axis after error
 	Reset: 		BOOL;
-	// target position: of the move started by Move() (taken at the next call) and of tracking. Commands are the
-	// methods Move(), Home(fReference), Stop(), CancelMove(), CancelHome() (#63); there are no command inputs.
+	// target position: of the move started by MoveTo() (taken at the next call) and of tracking. Commands are the
+	// methods MoveTo(), Home(fReference), Stop(), CancelMove(), CancelHome() (#63); there are no command inputs.
 	Position: 	LREAL;
 	// maximum velocity
 	Velocity:	LREAL := 10.0;
@@ -42,7 +42,7 @@ VAR_OUTPUT
 	JogDone:	BOOL;
 	// the axis has stopped
 	StopDone: 	BOOL;
-	// a Move() is waiting to start (axis not Ready/Calibrated yet, or the one-cycle low before a restart)
+	// a MoveTo() is waiting to start (axis not Ready/Calibrated yet, or the one-cycle low before a restart)
 	MovePending:	BOOL;
 	// a Home() is waiting to start (axis not Ready yet)
 	HomePending:	BOOL;
@@ -89,7 +89,7 @@ VAR
 	Axis_Home:		MC_Home;
 	Axis_Jog: 		MC_Jog;
 	Axis_SetpointEnable:	MC_ExtSetPointGenEnable;
-	MoveCommand:	FB_AxisCommand;	// Move()/CancelMove() (#63)
+	MoveCommand:	FB_AxisCommand;	// MoveTo()/CancelMove() (#63)
 	HomeCommand:	FB_AxisCommand;	// Home()/CancelHome()
 	StopCommand:	FB_AxisCommand;	// Stop()
 	HomeReference:	LREAL;			// reference position of the last Home() (#62)
@@ -347,15 +347,15 @@ StandStill := Axis_Status.StandStill;
 Homing :=	Axis_Status.Homing;
 // InPosition := AxisRef.NcToPlc.TargetPos;]]></ST>
     </Implementation>
-    <Method Name="Move" Id="{784bf5f8-2806-405c-9e5e-c434da6fb245}">
+    <Method Name="MoveTo" Id="{784bf5f8-2806-405c-9e5e-c434da6fb245}">
       <Declaration><![CDATA[// Move to Position as passed in the next call (so the caller's limits on Position apply). Starts once the axis is
-// Ready and Calibrated; a Move() while moving restarts with the new Position. MoveDone pulses when it is reached.
-METHOD Move : BOOL
+// Ready and Calibrated; a MoveTo() while moving restarts with the new Position. MoveDone pulses when it is reached.
+METHOD MoveTo : BOOL
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[MoveCommand.Request();
 MovePending := TRUE;
-Move := TRUE;
+MoveTo := TRUE;
 ]]></ST>
       </Implementation>
     </Method>
@@ -377,7 +377,7 @@ Home := TRUE;
       </Implementation>
     </Method>
     <Method Name="Stop" Id="{3f23c5e2-5b72-477a-8fc0-71b441e818d2}">
-      <Declaration><![CDATA[// Stop the axis (MC_Stop). Also drops pending Move()/Home() requests, so they do not start after the stop.
+      <Declaration><![CDATA[// Stop the axis (MC_Stop). Also drops pending MoveTo()/Home() requests, so they do not start after the stop.
 METHOD Stop : BOOL
 ]]></Declaration>
       <Implementation>
@@ -391,13 +391,13 @@ Stop := TRUE;
       </Implementation>
     </Method>
     <Method Name="CancelMove" Id="{806802e2-c3b4-4c4c-a991-a730460dd426}">
-      <Declaration><![CDATA[// Drop a pending Move() that has not started yet (e.g. the axis was not ready). A running move is not stopped.
+      <Declaration><![CDATA[// Drop a pending MoveTo() that has not started yet (e.g. the axis was not ready). A running move is not stopped.
 METHOD CancelMove : BOOL
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[MoveCommand.Cancel();
 MovePending := FALSE;
-CancelMove := TRUE;
+CancelMoveTo := TRUE;
 ]]></ST>
       </Implementation>
     </Method>

@@ -171,7 +171,7 @@ END_VAR
       <Implementation>
         <ST><![CDATA[TEST('Move_Is_Ignored_Without_Calibration');
 fbAxis.Position := 50.0;
-fbAxis.Move();
+fbAxis.MoveTo();
 fbAxis(AxisRef := axisRef);
 fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.Calibrated, Message := 'a fresh axis is not calibrated');
