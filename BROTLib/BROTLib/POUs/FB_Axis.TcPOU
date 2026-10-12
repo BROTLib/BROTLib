@@ -360,8 +360,9 @@ MoveTo := TRUE;
       </Implementation>
     </Method>
     <Method Name="Home" Id="{ed6fdeba-4192-411f-b040-7e71e16b4feb}">
-      <Declaration><![CDATA[// Home the axis. fReference is the reference position (MC_ForceCalibration: set as the current position; cam homing:
-// the position at the cam). VAR_IN_OUT CONSTANT so that every call has to pass it (#62); it must be a variable (TwinCAT
+      <Declaration><![CDATA[// Home the axis. fReference is the reference position for homing modes that assign one (cam homing: the position at
+// the cam; MC_Direct: set as the current position). MC_ForceCalibration ignores it: it only sets the calibrated flag,
+// no motion, position unchanged (HalfBROT #17). VAR_IN_OUT CONSTANT so that every call has to pass it (#62); it must be a variable (TwinCAT
 // rejects literals and expressions here). Starts once the axis is Ready.
 METHOD Home : BOOL
 VAR_IN_OUT CONSTANT

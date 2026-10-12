@@ -42,6 +42,12 @@ MONETcommon, MONETS and MONETN use HalfBROT's axis blocks; they set `fCalibPosit
 position assigned at the cam. If a stale move target is in `Position` when homing starts, the axis is calibrated to
 it and every later position is off, silently.
 
+> **Correction (2026-10-12, HalfBROT #17):** the `MC_ForceCalibration` part above is wrong. Per the Tc2_MC2 docs it
+> only sets the calibrated flag, "without performing any motion or changing the position"; `Position` is ignored
+> (`MC_Direct` is the mode that writes it). The axes that use it (HalfBROT derotator, IAG50cm focus, IAG50cm hour
+> angle/declination) keep the position from their encoder; the MONET derotators and the IAG50cm focus have absolute
+> encoders. The risk described here applies to cam homing only. The `VAR_IN_OUT CONSTANT` reference is still right.
+
 Six of the seven callers avoid that by writing their calibration value into `fPosition` while homing. **IAG50cm's
 focus does not**: it homes with `MC_ForceCalibration` and `fPosition := fPosition`, so its calibration depends on the
 last target. The one place that makes the reference explicit is a comment in `FB_Axis` asking not to change it.
@@ -89,7 +95,8 @@ The `fPosition := fCalibPosition` / `fPosition := fHomingPosition` lines in the 
 also make the move right after homing go to the calibration position (`homeDelay`). Removing them is a separate
 clean-up once the move is made explicit.
 
-**IAG50cm focus (decided 2026-10-08, IAG50cm#20):** it has no reference switch (`MC_ForceCalibration`), so
+**IAG50cm focus (decided 2026-10-08, IAG50cm#20; see the correction above, the stored position is not applied by
+`MC_ForceCalibration`, and the absolute encoder makes it unnecessary):** it has no reference switch (`MC_ForceCalibration`), so
 "homing" means "declare the current position to be X". X is the **stored last known position**: `FB_AxisControl`
 already declares `VAR PERSISTENT fLastPosition : LREAL := -1.0` (unused today); `FB_FocusControl` stores
 `fActualPosition` there while calibrated and homes with `Home(fLastPosition)`. First start without a stored value
