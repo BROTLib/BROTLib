@@ -1,7 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <Itf Name="I_Telescope" Id="{5003d6e3-4b52-4cb8-a028-b0ab2a6b3370}">
-    <Declaration><![CDATA[INTERFACE I_Telescope
+    <Declaration><![CDATA[// READY_STATE: 0 parked, 0.3 parking, 0.7 initializing, 0.8 calibrating/automatic startup positioning,
+// 1 online only after complete startup, -1 error; -2 remains unknown/not operational.
+// Mechanical readiness needed by home/calibration must be kept separate.
+INTERFACE I_Telescope
 ]]></Declaration>
     <Property Name="Altitude" Id="{ce60f76f-3a5f-482f-9275-0897e7d29930}">
       <Declaration><![CDATA[PROPERTY Altitude : LREAL]]></Declaration>

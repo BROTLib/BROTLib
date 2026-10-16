@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StartupReadiness_Tests" Id="{c2de3b13-6338-437e-a35b-5ebc43113878}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_StartupReadiness_Tests EXTENDS TcUnit.FB_TestSuite
+]]></Declaration>
+    <Implementation><ST><![CDATA[Power_To_Home_Handoff();
+Abort_Cannot_Become_Online();
+Error_And_Park_Win();
+Completion_Requires_Operational();
+Explicit_Abort_Invalidates_Completed_Startup();
+Repeated_Start_Does_Not_Reset_Calibration();
+]]></ST></Implementation>
+    <Method Name="Power_To_Home_Handoff" Id="{1b0ac36a-9d5e-4f27-8424-ea7230f7a68f}">
+      <Declaration><![CDATA[METHOD PRIVATE Power_To_Home_Handoff
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Power_To_Home_Handoff');
+fb(Start := TRUE, Parked := TRUE);
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'preparation, even if parked flag has not cleared');
+fb(Start := FALSE, Calibrating := TRUE, Parked := FALSE, Operational := TRUE);
+AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'calibration, axes mechanically ready');
+fb(Calibrating := FALSE);
+AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'handoff/intermediate standstill stays pending');
+fb(Completed := TRUE);
+AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'only terminal completion is online');
+fb(Completed := FALSE);
+AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'ordinary subsequent movement remains online');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Abort_Cannot_Become_Online" Id="{6b14a82a-f957-45c4-b97d-8ab02dcec312}">
+      <Declaration><![CDATA[METHOD PRIVATE Abort_Cannot_Become_Online
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Abort_Cannot_Become_Online');
+fb(Start := TRUE, Calibrating := TRUE, Operational := TRUE);
+fb(Start := FALSE, Aborted := TRUE, Completed := TRUE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'abort wins over completion');
+fb(Aborted := FALSE, Completed := FALSE);
+AssertFalse(fb.Initialized, 'enabled axes after abort are not complete');
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'clearing flags cannot restore online');
+fb(Start := TRUE, Calibrating := FALSE);
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'retry starts cleanly');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Error_And_Park_Win" Id="{7d124066-6035-4ae0-8568-5397f3d2b99f}">
+      <Declaration><![CDATA[METHOD PRIVATE Error_And_Park_Win
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Error_And_Park_Win');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE, Error := TRUE);
+AssertEquals_LREAL(-1.0, fb.ReadyState, 0.0001, 'error wins');
+fb(Start := FALSE, Completed := FALSE, Error := FALSE, Parking := TRUE);
+AssertEquals_LREAL(0.3, fb.ReadyState, 0.0001, 'parking');
+fb(Parking := FALSE, Parked := TRUE);
+AssertEquals_LREAL(0.0, fb.ReadyState, 0.0001, 'parked');
+fb(Parked := FALSE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'no old success after park');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Completion_Requires_Operational" Id="{3033074d-150f-4719-b3c7-855d2c447217}">
+      <Declaration><![CDATA[METHOD PRIVATE Completion_Requires_Operational
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Completion_Requires_Operational');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := FALSE);
+AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'unfinished focus/not operational prevents completion');
+fb(Start := FALSE, Operational := TRUE);
+AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'completion with all prerequisites');
+fb(Completed := FALSE, Operational := FALSE);
+AssertTrue(fb.Initialized, 'transient operational loss preserves completed startup');
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'interlock still gates online immediately');
+fb(Operational := TRUE);
+AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'operational recovery needs no repeated calibration');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Repeated_Start_Does_Not_Reset_Calibration" Id="{31b86714-6425-4799-bfe4-559e296f7851}">
+      <Declaration><![CDATA[METHOD PRIVATE Repeated_Start_Does_Not_Reset_Calibration
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Repeated_Start_Does_Not_Reset_Calibration');
+fb(Start := TRUE, Calibrating := TRUE, Operational := TRUE);
+fb(Calibrating := FALSE);
+AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'held/duplicate request does not rewind phase');
+fb(Start := FALSE, Completed := TRUE);
+AssertTrue(fb.Initialized, 'complete');
+fb(Start := TRUE, Completed := FALSE);
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'accepted new startup clears prior success');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Explicit_Abort_Invalidates_Completed_Startup" Id="{68f3f00d-9ca2-4813-aaac-7e218d1c3586}">
+      <Declaration><![CDATA[METHOD PRIVATE Explicit_Abort_Invalidates_Completed_Startup
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Explicit_Abort_Invalidates_Completed_Startup');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE);
+AssertTrue(fb.Initialized, 'startup complete');
+fb(Start := FALSE, Completed := FALSE, Aborted := TRUE, Operational := FALSE);
+AssertFalse(fb.Initialized, 'explicit abort invalidates completed startup');
+fb(Aborted := FALSE, Operational := TRUE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'unlike an interlock, explicit abort needs a new init');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

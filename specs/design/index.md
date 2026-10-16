@@ -63,3 +63,5 @@ no IAG-private infrastructure/credential/incident details — those stay in IAG'
   model, safety limits, and non-sidereal tracking options. Describes the consuming projects'
   behavior more than BROTLib itself. Formerly `TRACKING.md` at the repository root. *reference*
   (Repos: BROTLib, MONETcommon, MONETN, IAG50cm)
+
+- [telescope-ready-state.md](telescope-ready-state.md) — completed startup semantics of READY_STATE, calibration state 0.8, and the hardware-free readiness latch. (Repos: BROTLib, MONETcommon, IAG50cm, pyBROT, pyobs-brot)
