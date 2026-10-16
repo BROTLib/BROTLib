@@ -114,3 +114,17 @@ that runtime while a run is going, and expect the library repository to change a
 - **Identifier pitfall.** ST is case-insensitive: a parameter named `sIn` collides with the `SIN` operator and
   produces a wall of parse errors.
 - `.tmc`, `_Boot/`, `_CompileInfo/` and `_Libraries/` are generated and ignored by git.
+
+## Startup readiness
+
+`FB_StartupReadiness_Tests` covers preparation, calibration/automatic-home handoff,
+completion, abort/error/park precedence, repeated requests and loss of operational
+readiness without NC axes. These scenarios can also run against the actual FB
+with IronPLC (not a replacement for the NC controller build/tests):
+
+```sh
+python3 tools/test-startup-readiness.py --compiler ironplcc --vm ironplcvm
+```
+
+Run this command from the repository root. Concrete controllers must supply the
+terminal completion event only after their own startup actions finish.

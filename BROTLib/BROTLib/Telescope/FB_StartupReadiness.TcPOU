@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StartupReadiness" Id="{2029364a-7a0a-4b66-8ff5-23e9d5437561}" SpecialFunc="None">
+    <Declaration><![CDATA[// Public readiness follows completed startup, independently of mechanical readiness.
+// Start/Calibrating/Completed/Aborted are per-scan events supplied by the concrete controller.
+FUNCTION_BLOCK FB_StartupReadiness
+VAR_INPUT
+    Start : BOOL;
+    Calibrating : BOOL;
+    Completed : BOOL;
+    Aborted : BOOL;
+    Error : BOOL;
+    Parked : BOOL;
+    Parking : BOOL;
+    Operational : BOOL;
+END_VAR
+VAR_OUTPUT
+    Initializing : BOOL;
+    Initialized : BOOL;
+    ReadyState : LREAL;
+END_VAR
+VAR
+    calibrationStarted : BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation><ST><![CDATA[// Abort/error/park wins over a completion in the same scan.
+IF Aborted OR Error OR Parking THEN
+    Initializing := FALSE;
+    Initialized := FALSE;
+    calibrationStarted := FALSE;
+ELSE
+    IF Start AND NOT Initializing THEN
+        Initializing := TRUE;
+        Initialized := FALSE;
+        calibrationStarted := FALSE;
+    END_IF
+    IF Initializing THEN
+        calibrationStarted := calibrationStarted OR Calibrating;
+        IF Completed AND Operational THEN
+            Initializing := FALSE;
+            Initialized := TRUE;
+            calibrationStarted := FALSE;
+        END_IF
+    END_IF
+    IF NOT Initializing AND (Parked OR NOT Operational) THEN
+        Initialized := FALSE;
+    END_IF
+END_IF
+
+IF Error THEN
+    ReadyState := -1.0;
+ELSIF Parking THEN
+    ReadyState := 0.3;
+ELSIF Initializing THEN
+    IF calibrationStarted THEN
+        ReadyState := 0.8;
+    ELSE
+        ReadyState := 0.7;
+    END_IF
+ELSIF Parked THEN
+    ReadyState := 0.0;
+ELSIF Initialized AND Operational THEN
+    ReadyState := 1.0;
+ELSE
+    // Existing unknown/not operational value: an aborted partial startup is not parked or online.
+    ReadyState := -2.0;
+END_IF
+]]></ST></Implementation>
+  </POU>
+</TcPlcObject>

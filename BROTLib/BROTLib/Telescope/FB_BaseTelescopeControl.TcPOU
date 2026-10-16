@@ -84,7 +84,7 @@ VAR
 END_VAR
 VAR_OUTPUT
 	bReady				: BOOL;		// TRUE, IF telescope can be operated 
-	fReadyState 		: LREAL := 0.0; // 0: Shut down, 1 powered on, -1 Error
+	fReadyState 		: LREAL := 0.0; // -1 error, 0 parked, 0.3 parking, 0.7 initializing, 0.8 calibrating/positioning, 1 startup complete
 	bIsParked			: BOOL := TRUE;		// telescope is parked
 	bIsPowered			: BOOL;		// telescope is powered on
 	bError				: BOOL;		// indicates an error on one of the components
