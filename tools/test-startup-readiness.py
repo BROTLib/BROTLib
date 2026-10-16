@@ -3,6 +3,10 @@
 
 The assertions and FB under test are extracted from their actual TwinCAT sources.
 This does not compile the NC-backed telescope controllers or replace TwinCAT CI.
+Supported test shape: one local FB_StartupReadiness instance named ``fb`` per method,
+positional single-line assertions with comma-free expressions, and simple quoted
+messages. This is a narrow adapter, not a general ST parser; extend it or use
+TcUnit directly when adding scenarios outside those shapes.
 """
 
 import argparse

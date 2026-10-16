@@ -7,6 +7,7 @@
 Abort_Cannot_Become_Online();
 Error_And_Park_Win();
 Completion_Requires_Operational();
+Explicit_Abort_Invalidates_Completed_Startup();
 Repeated_Start_Does_Not_Reset_Calibration();
 ]]></ST></Implementation>
     <Method Name="Power_To_Home_Handoff" Id="{1b0ac36a-9d5e-4f27-8424-ea7230f7a68f}">
@@ -77,9 +78,10 @@ AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'unfinished focus/not operational
 fb(Start := FALSE, Operational := TRUE);
 AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'completion with all prerequisites');
 fb(Completed := FALSE, Operational := FALSE);
-AssertFalse(fb.Initialized, 'loss of operational readiness invalidates success');
+AssertTrue(fb.Initialized, 'transient operational loss preserves completed startup');
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'interlock still gates online immediately');
 fb(Operational := TRUE);
-AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 're-enable alone cannot restore success');
+AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'operational recovery needs no repeated calibration');
 TEST_FINISHED();
 ]]></ST></Implementation>
     </Method>
@@ -97,6 +99,22 @@ fb(Start := FALSE, Completed := TRUE);
 AssertTrue(fb.Initialized, 'complete');
 fb(Start := TRUE, Completed := FALSE);
 AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'accepted new startup clears prior success');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Explicit_Abort_Invalidates_Completed_Startup" Id="{68f3f00d-9ca2-4813-aaac-7e218d1c3586}">
+      <Declaration><![CDATA[METHOD PRIVATE Explicit_Abort_Invalidates_Completed_Startup
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Explicit_Abort_Invalidates_Completed_Startup');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE);
+AssertTrue(fb.Initialized, 'startup complete');
+fb(Start := FALSE, Completed := FALSE, Aborted := TRUE, Operational := FALSE);
+AssertFalse(fb.Initialized, 'explicit abort invalidates completed startup');
+fb(Aborted := FALSE, Operational := TRUE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'unlike an interlock, explicit abort needs a new init');
 TEST_FINISHED();
 ]]></ST></Implementation>
     </Method>

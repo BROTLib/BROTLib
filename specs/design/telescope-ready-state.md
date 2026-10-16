@@ -17,7 +17,9 @@ Controllers feed per-scan Start, Calibrating, Completed and Aborted events plus 
 error/park/operational inputs. Clear event inputs each scan. Completed is asserted only
 at the final controller stage after every startup-owned action finishes. A power-to-home
 handoff, stopped sample or cleared command flag is not completion. Abort/error/park wins
-over completion; loss of operational readiness invalidates earlier success.
+over completion. A transient loss of Operational gates online (-2) without erasing
+completed startup; recovery restores 1 without repeating calibration. A new Start,
+explicit Aborted, Error, Parked or Parking still invalidates earlier completion.
 
 Keep mechanical bReady available internally during calibration/home. No transient 1 is
 allowed between startup stages. Normal subsequent slew/tracking remains online. The

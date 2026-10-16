@@ -42,7 +42,9 @@ ELSE
             calibrationStarted := FALSE;
         END_IF
     END_IF
-    IF NOT Initializing AND (Parked OR NOT Operational) THEN
+    // A transient operational interlock only gates public ONLINE; it does not undo completed calibration.
+    // Explicit abort/error/park/new startup still invalidates the completion latch.
+    IF NOT Initializing AND Parked THEN
         Initialized := FALSE;
     END_IF
 END_IF
