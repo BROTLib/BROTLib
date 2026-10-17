@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StartupControl_Tests" Id="{cceb447c-dfa7-4da9-9aa4-bb8b76cf91d5}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_StartupControl_Tests EXTENDS TcUnit.FB_TestSuite
+]]></Declaration>
+    <Implementation><ST><![CDATA[Repeated_Request_Is_Dropped_When_Online();
+First_Request_Is_Kept();
+Init_Gate();
+Suspend_Is_Never_Online();
+Suspend_Reports_Parked_And_Error();
+Conditional_Aborts();
+Events_Last_One_Scan();
+External_Abort_Input();
+Publish_On_Change_And_Heartbeat();
+]]></ST></Implementation>
+    <Method Name="Repeated_Request_Is_Dropped_When_Online" Id="{f55a2374-8991-498c-9e2a-386f87d993e6}">
+      <Declaration><![CDATA[METHOD PRIVATE Repeated_Request_Is_Dropped_When_Online
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Repeated_Request_Is_Dropped_When_Online');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkCalibrating();
+ctl.MarkCompleted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'online after completion');
+keep := ctl.BeginScan(Power := TRUE, Ready := TRUE);
+AssertFalse(keep, 'repeated power request dropped');
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'repeat does not restart calibration');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="First_Request_Is_Kept" Id="{1f7bafa1-3fc1-4a17-a502-68814f9386f3}">
+      <Declaration><![CDATA[METHOD PRIVATE First_Request_Is_Kept
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('First_Request_Is_Kept');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+AssertTrue(keep, 'first request kept');
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(0.7, rs, 0.0001, 'preparation');
+AssertTrue(ctl.Initializing, 'initializing output');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Init_Gate" Id="{6716ed97-a58c-4f52-a528-7b5de711dd8e}">
+      <Declaration><![CDATA[METHOD PRIVATE Init_Gate
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Init_Gate');
+AssertTrue(ctl.AcceptInit(), 'idle telescope accepts Init');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertFalse(ctl.AcceptInit(), 'running startup is joined, not restarted');
+ctl.MarkCompleted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertFalse(ctl.AcceptInit(), 'online telescope ignores Init');
+keep := ctl.BeginScan(Power := FALSE, Ready := TRUE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := FALSE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'interlock');
+AssertFalse(ctl.AcceptInit(), 'Init during an interlock must not recalibrate');
+keep := ctl.BeginScan(Power := FALSE, Ready := TRUE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'recovers without a new startup');
+ctl.MarkAborted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertTrue(ctl.AcceptInit(), 'aborted startup may be requested again');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Suspend_Is_Never_Online" Id="{c7683e92-4400-45b6-8d02-f6c15a5421d4}">
+      <Declaration><![CDATA[METHOD PRIVATE Suspend_Is_Never_Online
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Suspend_Is_Never_Online');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkCalibrating();
+ctl.MarkCompleted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'online after completion');
+ok := ctl.EnterSuspend();
+AssertTrue(ok, 'first scan of the suspension');
+ok := ctl.EnterSuspend();
+AssertFalse(ok, 'only once');
+rs := ctl.Suspend(Error := FALSE, Parked := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'suspended is not online');
+AssertFalse(ctl.AcceptInit(), 'no Init while suspended');
+keep := ctl.BeginScan(Power := FALSE, Ready := TRUE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'back in automatic mode still needs a new init');
+AssertTrue(ctl.AcceptInit(), 'Init accepted again');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Suspend_Reports_Parked_And_Error" Id="{956dd5a9-042d-41e2-91bd-15f9f79d7f38}">
+      <Declaration><![CDATA[METHOD PRIVATE Suspend_Reports_Parked_And_Error
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Suspend_Reports_Parked_And_Error');
+rs := ctl.Suspend(Error := FALSE, Parked := TRUE);
+AssertEquals_LREAL(0.0, rs, 0.0001, 'parked');
+rs := ctl.Suspend(Error := TRUE, Parked := TRUE);
+AssertEquals_LREAL(-1.0, rs, 0.0001, 'error');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Conditional_Aborts" Id="{9b65ae49-20f4-44ea-b5a6-216332b3d7e8}">
+      <Declaration><![CDATA[METHOD PRIVATE Conditional_Aborts
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Conditional_Aborts');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkCalibrating();
+ctl.MarkCompleted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'online after completion');
+ctl.MarkAbortedIfInitializing();
+ctl.MarkAbortedIfStarting(Power := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'a stop on an online telescope is not a startup abort');
+ctl.MarkAbortedIfStarting(Power := TRUE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'pending power request aborted');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+ctl.MarkAbortedIfInitializing();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'running startup aborted');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Events_Last_One_Scan" Id="{82931cb8-60d9-4ce7-9ce9-147a86575277}">
+      <Declaration><![CDATA[METHOD PRIVATE Events_Last_One_Scan
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Events_Last_One_Scan');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkAborted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'abort wins');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(0.7, rs, 0.0001, 'abort of the previous scan is gone');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="External_Abort_Input" Id="{6276b5d2-b16c-4d23-9bd1-6c383d0e0277}">
+      <Declaration><![CDATA[METHOD PRIVATE External_Abort_Input
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('External_Abort_Input');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkCalibrating();
+ctl.MarkCompleted();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(1.0, rs, 0.0001, 'online after completion');
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := TRUE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'E-stop style abort');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Publish_On_Change_And_Heartbeat" Id="{85f10240-ac7a-40de-b1d4-68dae42023d9}">
+      <Declaration><![CDATA[METHOD PRIVATE Publish_On_Change_And_Heartbeat
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+    ok : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Publish_On_Change_And_Heartbeat');
+rs := ctl.Update(Error := FALSE, Parked := TRUE, Parking := FALSE, Operational := FALSE, AbortExtra := FALSE);
+AssertFalse(ctl.PublishDue(CommValid := FALSE, Heartbeat := FALSE), 'no comm, nothing sent');
+AssertTrue(ctl.PublishDue(CommValid := TRUE, Heartbeat := FALSE), 'first value, and the missed one is still due');
+AssertFalse(ctl.PublishDue(CommValid := TRUE, Heartbeat := FALSE), 'unchanged');
+AssertTrue(ctl.PublishDue(CommValid := TRUE, Heartbeat := TRUE), 'heartbeat repeats the value');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertTrue(ctl.PublishDue(CommValid := TRUE, Heartbeat := FALSE), 'change');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

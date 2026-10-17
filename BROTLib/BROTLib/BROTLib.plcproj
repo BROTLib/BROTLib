@@ -25,6 +25,9 @@
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Telescope\FB_StartupControl.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\FB_StartupReadiness.TcPOU">
       <SubType>Code</SubType>
     </Compile>

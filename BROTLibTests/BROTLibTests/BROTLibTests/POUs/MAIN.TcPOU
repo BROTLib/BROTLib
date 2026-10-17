@@ -19,6 +19,7 @@ VAR
 	fbSetpointEnableTests		: F_SetpointEnableExecute_Tests;
 	fbAxisCommandTests		: FB_AxisCommand_Tests;
     fbStartupReadinessTests : FB_StartupReadiness_Tests;
+    fbStartupControlTests : FB_StartupControl_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

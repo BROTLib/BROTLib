@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StartupControl" Id="{eb0efc35-d6b7-4b88-b5bf-5058904a6840}" SpecialFunc="None">
+    <Declaration><![CDATA[// Startup glue shared by the telescope controllers, around FB_StartupReadiness: the per-scan events,
+// the repeated-request guard, the Init() gate, the suspended-automatic-mode state and the decision
+// when to publish READY_STATE. No motion dependency, so it is tested without NC hardware.
+// Per scan: BeginScan first, Mark* wherever the controller sees the event, then Update (or Suspend) once.
+FUNCTION_BLOCK FB_StartupControl
+VAR_OUTPUT
+    ReadyState : LREAL := 0.0;
+    Initializing : BOOL;
+    Initialized : BOOL;
+END_VAR
+VAR
+    readiness : FB_StartupReadiness;
+    start : BOOL;
+    calibrating : BOOL;
+    completed : BOOL;
+    aborted : BOOL;
+    paused : BOOL;
+    lastPublished : LREAL := -3.0;
+END_VAR
+]]></Declaration>
+    <Implementation><ST><![CDATA[]]></ST></Implementation>
+    <Method Name="BeginScan" Id="{d6144e44-7193-4970-9c83-bab761c1bbda}">
+      <Declaration><![CDATA[// Clears the events and returns the power request the controller should keep.
+// A repeated request to an already online telescope is dropped, it must not restart calibration.
+METHOD BeginScan : BOOL
+VAR_INPUT
+    Power : BOOL;
+    Ready : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[start := Power;
+calibrating := FALSE;
+completed := FALSE;
+aborted := FALSE;
+paused := FALSE;
+IF Power AND readiness.Initialized AND Ready THEN
+    start := FALSE;
+    BeginScan := FALSE;
+ELSE
+    BeginScan := Power;
+END_IF
+]]></ST></Implementation>
+    </Method>
+    <Method Name="MarkCalibrating" Id="{eb8c1c97-b6cb-4890-8112-70dd06194851}">
+      <Declaration><![CDATA[METHOD MarkCalibrating
+]]></Declaration>
+      <Implementation><ST><![CDATA[calibrating := TRUE;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="MarkCompleted" Id="{1c1ff73f-cf8e-4aad-bae2-d7976c42807e}">
+      <Declaration><![CDATA[// Only the final controller stage, after every startup-owned action has finished.
+METHOD MarkCompleted
+]]></Declaration>
+      <Implementation><ST><![CDATA[completed := TRUE;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="MarkAborted" Id="{ec4c020d-ca21-42a6-b64f-1ddbcae4959d}">
+      <Declaration><![CDATA[METHOD MarkAborted
+]]></Declaration>
+      <Implementation><ST><![CDATA[aborted := TRUE;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="MarkAbortedIfInitializing" Id="{bab0ff51-826b-4560-8e63-6c1e84e0fe0d}">
+      <Declaration><![CDATA[// For stops and timeouts that are only an abort while a startup is running.
+METHOD MarkAbortedIfInitializing
+]]></Declaration>
+      <Implementation><ST><![CDATA[aborted := aborted OR readiness.Initializing;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="MarkAbortedIfStarting" Id="{d8eeb65e-d1bb-439a-a3f6-3f2ca7ed002b}">
+      <Declaration><![CDATA[// Like MarkAbortedIfInitializing, but a pending power request counts as a startup too.
+METHOD MarkAbortedIfStarting
+VAR_INPUT
+    Power : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[aborted := aborted OR readiness.Initializing OR Power;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Update" Id="{a5b7f119-fe66-4dce-8138-f33fc18d9d6c}">
+      <Declaration><![CDATA[// Call once per scan after all Mark* calls. AbortExtra is an abort the controller knows from outside (E-stop).
+METHOD Update : LREAL
+VAR_INPUT
+    Error : BOOL;
+    Parked : BOOL;
+    Parking : BOOL;
+    Operational : BOOL;
+    AbortExtra : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[readiness(Start := start, Calibrating := calibrating, Completed := completed, Aborted := aborted OR AbortExtra,
+    Error := Error, Parked := Parked, Parking := Parking, Operational := Operational);
+Initializing := readiness.Initializing;
+Initialized := readiness.Initialized;
+ReadyState := readiness.ReadyState;
+Update := ReadyState;
+// Events are single-scan: whatever is marked after this call belongs to the next one.
+start := FALSE;
+calibrating := FALSE;
+completed := FALSE;
+aborted := FALSE;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="EnterSuspend" Id="{612ee73a-3a47-402f-af74-905c1ae2524c}">
+      <Declaration><![CDATA[// Automatic control is disabled instead of running. TRUE only on the first scan of a suspension,
+// so the controller can stop a running startup once.
+METHOD EnterSuspend : BOOL
+]]></Declaration>
+      <Implementation><ST><![CDATA[EnterSuspend := NOT paused;
+paused := TRUE;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Suspend" Id="{e7ecfce5-4b31-4919-8b20-9132e136895e}">
+      <Declaration><![CDATA[// Replaces Update while automatic control is suspended: never online, a completed startup is discarded.
+METHOD Suspend : LREAL
+VAR_INPUT
+    Error : BOOL;
+    Parked : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[readiness(Start := FALSE, Calibrating := FALSE, Completed := FALSE, Aborted := TRUE,
+    Error := Error, Parked := Parked, Parking := FALSE, Operational := FALSE);
+Initializing := readiness.Initializing;
+Initialized := readiness.Initialized;
+ReadyState := readiness.ReadyState;
+Suspend := ReadyState;
+// Events are single-scan: whatever is marked after this call belongs to the next one.
+start := FALSE;
+calibrating := FALSE;
+completed := FALSE;
+aborted := FALSE;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="AcceptInit" Id="{12d4d27a-3224-4c97-aaa5-d7b2cea49770}">
+      <Declaration><![CDATA[// Gate for the Init() command. An Initialized telescope that only lost Operational (-2) recovers to 1.0
+// by itself, a new Start would discard that and calibrate again.
+METHOD AcceptInit : BOOL
+]]></Declaration>
+      <Implementation><ST><![CDATA[AcceptInit := NOT readiness.Initializing AND NOT readiness.Initialized AND NOT paused;
+]]></ST></Implementation>
+    </Method>
+    <Method Name="PublishDue" Id="{0fad3535-af5d-441c-ae38-55748e858567}">
+      <Declaration><![CDATA[// TRUE when READY_STATE should be sent: on every change, and on Heartbeat (the controller's cadence).
+METHOD PublishDue : BOOL
+VAR_INPUT
+    CommValid : BOOL;
+    Heartbeat : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[PublishDue := CommValid AND (ReadyState <> lastPublished OR Heartbeat);
+IF PublishDue THEN
+    lastPublished := ReadyState;
+END_IF
+]]></ST></Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
