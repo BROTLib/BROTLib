@@ -9,6 +9,11 @@ Error_And_Park_Win();
 Completion_Requires_Operational();
 Explicit_Abort_Invalidates_Completed_Startup();
 Repeated_Start_Does_Not_Reset_Calibration();
+Suspended_Automatic_Needs_New_Startup();
+Start_While_Initialized_Restarts_Calibration();
+Error_Needs_New_Startup();
+Parking_Invalidates_Completed_Startup();
+Preparation_Stays_0_7_Until_Calibrating();
 ]]></ST></Implementation>
     <Method Name="Power_To_Home_Handoff" Id="{1b0ac36a-9d5e-4f27-8424-ea7230f7a68f}">
       <Declaration><![CDATA[METHOD PRIVATE Power_To_Home_Handoff
@@ -115,6 +120,90 @@ fb(Start := FALSE, Completed := FALSE, Aborted := TRUE, Operational := FALSE);
 AssertFalse(fb.Initialized, 'explicit abort invalidates completed startup');
 fb(Aborted := FALSE, Operational := TRUE);
 AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'unlike an interlock, explicit abort needs a new init');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Suspended_Automatic_Needs_New_Startup" Id="{87b41991-06d0-4e83-842c-e25251082520}">
+      <Declaration><![CDATA[METHOD PRIVATE Suspended_Automatic_Needs_New_Startup
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Suspended_Automatic_Needs_New_Startup');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE);
+AssertEquals_LREAL(1.0, fb.ReadyState, 0.0001, 'online before manual mode');
+fb(Start := FALSE, Calibrating := FALSE, Completed := FALSE, Aborted := TRUE, Operational := FALSE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'manual mode is not online');
+fb(Aborted := FALSE, Operational := TRUE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'back in automatic mode stays offline until a new init');
+fb(Start := TRUE);
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'new init starts again');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Start_While_Initialized_Restarts_Calibration" Id="{73c7d07c-8679-47d5-8fd0-b8dd3b41e731}">
+      <Declaration><![CDATA[METHOD PRIVATE Start_While_Initialized_Restarts_Calibration
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Start_While_Initialized_Restarts_Calibration');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE);
+fb(Start := FALSE, Completed := FALSE, Operational := FALSE);
+AssertTrue(fb.Initialized, 'interlock keeps completed startup');
+fb(Start := TRUE, Calibrating := FALSE);
+AssertFalse(fb.Initialized, 'a Start request discards it, so controllers must not issue one while Initialized');
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'full startup again');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Error_Needs_New_Startup" Id="{1d95150f-0476-4f8d-a6f3-687167cee33d}">
+      <Declaration><![CDATA[METHOD PRIVATE Error_Needs_New_Startup
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Error_Needs_New_Startup');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE);
+fb(Start := FALSE, Completed := FALSE, Error := TRUE);
+AssertEquals_LREAL(-1.0, fb.ReadyState, 0.0001, 'error');
+AssertFalse(fb.Initialized, 'error invalidates completed startup');
+fb(Error := FALSE);
+AssertEquals_LREAL(-2.0, fb.ReadyState, 0.0001, 'cleared error is not online without a new init');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Parking_Invalidates_Completed_Startup" Id="{c9fb2c8f-3678-4346-81a7-6fdc609ab8f1}">
+      <Declaration><![CDATA[METHOD PRIVATE Parking_Invalidates_Completed_Startup
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Parking_Invalidates_Completed_Startup');
+fb(Start := TRUE, Calibrating := TRUE, Completed := TRUE, Operational := TRUE);
+fb(Start := FALSE, Completed := FALSE, Parking := TRUE);
+AssertEquals_LREAL(0.3, fb.ReadyState, 0.0001, 'parking');
+AssertFalse(fb.Initialized, 'parking invalidates completed startup');
+fb(Parking := FALSE, Parked := TRUE);
+AssertEquals_LREAL(0.0, fb.ReadyState, 0.0001, 'parked');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Preparation_Stays_0_7_Until_Calibrating" Id="{ff773175-22de-4aa4-a146-a2152930dec4}">
+      <Declaration><![CDATA[METHOD PRIVATE Preparation_Stays_0_7_Until_Calibrating
+VAR
+    fb : BROTLib.FB_StartupReadiness;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Preparation_Stays_0_7_Until_Calibrating');
+fb(Start := TRUE, Operational := TRUE);
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'preparation');
+fb(Start := FALSE);
+AssertEquals_LREAL(0.7, fb.ReadyState, 0.0001, 'still preparation without calibration');
+fb(Calibrating := TRUE);
+AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'calibration');
+fb(Calibrating := FALSE);
+AssertEquals_LREAL(0.8, fb.ReadyState, 0.0001, 'calibration is not undone by a quiet scan');
 TEST_FINISHED();
 ]]></ST></Implementation>
     </Method>
