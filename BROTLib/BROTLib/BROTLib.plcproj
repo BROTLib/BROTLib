@@ -19,12 +19,15 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.7.1</ProjectVersion>
+    <ProjectVersion>0.7.2</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Telescope\FB_StartupControl.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\FB_StartupReadiness.TcPOU">
       <SubType>Code</SubType>
     </Compile>

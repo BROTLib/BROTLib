@@ -21,6 +21,13 @@ over completion. A transient loss of Operational gates online (-2) without erasi
 completed startup; recovery restores 1 without repeating calibration. A new Start,
 explicit Aborted, Error, Parked or Parking still invalidates earlier completion.
 
+Controllers do not drive `FB_StartupReadiness` directly. `FB_StartupControl` wraps it and owns the
+glue that both concrete controllers need: per-scan events (`BeginScan`, `Mark*`, `Update`), dropping a
+repeated power request on an online telescope, the `Init()` gate (`AcceptInit`: refused while a startup
+runs, after it completed, also across a transient interlock, and while automatic mode is suspended),
+`EnterSuspend`/`Suspend` for a disabled automatic mode, and `PublishDue` for the READY_STATE publish
+decision. It has no motion dependency and is covered by `FB_StartupControl_Tests`.
+
 Keep mechanical bReady available internally during calibration/home. No transient 1 is
 allowed between startup stages. Normal subsequent slew/tracking remains online. The
 common block has no motion dependency and can be tested without NC hardware. Concrete

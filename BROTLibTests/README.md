@@ -117,9 +117,13 @@ that runtime while a run is going, and expect the library repository to change a
 
 ## Startup readiness
 
+`FB_StartupControl_Tests` covers the controller glue around it (repeated-request guard, `Init()` gate,
+suspend, single-scan events, publish decision). TcUnit only: the IronPLC runner below does not call methods.
+
 `FB_StartupReadiness_Tests` covers preparation, calibration/automatic-home handoff,
 completion, abort/error/park precedence, repeated requests and loss of operational
-readiness without NC axes. These scenarios can also run against the actual FB
+readiness, suspended automatic mode, and the rule that a new Start discards a completed
+startup (so controllers must not issue one while `Initialized`), without NC axes. These scenarios can also run against the actual FB
 with IronPLC (not a replacement for the NC controller build/tests):
 
 ```sh
