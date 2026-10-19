@@ -12,6 +12,8 @@ Conditional_Aborts();
 Events_Last_One_Scan();
 External_Abort_Input();
 Publish_On_Change_And_Heartbeat();
+Power_Dropped_Without_Abort_Stays_Initializing();
+Stop_On_Accepted_Request_Before_Initializing();
 ]]></ST></Implementation>
     <Method Name="Repeated_Request_Is_Dropped_When_Online" Id="{f55a2374-8991-498c-9e2a-386f87d993e6}">
       <Declaration><![CDATA[METHOD PRIVATE Repeated_Request_Is_Dropped_When_Online
@@ -217,6 +219,49 @@ AssertTrue(ctl.PublishDue(CommValid := TRUE, Heartbeat := TRUE), 'heartbeat repe
 keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
 rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
 AssertTrue(ctl.PublishDue(CommValid := TRUE, Heartbeat := FALSE), 'change');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Power_Dropped_Without_Abort_Stays_Initializing" Id="{f5016899-1182-4cc1-a807-e194aee85fb3}">
+      <Declaration><![CDATA[METHOD PRIVATE Power_Dropped_Without_Abort_Stays_Initializing
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Power_Dropped_Without_Abort_Stays_Initializing');
+// MONETcommon #80: bPower dropped by an error without an abort leaves the startup stuck until stop/reset
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkCalibrating();
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(0.8, rs, 0.0001, 'calibrating');
+keep := ctl.BeginScan(Power := FALSE, Ready := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(0.8, rs, 0.0001, 'dropped power alone does not leave the startup');
+AssertFalse(ctl.AcceptInit(), 'a new power-on is refused while stuck');
+ctl.MarkAbortedIfStarting(Power := FALSE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'stop aborts the stuck startup');
+AssertFalse(ctl.Initializing, 'no longer initializing');
+AssertTrue(ctl.AcceptInit(), 'power-on accepted again');
+TEST_FINISHED();
+]]></ST></Implementation>
+    </Method>
+    <Method Name="Stop_On_Accepted_Request_Before_Initializing" Id="{b3e945c0-dbfb-4768-b228-135e7c8e643e}">
+      <Declaration><![CDATA[METHOD PRIVATE Stop_On_Accepted_Request_Before_Initializing
+VAR
+    ctl : BROTLib.FB_StartupControl;
+    rs : LREAL;
+    keep : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation><ST><![CDATA[TEST('Stop_On_Accepted_Request_Before_Initializing');
+keep := ctl.BeginScan(Power := TRUE, Ready := FALSE);
+ctl.MarkAbortedIfStarting(Power := TRUE);
+rs := ctl.Update(Error := FALSE, Parked := FALSE, Parking := FALSE, Operational := TRUE, AbortExtra := FALSE);
+AssertEquals_LREAL(-2.0, rs, 0.0001, 'stop wins over a request accepted in the same scan');
+AssertFalse(ctl.Initializing, 'never initializing');
 TEST_FINISHED();
 ]]></ST></Implementation>
     </Method>
