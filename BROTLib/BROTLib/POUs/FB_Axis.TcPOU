@@ -180,6 +180,11 @@ Axis_SetpointEnable.Execute := F_SetpointEnableExecute(
 	Error :=	Axis_SetpointEnable.Error,
 	Failed :=	SetpointEnableFailed);
 
+// The NC target during tracking is the TrackPosition latched when MC_ExtSetPointGenEnable starts. With
+// TargetPosControl Range 0.5 deg (IAG50cm), the NC InTargetPosition bit (StateDWord bit 4) of an axis moving at
+// the sidereal rate (HA, 0.00418 deg/s) drops about 120 s into the track and returns on stop; Dec normally stays
+// in range. This is expected (IAG50cm#121): use isTracking / bTracking, not InTargetPosition, as the tracking
+// indicator. MC_Stop on an axis outside its window may need about 2 extra scans for Done (handled, IAG50cm#117).
 Axis_SetpointEnable(Axis := AxisRef,
 	Position :=		TrackPosition,	// final destination
 	PositionType := POSITIONTYPE_ABSOLUTE);
