@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.7.2</ProjectVersion>
+    <ProjectVersion>0.8.0</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
