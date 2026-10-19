@@ -46,8 +46,12 @@ VAR_OUTPUT
 	MovePending:	BOOL;
 	// a Home() is waiting to start (axis not Ready yet)
 	HomePending:	BOOL;
-	// the axis was calibrated and has come to a standstill
+	// the NC reports the axis as homed (a level, see Calibrated). It is set by the NC before the homing procedure has
+	// finished, so do not use it to end homing-related overrides (limit switch bypass): use HomeActive
 	HomeDone:	BOOL;
+	// a homing is running: from the start of Home() until the MC_Home block is finished (Execute or Busy). FALSE when
+	// idle and when the homing is complete, also on drives where the Done pulse is not seen
+	HomeActive:	BOOL;
 	// the axis is ready
 	Ready:		BOOL;
 	// the command has been aborted
@@ -237,6 +241,7 @@ Axis_Home(
 	HomingMode :=		HomingMode,
 	bCalibrationCam := 	bCalibrationCam,
 	Done => 			HomeDone);
+HomeActive := HomeCommand.Execute OR Axis_Home.Busy;
 
 IF Axis_Status.Status.Homed THEN
 	Calibrated := TRUE;
@@ -368,14 +373,19 @@ MoveTo := TRUE;
       <Declaration><![CDATA[// Home the axis. fReference is the reference position for homing modes that assign one (cam homing: the position at
 // the cam; MC_Direct: set as the current position). MC_ForceCalibration ignores it: it only sets the calibrated flag,
 // no motion, position unchanged (HalfBROT #17). VAR_IN_OUT CONSTANT so that every call has to pass it (#62); it must be a variable (TwinCAT
-// rejects literals and expressions here). Starts once the axis is Ready.
+// rejects literals and expressions here). Starts once the axis is Ready. A call while a homing is running (HomeActive)
+// is ignored and returns FALSE: a second MC_Home edge would restart the homing procedure.
 METHOD Home : BOOL
 VAR_IN_OUT CONSTANT
 	fReference	: LREAL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[HomeReference := fReference;
+        <ST><![CDATA[IF HomeActive THEN
+	Home := FALSE;
+	RETURN;
+END_IF
+HomeReference := fReference;
 HomeCommand.Request();
 HomePending := TRUE;
 Home := TRUE;

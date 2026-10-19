@@ -5,7 +5,8 @@
 // no NC behind it, so the MC_* blocks report errors and never confirm a command. What can be checked is what
 // FB_Axis computes itself: the actual position (plain and modulo), isTracking, and that homing/move requests are
 // kept or ignored as intended. Homing completion (Homed) and the setpoint generator need the NC and are covered
-// by the hardware checks, not here.
+// by the hardware checks, not here. The same holds for the running-homing side of HomeActive (Home() ignored while a
+// homing runs, HomeActive TRUE from the start until MC_Home is finished): MC_Home never starts without an NC axis.
 // Each test calls the block twice because ActualPosition is read at the end of a cycle and used in the next.
 FUNCTION_BLOCK FB_Axis_Tests EXTENDS TcUnit.FB_TestSuite
 ]]></Declaration>
@@ -17,6 +18,8 @@ IsTracking_Requires_Tracking();
 IsTracking_Modulo_Wrap_Known_Limitation();
 Move_Is_Ignored_Without_Calibration();
 Home_Request_Is_Kept_While_Not_Homed();
+HomeActive_Is_Low_While_Idle();
+Home_Call_Is_Accepted_While_Idle();
 ]]></ST>
     </Implementation>
     <Method Name="SetActPos" Id="{2b7e4c91-8d35-4f06-a1c8-9e3d5b70f214}">
@@ -197,6 +200,41 @@ fbAxis(AxisRef := axisRef);
 AssertFalse(Condition := fbAxis.Calibrated, Message := 'not calibrated without Homed');
 AssertFalse(Condition := fbAxis.HomeDone, Message := 'HomeDone is low while not homed');
 AssertTrue(Condition := fbAxis.HomePending, Message := 'the home request waits until the axis is ready');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="HomeActive_Is_Low_While_Idle" Id="{5e1f9b27-3d84-4c06-8a52-7c0e4d91b3a8}">
+      <Declaration><![CDATA[METHOD PRIVATE HomeActive_Is_Low_While_Idle
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('HomeActive_Is_Low_While_Idle');
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.HomeActive, Message := 'no homing runs without a Home() call');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Home_Call_Is_Accepted_While_Idle" Id="{8a3c6d14-2b59-4e70-9f18-d4b7e2a5c601}">
+      <Declaration><![CDATA[METHOD PRIVATE Home_Call_Is_Accepted_While_Idle
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+	fReference	: LREAL := 0.0;
+	bAccepted	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Home_Call_Is_Accepted_While_Idle');
+fbAxis(AxisRef := axisRef);
+bAccepted := fbAxis.Home(fReference := fReference);
+AssertTrue(Condition := bAccepted, Message := 'Home() is accepted when no homing runs (the guard only ignores calls during a homing)');
+AssertTrue(Condition := fbAxis.HomePending, Message := 'the accepted request is pending');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
