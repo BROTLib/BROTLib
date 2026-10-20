@@ -40,3 +40,8 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   rest silently: new `FB_InfluxMessage` outputs `trailing`/`trailingIgnored`, one ADS warning per message in
   `_DispatchPass`, README syntax example, MONET/S re-test. **proposed**, nothing implemented; open: also skip
   `track`/`slew` of such a message, publish the warning over MQTT (BROTLib#79)
+- [2026-10-20-focus-command-guard-74.md](2026-10-20-focus-command-guard-74.md) —
+  `command focus=..` moves the focus while the telescope is parked: new read-only `I_Telescope.ReadyState`,
+  `FB_Comm_MQTT_Influx` applies `focus` only at READY_STATE 1 and logs the rejection; park/startup focus writes
+  unaffected; IAG50cm adds the property (0.9.0), tests with a focus stub, MONET/S re-test. **proposed**, nothing
+  implemented; open: gate 1 only or wider, interface vs `__QUERYINTERFACE`, no telescope connected (BROTLib#74)
