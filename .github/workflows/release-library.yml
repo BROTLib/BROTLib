@@ -46,6 +46,33 @@ jobs:
             Where-Object { $_.SessionId -eq $session } |
             ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
 
+      # A cold XAE start can outlast TcBuild's own COM retry window, which then fails with exit 3 (busy) on every
+      # retry below. Starting and quitting one XAE first leaves the following starts fast. Best effort: never
+      # fails the job, and only touches the XAE instance started here.
+      - name: Warm up XAE
+        shell: powershell
+        run: |
+          $before = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
+          $dte = $null
+          $own = @()
+          try {
+            $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
+            $own = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $before -notcontains $_.Id } | ForEach-Object Id)
+            for ($n = 0; $n -lt 120; $n++) {
+              try { if ($null -ne $dte.Solution) { break } } catch { }
+              Start-Sleep -Seconds 1
+            }
+            Start-Sleep -Seconds 10
+            Write-Host "XAE ready after about $n s"
+          }
+          catch { Write-Host "::warning::XAE warm-up failed: $($_.Exception.Message)" }
+          finally {
+            if ($dte -and $own.Count -gt 0) { try { $dte.Quit() } catch { } }
+            Start-Sleep -Seconds 3
+            Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $own -contains $_.Id } | ForEach-Object { Stop-Process -Id $_.Id -Force }
+          }
+          exit 0
+
       - name: Save library with TcBuild
         shell: powershell
         env:
