@@ -131,6 +131,7 @@ jobs:
             Start-Sleep -Seconds 30
           }
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+          exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
       - name: Build BROTLibTests
         shell: powershell
@@ -142,6 +143,7 @@ jobs:
             Start-Sleep -Seconds 30
           }
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+          exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
       # Exit 0 = all passed, 1 = a test failed, 2 = no result within the timeout.
       - name: Run tests
