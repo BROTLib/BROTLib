@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_FocusStub" Id="{ba5ff146-f04c-4648-979f-d5c065e2dcc0}" SpecialFunc="None">
+    <Declaration><![CDATA[// Minimal I_Focus for the MQTT handler tests: Position is stored by FB_BaseAxis, nothing moves (BROTLib#74).
+FUNCTION_BLOCK FB_FocusStub EXTENDS BROTLib.FB_BaseAxis IMPLEMENTS BROTLib.I_Focus
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="_StartHoming" Id="{cff36c3c-f927-4b62-9082-dbd69acf4694}">
+      <Declaration><![CDATA[METHOD _StartHoming : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

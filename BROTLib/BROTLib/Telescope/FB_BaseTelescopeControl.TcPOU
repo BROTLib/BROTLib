@@ -339,6 +339,18 @@ END_VAR
         <ST><![CDATA[bReset := TRUE;]]></ST>
       </Implementation>
     </Method>
+    <Property Name="ReadyState" Id="{4d4527d2-e978-4809-a456-9f42c0ab5550}">
+      <Declaration><![CDATA[PROPERTY ReadyState : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{2ee04f95-b83b-45e9-9589-70b9d3655f46}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[ReadyState := THIS^.fReadyState;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
     <Property Name="RightAscension" Id="{479a6a93-35a2-4327-9015-03d6802f2b56}">
       <Declaration><![CDATA[PROPERTY RightAscension : LREAL
 ]]></Declaration>

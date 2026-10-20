@@ -108,7 +108,7 @@ organised into four layers:
 
    | Interface | Subsystem |
    |---|---|
-   | `I_Telescope` | Generic telescope (command interface, coordinate handling, telemetry) |
+   | `I_Telescope` | Generic telescope (command interface, coordinate handling, `ReadyState`, telemetry) |
    | `I_AltAzTelescope` / `I_RaDecTelescope` | Mount-type-specific extensions |
    | `I_Axis` / `I_BaseAxis` | Motion axes (position, velocity, tracking, homing) |
    | `I_Dome` | Dome rotation and shutter |
@@ -207,7 +207,11 @@ organised into four layers:
 - **`FB_InfluxMessage`** — parses Influx line-protocol messages (`measurement,tags parameter=value[,parameter=value ...]`)
   received on the command topic, one pair at a time (`remaining` holds the payload for the next pair).
   `FB_Comm_MQTT_Influx` walks up to 8 pairs per message and applies `track`/`slew` last, so they see the
-  coordinates of the same message.
+  coordinates of the same message. Several fields go in **one comma-separated field set without spaces**:
+  `command elevation=50,azimuth=150,slew=1`. A space ends the field set (what follows is the optional timestamp),
+  so `command elevation=50 azimuth=150 slew=1` applies only `elevation=50`; the ignored rest is logged as a
+  warning (`MQTT command: fields must be separated by commas, ignored: ...`) and `track`/`slew` of such a
+  message are not run (BROTLib#79).
 - **`F_EscapeInfluxString`** / **`F_IsNumericValue`** — Influx string escaping
   and strict numeric validation (incl. scientific notation).
 - **`FB_EventLog`** — structured event/error logging with severity and message
@@ -223,6 +227,10 @@ telescope/auxiliary commands (`power`, `park`, `gohome`, `track`, `slew`,
 the interface references (`Telescope`, `AltAzTelescope`, `RaDecTelescope`,
 `Focus`, `Filter`, `Nasmyth`, `Dome`, `Roof`, `MirrorCovers`). Telemetry is
 published at 1 s while slewing/tracking and 5 s when idle.
+
+`focus` is applied only while the telescope reports READY_STATE 1 (online, `I_Telescope.ReadyState`); parked,
+parking, starting up, in error or with no `Telescope` connected it is rejected with a log entry (BROTLib#74). The
+park and startup sequences set the focus themselves and are not affected.
 
 ### Utilities and timing
 
@@ -277,8 +285,8 @@ published at 1 s while slewing/tracking and 5 s when idle.
   (`.github/workflows/tcbuild.yml`,
   `release.yml`, `tag-release.yml`), not the older `build.ps1`/`build.yml`
   pipeline (removed). On the self-hosted runner (push only, never
-  `pull_request`) BROTLib runs `tests.yml` (compiles BROTLib and runs the
-  tests) and `tcbuild.yml` (compile check) on every push; the other repos of the org run
+  `pull_request`) BROTLib runs `tcbuild.yml` (compiles BROTLib and runs the
+  tests, one job `build`) on every push; the other repos of the org run
   `tcbuild.yml` on every push as their compile check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
 
 ---
@@ -318,8 +326,7 @@ helpers). TcBuild only compiles, so running them needs a TwinCAT runtime; on Win
 runtime, because the 4024 real-time runtime does not run there. Setup, the one-command run and the known gaps are in
 [BROTLibTests/README.md](BROTLibTests/README.md).
 
-CI: `tests.yml` runs the suites on the self-hosted runner on every push (installs the checked-out BROTLib, builds
-BROTLibTests, runs `Run-Tests.ps1`), and `tcbuild.yml` compiles BROTLib on every push and on
-demand. The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
-by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tests.yml` fails
-with a clear message once it has expired or lacks a license the tests need.
+CI: `tcbuild.yml` compiles BROTLib and runs the suites on the self-hosted runner on every push and on demand (installs
+the checked-out BROTLib, builds BROTLibTests, runs `Run-Tests.ps1`). The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
+by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tcbuild.yml` warns and
+skips the tests (the build stays green, so releases are not blocked) once it has expired or lacks a license the tests need.

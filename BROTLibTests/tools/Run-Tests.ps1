@@ -30,12 +30,14 @@ $ErrorActionPreference = 'Stop'
 $Solution = (Resolve-Path $Solution).Path
 
 # XAE rejects COM calls (RPC_E_CALL_REJECTED 0x80010001 / RPC_E_SERVERCALL_RETRYLATER 0x8001010A) while it is
-# busy. PowerShell wraps the COMException, so match on the text.
+# busy. PowerShell wraps the COMException, so match on the text. While XAE is still starting or loading the solution,
+# DTE.Solution / Solution.Projects can also be null for a moment: calling a method on that fails with "You cannot
+# call a method on a null-valued expression", so that is retried too (it ended CI runs before any test ran).
 function Invoke-Retry([scriptblock]$Action, [int]$Tries = 60, [int]$DelayMs = 1000) {
     for ($i = 1; ; $i++) {
         try { return & $Action }
         catch {
-            if ($i -ge $Tries -or $_.Exception.ToString() -notmatch '0x80010001|0x8001010A|RPC_E_') { throw }
+            if ($i -ge $Tries -or $_.Exception.ToString() -notmatch '0x80010001|0x8001010A|RPC_E_|null-valued expression') { throw }
             Start-Sleep -Milliseconds $DelayMs
         }
     }
@@ -76,8 +78,15 @@ try {
         $sysMan = $null
         for ($i = 0; $null -eq $sysMan; $i++) {
             if ($i -ge 60) { throw "XAE did not load a TwinCAT project from $Solution" }
-            if ((Invoke-Retry { $dte.Solution.Projects.Count }) -ge 1) {
-                $sysMan = Invoke-Retry { ,$dte.Solution.Projects.Item(1).Object }
+            # Count can already be 1 while Item(1) or its Object is still null mid-load; treat that as "not yet"
+            try {
+                if ((Invoke-Retry { $dte.Solution.Projects.Count }) -ge 1) {
+                    $sysMan = Invoke-Retry { ,$dte.Solution.Projects.Item(1).Object }
+                }
+            }
+            catch [System.Management.Automation.RuntimeException] {
+                if ($i -ge 59) { throw }
+                $sysMan = $null
             }
             if ($null -eq $sysMan) { Start-Sleep -Seconds 1 }
         }
@@ -103,7 +112,9 @@ try {
         Start-Sleep -Seconds 3
         Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeOwn -contains $_.Id } | ForEach-Object {
             Write-Warning "XAE instance $($_.Id) did not quit; killing it."
-            Stop-Process -Id $_.Id -Force
+            # the instance can exit between Get-Process and here; $ErrorActionPreference = 'Stop' would turn that
+            # into a failed run before any test ran
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
     }
 

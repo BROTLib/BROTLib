@@ -24,12 +24,14 @@ $Solution = (Resolve-Path $Solution).Path
 $Library  = (Resolve-Path $Library).Path
 
 # XAE rejects COM calls (RPC_E_CALL_REJECTED 0x80010001 / RPC_E_SERVERCALL_RETRYLATER 0x8001010A) while it
-# is busy starting up or loading a solution. PowerShell wraps the COMException, so match on the text.
+# is busy starting up or loading a solution. PowerShell wraps the COMException, so match on the text. DTE.Solution /
+# Solution.Projects can also be null for a moment then: calling a method on that fails with "You cannot call a
+# method on a null-valued expression", so that is retried too (it ended CI runs before any test ran).
 function Invoke-Retry([scriptblock]$Action, [int]$Tries = 60, [int]$DelayMs = 1000) {
     for ($i = 1; ; $i++) {
         try { return & $Action }
         catch {
-            if ($i -ge $Tries -or $_.Exception.ToString() -notmatch '0x80010001|0x8001010A|RPC_E_') { throw }
+            if ($i -ge $Tries -or $_.Exception.ToString() -notmatch '0x80010001|0x8001010A|RPC_E_|null-valued expression') { throw }
             Start-Sleep -Milliseconds $DelayMs
         }
     }
@@ -88,7 +90,9 @@ try {
         Start-Sleep -Seconds 3
         Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $xaeOwn -contains $_.Id } | ForEach-Object {
             Write-Warning "XAE instance $($_.Id) did not quit; killing it."
-            Stop-Process -Id $_.Id -Force
+            # the instance can exit between Get-Process and here; $ErrorActionPreference = 'Stop' would turn that
+            # into a failed run before any test ran
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
     }
 }

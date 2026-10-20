@@ -1,13 +1,26 @@
 name: TcBuild
 
+# Compiles BROTLib and runs the BROTLibTests TcUnit suites on the shared self-hosted runner: installs the
+# checked-out BROTLib into the machine's library repository (this is the compile; the tests use the *installed*
+# copy, not the source tree), builds the test project and runs it on the user-mode runtime (see
+# BROTLibTests/README.md). One job, so one runner slot and one compile per push.
+#
 # runs-on is a self-hosted runner and most of these repos are public. Therefore: `push` only, NEVER
 # `pull_request` / `pull_request_target` -- a PR from any fork would otherwise execute on the runner
 # (BROTLib#31; an earlier push+PR auto-trigger did exactly that and was reverted, see BROTLib
 # specs/design/twincat-ci-runner-setup.md). A push can only come from someone with write access.
-# Tags are ignored (the release flow tags after a build), and a newer push to the same branch
-# cancels a queued/running build so the single runner does not pile up.
-# Every repo of the org builds on every push, so the check name `build` exists everywhere. release.yml
+# Tags are ignored (the release flow tags after a build).
+#
+# The job is called `build` and covers the tests too, so a failing test blocks the required `build` check on
+# main. A missing/expired trial license or a stopped user-mode runtime does NOT: the tests are skipped with a
+# warning, so releases are not blocked whenever that hand-renewed infrastructure is down (IAG
+# tools/github-rulesets.sh). Every repo of the org builds on every push, so the check name `build` exists everywhere. release.yml
 # dispatches this workflow for the version bump (a push made with GITHUB_TOKEN starts no workflow).
+#
+# Not cancelled when a newer push arrives: a test run is deploying to the runtime and talking to a hidden XAE
+# instance, and killing that mid-run leaves a stray TcXaeShell behind. Runs queue instead (GitHub keeps only
+# the newest pending one).
+
 on:
   push:
     branches: ['**']
@@ -15,30 +28,139 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: tcbuild-${{ github.ref }}
-  cancel-in-progress: true
+  group: twincat-tests
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: [self-hosted, twincat, windows]
+    # A healthy run takes a few minutes. Without a limit a hung TcXaeShell blocks the single runner (and the
+    # CI of every repo) for the default 6 hours. On a timeout the job is cancelled and the `always()` cleanup
+    # step below still runs.
+    timeout-minutes: 30
     permissions:
       contents: read
       statuses: write   # the commit status below
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Build BROTLib.sln
+      # TcBuild starts TcXaeShell through COM (parent svchost, in the session of the runner service). A hung or
+      # cancelled build leaves it behind and it can break the next build. Stop what runs in this job's own
+      # session: a TcXaeShell someone opened interactively runs in another session and is left alone.
+      - name: Stop leftover TwinCAT build processes
+        if: always()
         shell: powershell
         run: |
-          # TcBuild exit codes: 0 = built, 1 = built with compile warnings (still a success),
-          # 2 = compile errors, 3 = COM busy (retry), 4/5 = other failure
+          $session = (Get-Process -Id $PID).SessionId
+          Get-Process -Name TcXaeShell, TcBuild -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq $session } |
+            ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
+
+      # The PLC needs a license. The 7-day trial is renewed by hand. Once it has run out, or when a license the
+      # tests need is not in it, the tests cannot run: warn with a clear message and skip them (output ok=false)
+      # instead of failing the build, which would block releases (the compile steps do not need it).
+      # TF6701 (IoT MQTT): FB_Comm_MQTT_Influx_Tests instantiates FB_Comm_MQTT_Influx (BROTLib#39). Without it
+      # TwinCAT stays in Config and the run looks like a TcUnit timeout.
+      - name: Check TwinCAT license
+        id: license
+        shell: powershell
+        run: |
+          # (not `>>`: Windows PowerShell 5.1 would write UTF-16, which the runner cannot parse)
+          function Skip($msg) { Write-Host "::warning::$msg The tests are skipped."; [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=false`n"); exit 0 }
+          $file = 'C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs'
+          if (-not (Test-Path $file)) { Skip "No trial license at $file." }
+          $expire = [datetime]([xml](Get-Content $file)).TcLicenseInfo.LicenseInfo.ExpireTime
+          $left = $expire - (Get-Date)
+          Write-Host "Trial license expires $expire ($([math]::Round($left.TotalHours)) h left)"
+          if ($left.TotalSeconds -le 0) { Skip "The TwinCAT trial license expired $expire. Renew it: XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License." }
+          $have = @(([xml](Get-Content $file)).SelectNodes('//*[local-name()="License"]') | ForEach-Object { $_.OrderNo })
+          $missing = @('TC1200', 'TF6701') | Where-Object { $have -notcontains $_ }
+          if ($missing) { Skip "The TwinCAT trial license does not contain $($missing -join ', '). Renew it with these ticked: XAE > SYSTEM > License > Manage Licenses, then 7 Days Trial License." }
+          if ($left.TotalDays -lt 2) { Write-Host "::warning::TwinCAT trial license expires $expire" }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
+
+      # The runtime is started at boot by the scheduled task 'TwinCAT UmRT_Default'.
+      # Not running: warn and skip the tests (output ok=false), same reason as the license check.
+      - name: Check user-mode runtime
+        id: runtime
+        shell: powershell
+        run: |
+          if (-not (Get-Process TcSystemServiceUm -ErrorAction SilentlyContinue)) {
+            Write-Host "::warning::The TwinCAT user-mode runtime is not running. It is started at boot by the scheduled task 'TwinCAT UmRT_Default'; start it with: Start-ScheduledTask 'TwinCAT UmRT_Default'. The tests are skipped."
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=false`n")
+            exit 0
+          }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
+
+      # A cold XAE start can outlast TcBuild's own COM retry window, which then fails with exit 3 (busy) on every
+      # retry below. Starting and quitting one XAE first leaves the following starts fast. Best effort: never
+      # fails the job, and only touches the XAE instance started here.
+      - name: Warm up XAE
+        shell: powershell
+        run: |
+          $before = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
+          $dte = $null
+          $own = @()
+          try {
+            $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
+            $own = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $before -notcontains $_.Id } | ForEach-Object Id)
+            for ($n = 0; $n -lt 120; $n++) {
+              try { if ($null -ne $dte.Solution) { break } } catch { }
+              Start-Sleep -Seconds 1
+            }
+            Start-Sleep -Seconds 10
+            Write-Host "XAE ready after about $n s"
+          }
+          catch { Write-Host "::warning::XAE warm-up failed: $($_.Exception.Message)" }
+          finally {
+            if ($dte -and $own.Count -gt 0) { try { $dte.Quit() } catch { } }
+            Start-Sleep -Seconds 3
+            Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $own -contains $_.Id } | ForEach-Object { Stop-Process -Id $_.Id -Force }
+          }
+          exit 0
+
+      # The org libraries this repo pins in its .plcproj files are reinstalled from their GitHub release before the
+      # build. A `*` reference picks the highest version in the shared library repository, and a branch build of
+      # that library overwrites its version slot, so the result depended on what ran last.
+      - name: Install pinned libraries
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\tools\Install-PinnedLibraries.ps1
+
+      # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER, exit 3): retry.
+      # Exit 1 = built with compile warnings, still a success (see tcbuild.yml).
+      - name: Install BROTLib
+        shell: powershell
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
           for ($i = 1; $i -le 4; $i++) {
-            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLib.sln
+            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
             if ($LASTEXITCODE -ne 3) { break }
             Start-Sleep -Seconds 30
           }
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
-          exit 0
+          exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
+
+      - name: Build BROTLibTests
+        shell: powershell
+        working-directory: BROTLibTests
+        run: |
+          for ($i = 1; $i -le 4; $i++) {
+            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLibTests.sln
+            if ($LASTEXITCODE -ne 3) { break }
+            Start-Sleep -Seconds 30
+          }
+          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
+          exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
+
+      # Exit 0 = all passed, 1 = a test failed, 2 = no result within the timeout.
+      - name: Run tests
+        if: steps.license.outputs.ok == 'true' && steps.runtime.outputs.ok == 'true'
+        shell: powershell
+        run: |
+          & .\BROTLibTests\tools\Run-Tests.ps1
+          exit $LASTEXITCODE
 
       # A workflow_dispatch run (release.yml dispatches one for the version bump) is not linked to the
       # release PR, so its `build` check run does not satisfy the required `build` check on main and the PR
@@ -54,3 +176,13 @@ jobs:
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" `
             -f state="$env:STATE" -f context=build -f description="TcBuild (dispatched run)" -f target_url="$env:RUN_URL"
           if ($LASTEXITCODE -ne 0) { throw "posting the commit status failed with exit code $LASTEXITCODE" }
+
+      # Same cleanup after the build, so a hung or timed-out build does not leave TcXaeShell behind.
+      - name: Stop leftover TwinCAT build processes (after the build)
+        if: always()
+        shell: powershell
+        run: |
+          $session = (Get-Process -Id $PID).SessionId
+          Get-Process -Name TcXaeShell, TcBuild -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq $session } |
+            ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
