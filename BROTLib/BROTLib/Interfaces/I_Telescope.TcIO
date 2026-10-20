@@ -57,6 +57,14 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
+    <Property Name="ReadyState" Id="{e56802fd-8a7a-47d2-844e-5f10d75b0fd1}">
+      <Declaration><![CDATA[// READY_STATE as published (see the interface comment): -1 error, 0 parked, 0.3 parking, 0.7 initializing,
+// 0.8 calibrating, 1 online after complete startup, -2 not operational. Read by FB_Comm_MQTT_Influx (BROTLib#74).
+PROPERTY ReadyState : LREAL]]></Declaration>
+      <Get Name="Get" Id="{cc08f89a-e0bc-435b-a4a4-b20a95271de1}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
     <Property Name="RightAscension" Id="{0971e0b4-9db1-4a87-a57f-319f62ce77d0}">
       <Declaration><![CDATA[PROPERTY RightAscension : LREAL]]></Declaration>
       <Get Name="Get" Id="{137c7751-8023-4049-92ca-329be45aaf37}">

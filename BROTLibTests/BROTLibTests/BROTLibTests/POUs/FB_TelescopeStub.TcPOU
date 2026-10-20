@@ -12,6 +12,9 @@ VAR_OUTPUT
 	fSlewAlt		: LREAL;
 	nOther			: INT;		// Home / Init / Park / Reset / Stop calls
 END_VAR
+VAR_INPUT
+	fReadyState		: LREAL := 1.0;	// what ReadyState reports; online by default, so tests that do not care see a ready telescope
+END_VAR
 VAR
 	bCoverAutoOpen	: BOOL;
 END_VAR
@@ -117,6 +120,15 @@ Track := TRUE;
 ]]></ST>
       </Implementation>
     </Method>
+    <Property Name="ReadyState" Id="{21904b4f-1146-46b7-b71a-17297d2ac9d6}">
+      <Declaration><![CDATA[PROPERTY ReadyState : LREAL]]></Declaration>
+      <Get Name="Get" Id="{4c801957-127c-4d91-a3b1-1973fc0333d6}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[ReadyState := fReadyState;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
     <Property Name="Altitude" Id="{06212c45-5841-4ad4-812d-331b3ee572b0}">
       <Declaration><![CDATA[PROPERTY Altitude : LREAL]]></Declaration>
       <Get Name="Get" Id="{691eb4c8-da5b-4c1c-a788-b422685f0037}">
