@@ -119,6 +119,15 @@ jobs:
           }
           exit 0
 
+      # The org libraries this repo pins in its .plcproj files are reinstalled from their GitHub release before the
+      # build. A `*` reference picks the highest version in the shared library repository, and a branch build of
+      # that library overwrites its version slot, so the result depended on what ran last.
+      - name: Install pinned libraries
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\tools\Install-PinnedLibraries.ps1
+
       # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER, exit 3): retry.
       # Exit 1 = built with compile warnings, still a success (see tcbuild.yml).
       - name: Install BROTLib
