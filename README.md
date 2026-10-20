@@ -108,7 +108,7 @@ organised into four layers:
 
    | Interface | Subsystem |
    |---|---|
-   | `I_Telescope` | Generic telescope (command interface, coordinate handling, telemetry) |
+   | `I_Telescope` | Generic telescope (command interface, coordinate handling, `ReadyState`, telemetry) |
    | `I_AltAzTelescope` / `I_RaDecTelescope` | Mount-type-specific extensions |
    | `I_Axis` / `I_BaseAxis` | Motion axes (position, velocity, tracking, homing) |
    | `I_Dome` | Dome rotation and shutter |
@@ -227,6 +227,10 @@ telescope/auxiliary commands (`power`, `park`, `gohome`, `track`, `slew`,
 the interface references (`Telescope`, `AltAzTelescope`, `RaDecTelescope`,
 `Focus`, `Filter`, `Nasmyth`, `Dome`, `Roof`, `MirrorCovers`). Telemetry is
 published at 1 s while slewing/tracking and 5 s when idle.
+
+`focus` is applied only while the telescope reports READY_STATE 1 (online, `I_Telescope.ReadyState`); parked,
+parking, starting up, in error or with no `Telescope` connected it is rejected with a log entry (BROTLib#74). The
+park and startup sequences set the focus themselves and are not affected.
 
 ### Utilities and timing
 

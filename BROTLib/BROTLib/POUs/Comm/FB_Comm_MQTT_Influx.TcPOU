@@ -152,8 +152,12 @@ ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
 		AltAzTelescope.Dut1 := fValue;
 	END_IF
 ELSIF parameter = 'focus' AND Focus <> 0 THEN
-	// unit and travel depend on the telescope; this only rejects garbage, the focus axis enforces its limits
-	IF _ParseLREAL(parameter := parameter, value := value, fMin := -1.0E6, fMax := 1.0E6, fValue => fValue) THEN
+	// BROTLib#74: a client may move the focus only while the telescope is online (READY_STATE 1). Parked, parking,
+	// starting up, in error, not operational, in manual mode (suspended) or with no telescope connected, the command
+	// is rejected and logged. The park and startup sequences write Focus.Position directly and are not affected.
+	// Unit and travel depend on the telescope; the range check only rejects garbage, the focus axis enforces its limits
+	IF _FocusAllowed(sPayloadRcv := sPayloadRcv)
+		AND_THEN _ParseLREAL(parameter := parameter, value := value, fMin := -1.0E6, fMax := 1.0E6, fValue => fValue) THEN
 		Focus.Position := fValue;
 	END_IF
 ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
@@ -220,6 +224,33 @@ ELSIF parameter = 'hourangleoffset' AND RaDecTelescope <> 0 THEN
 ELSE
 	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT not understood %s', sPayloadRcv);
 END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_FocusAllowed" Id="{81b01c44-858b-4578-b7f1-b31b90a60e3f}">
+      <Declaration><![CDATA[// TRUE when a 'focus' command may be applied: a telescope is connected and reports READY_STATE 1 (online).
+// Logs the reason otherwise (BROTLib#74).
+METHOD PRIVATE _FocusAllowed : BOOL
+VAR_INPUT
+	sPayloadRcv		: STRING(255);
+END_VAR
+VAR
+	fState			: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF Telescope = 0 THEN
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT focus rejected: no telescope connected %s', sPayloadRcv);
+	RETURN;
+END_IF
+fState := Telescope.ReadyState;
+// FB_StartupReadiness assigns the literal 1.0, so the comparison is exact
+IF fState <> 1.0 THEN
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT focus rejected: telescope not online, READY_STATE %s',
+		LREAL_TO_STRING(fState));
+	RETURN;
+END_IF
+_FocusAllowed := TRUE;
 ]]></ST>
       </Implementation>
     </Method>

@@ -8,6 +8,9 @@ FUNCTION_BLOCK FB_Comm_MQTT_Influx_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
 	fbComm	: BROTLib.FB_Comm_MQTT_Influx;
 	stub	: FB_TelescopeStub;
+	focus	: FB_FocusStub(comm := 0);
+	aStates	: ARRAY[0..4] OF LREAL := [0.3, 0.7, 0.8, -1.0, -2.0];
+	i		: INT;
 	bReady	: BOOL;
 	bSingle_Field_Messages_Still_Fill_The_Buffer	: BOOL;
 	bData_Before_Verb_In_One_Message	: BOOL;
@@ -26,12 +29,19 @@ VAR
 	bSpaced_Fields_Do_Not_Slew	: BOOL;
 	bSpace_Before_Comma_Does_Not_Run_The_Verb	: BOOL;
 	bSpace_In_A_Later_Pair_Does_Not_Run_The_Verb	: BOOL;
+	bFocus_Rejected_While_Parked	: BOOL;
+	bFocus_Rejected_Unless_Online	: BOOL;
+	bFocus_Applied_When_Online	: BOOL;
+	bFocus_Rejected_Without_Telescope	: BOOL;
+	bFocus_Garbage_Still_Rejected_When_Online	: BOOL;
+	bFocus_Gate_Does_Not_Touch_Other_Fields	: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[IF NOT bReady THEN
 	bReady := TRUE;
 	fbComm.Telescope := stub;
+	fbComm.Focus := focus;
 END_IF
 Single_Field_Messages_Still_Fill_The_Buffer();
 Data_Before_Verb_In_One_Message();
@@ -50,6 +60,12 @@ Rejected_Value_Clears_The_Buffer();
 Spaced_Fields_Do_Not_Slew();
 Space_Before_Comma_Does_Not_Run_The_Verb();
 Space_In_A_Later_Pair_Does_Not_Run_The_Verb();
+Focus_Rejected_While_Parked();
+Focus_Rejected_Unless_Online();
+Focus_Applied_When_Online();
+Focus_Rejected_Without_Telescope();
+Focus_Garbage_Still_Rejected_When_Online();
+Focus_Gate_Does_Not_Touch_Other_Fields();
 ]]></ST>
     </Implementation>
     <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
@@ -63,6 +79,8 @@ END_VAR
 fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
 fbComm._handleMQTTMessage(sPayloadRcv := 'command slew=1');
 stub.ClearCounters();
+stub.fReadyState := 1.0;
+focus.Position := 10.0;
 ]]></ST>
       </Implementation>
     </Method>
@@ -393,6 +411,125 @@ IF NOT bRejected_Value_Clears_The_Buffer THEN
 	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=1.5');
 	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=abc,declination=20.5,track=1');
 	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'buffered ra, then ra=abc: number of Track calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Rejected_While_Parked" Id="{6755c925-2264-4ba0-8f84-ff2b39dd6891}">
+      <Declaration><![CDATA[// BROTLib#74: the case from the issue; a parked telescope does not move the focus.
+METHOD PRIVATE Focus_Rejected_While_Parked
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Rejected_While_Parked');
+IF NOT bFocus_Rejected_While_Parked THEN
+	bFocus_Rejected_While_Parked := TRUE;
+	ResetHandler();
+	stub.fReadyState := 0.0;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=36.5');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus while parked');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Rejected_Unless_Online" Id="{260f077c-1ca2-4864-97ab-8e3960fdd98f}">
+      <Declaration><![CDATA[// BROTLib#74: parking, initializing, calibrating, error and not operational are rejected too.
+METHOD PRIVATE Focus_Rejected_Unless_Online
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Rejected_Unless_Online');
+IF NOT bFocus_Rejected_Unless_Online THEN
+	bFocus_Rejected_Unless_Online := TRUE;
+	ResetHandler();
+	FOR i := 0 TO 4 DO
+		ResetHandler();
+		stub.fReadyState := aStates[i];
+		fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=36.5');
+		AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := CONCAT('focus at READY_STATE ', LREAL_TO_STRING(aStates[i])));
+	END_FOR
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Applied_When_Online" Id="{2b786cf1-0b7d-4c00-96e3-a4fd7cd169b9}">
+      <Declaration><![CDATA[// BROTLib#74: unchanged behaviour while the telescope is online.
+METHOD PRIVATE Focus_Applied_When_Online
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Applied_When_Online');
+IF NOT bFocus_Applied_When_Online THEN
+	bFocus_Applied_When_Online := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=36.5');
+	AssertEquals_LREAL(Expected := 36.5, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus while online');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Rejected_Without_Telescope" Id="{6eef3e53-aaab-4592-8c37-e5258e8a47f6}">
+      <Declaration><![CDATA[// BROTLib#74: no telescope connected is rejected (fail-safe).
+METHOD PRIVATE Focus_Rejected_Without_Telescope
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Rejected_Without_Telescope');
+IF NOT bFocus_Rejected_Without_Telescope THEN
+	bFocus_Rejected_Without_Telescope := TRUE;
+	ResetHandler();
+	fbComm.Telescope := 0;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=36.5');
+	fbComm.Telescope := stub;
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus without telescope');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Garbage_Still_Rejected_When_Online" Id="{f8481f96-62f2-4aad-84f2-7802c806e86f}">
+      <Declaration><![CDATA[// BROTLib#74: the range check still applies while online.
+METHOD PRIVATE Focus_Garbage_Still_Rejected_When_Online
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Garbage_Still_Rejected_When_Online');
+IF NOT bFocus_Garbage_Still_Rejected_When_Online THEN
+	bFocus_Garbage_Still_Rejected_When_Online := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=abc');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus=abc');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=1e7');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus=1e7');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Gate_Does_Not_Touch_Other_Fields" Id="{bb4d1649-9f10-4da7-90a8-be4b0f734042}">
+      <Declaration><![CDATA[// BROTLib#74: only focus is gated here; the slew is still forwarded (the telescope controller decides it).
+METHOD PRIVATE Focus_Gate_Does_Not_Touch_Other_Fields
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Gate_Does_Not_Touch_Other_Fields');
+IF NOT bFocus_Gate_Does_Not_Touch_Other_Fields THEN
+	bFocus_Gate_Does_Not_Touch_Other_Fields := TRUE;
+	ResetHandler();
+	stub.fReadyState := 0.0;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command elevation=50,azimuth=150,focus=36.5,slew=1');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus in a multi-field message');
+	AssertEquals_INT(Expected := 1, Actual := stub.nSlew, Message := 'slew still forwarded');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
