@@ -16,6 +16,11 @@ VAR_OUTPUT
 	// the payload for the NEXT parameter=value pair ("measurement[,tags] rest-of-field-set[ timestamp]"),
 	// '' if this was the last pair. Feed it back in as sPayload to walk a multi-field message.
 	remaining:		STRING(255) := '';
+	// text after the first space in this pair's value, '' if none. A trailing Influx timestamp lands here;
+	// anything else means the sender separated fields with spaces instead of commas (BROTLib#79). Not parsed.
+	trailing:			STRING(255) := '';
+	// TRUE when 'trailing' is neither empty nor an integer timestamp: part of the message was ignored
+	trailingIgnored:	BOOL;
 END_VAR
 VAR
 	space_position:		INT;
@@ -43,6 +48,8 @@ parse message in influx format:
 Returns the FIRST parameter=value pair. If there are more, 'remaining' holds a complete payload for the next
 pair (measurement and tags in front, timestamp kept at the end), so the caller feeds it straight back in.
 Tags are accepted but not returned. A quoted string value that contains a comma or a space is not handled.
+A space inside the field set ends it; what follows is handed out in 'trailing' (a timestamp, or fields that
+should have been comma-separated, BROTLib#79).
 *)
 
 // start from empty outputs every call: a caller that reuses the instance must not see the previous pair again
@@ -50,6 +57,8 @@ measurement := '';
 parameter := '';
 value := '';
 remaining := '';
+trailing := '';
+trailingIgnored := FALSE;
 
 //separate measurement from parameter, value
 bResultSplit := FindAndSplit( pSeparator     := ADR(spaceSeparator), pSrcString := ADR(sPayload), 
@@ -88,12 +97,15 @@ ELSE
 END_IF
 
 // a trailing Influx timestamp (measurement[,tags] field_set timestamp) ends up appended to value,
-// since only the first space in the whole payload is split off above; drop it and anything after
-// the first remaining space. A genuine quoted string value could itself contain a space, but this
-// parser doesn't handle that either way (see the module comment's TODOs)
+// since only the first space in the whole payload is split off above. It is cut off here and handed out as
+// 'trailing'. Anything that is not an integer timestamp means fields were separated by spaces (or a quoted string
+// value holds a space, not supported); the caller logs that (BROTLib#79). Parsing is unchanged: value keeps only
+// the text up to the space.
 space_position := FIND(value, spaceSeparator);
 IF space_position > 0 THEN
+	trailing := MID(value, LEN(value) - space_position, space_position + 1);
 	value := LEFT(value, space_position-1);
+	trailingIgnored := trailing <> '' AND NOT _IsTimestamp(trailing);
 END_IF
 
 // strip the surrounding quotes Influx line protocol uses for a string-typed field value
@@ -102,6 +114,39 @@ IF LEN(value) >= 2 AND LEFT(value,1) = '"' AND RIGHT(value,1) = '"' THEN
 END_IF
 ]]></ST>
     </Implementation>
+    <Method Name="_IsTimestamp" Id="{89cbb3fa-fdac-44de-b3ee-ce078932201c}">
+      <Declaration><![CDATA[// TRUE when sText is an Influx line-protocol timestamp: an integer, optionally negative, at most 19 digits
+// (nanoseconds since 1970 fit in 19 digits; seconds/ms/us precision are shorter). Empty text is not a timestamp.
+METHOD PRIVATE _IsTimestamp : BOOL
+VAR_INPUT
+	sText	: STRING(255);
+END_VAR
+VAR
+	nLen	: INT;
+	nStart	: INT;
+	i		: INT;
+	c		: STRING(1);
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_IsTimestamp := FALSE;
+nLen := LEN(sText);
+nStart := 1;
+IF nLen > 0 AND LEFT(sText, 1) = '-' THEN
+	nStart := 2;
+END_IF
+IF nLen < nStart OR nLen - nStart + 1 > 19 THEN
+	RETURN;		// empty, a lone '-', or too many digits
+END_IF
+FOR i := nStart TO nLen DO
+	c := MID(sText, 1, i);
+	IF c < '0' OR c > '9' THEN
+		RETURN;
+	END_IF
+END_FOR
+_IsTimestamp := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="FB_InfluxMessage">
       <LineId Id="30" Count="0" />
       <LineId Id="94" Count="0" />

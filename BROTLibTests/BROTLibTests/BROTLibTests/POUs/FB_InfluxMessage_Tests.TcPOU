@@ -4,6 +4,7 @@
     <Declaration><![CDATA[// Tests for BROTLib.FB_InfluxMessage, the parser of incoming MQTT command payloads
 // (measurement[,tags] parameter=value[,parameter=value ...] [timestamp]). Since BROTLib#39 it returns the first pair
 // and a 'remaining' payload for the next one; the first five cases are the behaviour it had before and still has.
+// The last cases cover 'trailing' / 'trailingIgnored' (BROTLib#79).
 FUNCTION_BLOCK FB_InfluxMessage_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
 END_VAR
@@ -18,6 +19,13 @@ Several_Pairs_Walk_Via_Remaining();
 Remaining_Keeps_Tags_And_Timestamp();
 No_Space_Gives_Empty_Outputs();
 Outputs_Are_Reset_Between_Calls();
+Spaced_Fields_Are_Reported();
+Timestamp_Is_Not_Reported();
+Comma_Form_Has_No_Trailing();
+Tags_And_Timestamp_Are_Not_Reported();
+Space_In_A_Later_Pair_Is_Reported();
+Space_Before_The_First_Comma();
+Trailing_Space_Only();
 ]]></ST>
     </Implementation>
     <Method Name="Check" Id="{5d8801ea-6478-4932-a54e-fd63aeea1f0e}">
@@ -154,6 +162,121 @@ TEST_FINISHED();
 ]]></ST>
       </Implementation>
     </Method>
+    <Method Name="CheckTrailing" Id="{a4e0587c-6208-4586-884c-b951c20ffd26}">
+      <Declaration><![CDATA[// Parses sPayload with a fresh instance and asserts value, trailing and trailingIgnored (BROTLib#79).
+METHOD PRIVATE CheckTrailing
+VAR_INPUT
+	sPayload		: STRING(255);
+	sValue			: STRING(255);
+	sTrailing		: STRING(255);
+	bIgnored		: BOOL;
+END_VAR
+VAR
+	fb				: BROTLib.FB_InfluxMessage;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fb(sPayload := sPayload);
+AssertEquals_STRING(Expected := sValue, Actual := fb.value, Message := CONCAT('value of: ', sPayload));
+AssertEquals_STRING(Expected := sTrailing, Actual := fb.trailing, Message := CONCAT('trailing of: ', sPayload));
+AssertEquals_BOOL(Expected := bIgnored, Actual := fb.trailingIgnored, Message := CONCAT('trailingIgnored of: ', sPayload));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Spaced_Fields_Are_Reported" Id="{4994ebe1-d37b-4bcd-89e7-bbac7e8d3f2b}">
+      <Declaration><![CDATA[// BROTLib#79: fields separated by spaces; the parser keeps the first pair and reports the rest.
+METHOD PRIVATE Spaced_Fields_Are_Reported
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Spaced_Fields_Are_Reported');
+CheckTrailing(sPayload := 'command azimuth=150 elevation=50 slew=1', sValue := '150', sTrailing := 'elevation=50 slew=1', bIgnored := TRUE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timestamp_Is_Not_Reported" Id="{64936f3d-b8a8-451f-8cb7-9af95b53f56a}">
+      <Declaration><![CDATA[// An integer timestamp (any precision, optionally negative, at most 19 digits) is not reported.
+METHOD PRIVATE Timestamp_Is_Not_Reported
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timestamp_Is_Not_Reported');
+CheckTrailing(sPayload := 'command park=1 1700000000000000000', sValue := '1', sTrailing := '1700000000000000000', bIgnored := FALSE);
+CheckTrailing(sPayload := 'command park=1 1700000000', sValue := '1', sTrailing := '1700000000', bIgnored := FALSE);
+CheckTrailing(sPayload := 'command park=1 -1700000000', sValue := '1', sTrailing := '-1700000000', bIgnored := FALSE);
+CheckTrailing(sPayload := 'command park=1 12345678901234567890', sValue := '1', sTrailing := '12345678901234567890', bIgnored := TRUE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Comma_Form_Has_No_Trailing" Id="{58461670-3f7f-4e77-9ff6-1994d8a7b57b}">
+      <Declaration><![CDATA[METHOD PRIVATE Comma_Form_Has_No_Trailing
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Comma_Form_Has_No_Trailing');
+CheckTrailing(sPayload := 'command azimuth=150,elevation=50,slew=1', sValue := '150', sTrailing := '', bIgnored := FALSE);
+CheckTrailing(sPayload := 'command elevation=50,slew=1', sValue := '50', sTrailing := '', bIgnored := FALSE);
+CheckTrailing(sPayload := 'command slew=1', sValue := '1', sTrailing := '', bIgnored := FALSE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Tags_And_Timestamp_Are_Not_Reported" Id="{ebc6bd7c-fc20-4d63-82b6-fbe39cab5552}">
+      <Declaration><![CDATA[METHOD PRIVATE Tags_And_Timestamp_Are_Not_Reported
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Tags_And_Timestamp_Are_Not_Reported');
+CheckTrailing(sPayload := 'command,site=x a=1,b=2 1700000000000000000', sValue := '1', sTrailing := '', bIgnored := FALSE);
+CheckTrailing(sPayload := 'command,site=x b=2 1700000000000000000', sValue := '2', sTrailing := '1700000000000000000', bIgnored := FALSE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Space_In_A_Later_Pair_Is_Reported" Id="{e70ecc79-09a0-4078-9f5d-e35ce477b8b1}">
+      <Declaration><![CDATA[// The remaining payload of 'command azimuth=150,elevation=50 slew=1'.
+METHOD PRIVATE Space_In_A_Later_Pair_Is_Reported
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Space_In_A_Later_Pair_Is_Reported');
+CheckTrailing(sPayload := 'command elevation=50 slew=1', sValue := '50', sTrailing := 'slew=1', bIgnored := TRUE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Space_Before_The_First_Comma" Id="{980ee1ff-3cfb-49e6-b32b-c0f5c723cd3e}">
+      <Declaration><![CDATA[// A space before the first comma: slew=1 stays in 'remaining' and would still run (see FB_Comm_MQTT_Influx).
+METHOD PRIVATE Space_Before_The_First_Comma
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Space_Before_The_First_Comma');
+CheckTrailing(sPayload := 'command azimuth=150 elevation=50,slew=1', sValue := '150', sTrailing := 'elevation=50', bIgnored := TRUE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Trailing_Space_Only" Id="{92520d48-2b42-4019-90b0-86fd23912f94}">
+      <Declaration><![CDATA[METHOD PRIVATE Trailing_Space_Only
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Trailing_Space_Only');
+CheckTrailing(sPayload := 'command park=1 ', sValue := '1', sTrailing := '', bIgnored := FALSE);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="Outputs_Are_Reset_Between_Calls" Id="{60896571-f8bf-4703-98c6-bbd64dc7dfac}">
       <Declaration><![CDATA[METHOD PRIVATE Outputs_Are_Reset_Between_Calls
 VAR
@@ -170,6 +293,12 @@ AssertEquals_STRING(Expected := '', Actual := fb.measurement, Message := 'measur
 AssertEquals_STRING(Expected := '', Actual := fb.parameter, Message := 'parameter is reset');
 AssertEquals_STRING(Expected := '', Actual := fb.value, Message := 'value is reset');
 AssertEquals_STRING(Expected := '', Actual := fb.remaining, Message := 'remaining is reset');
+// the spaced payload sets trailing; the next call must not keep it
+fb(sPayload := 'command a=1 b=2');
+AssertEquals_STRING(Expected := 'b=2', Actual := fb.trailing, Message := 'spaced call returns trailing');
+fb(sPayload := 'command park=1');
+AssertEquals_STRING(Expected := '', Actual := fb.trailing, Message := 'trailing is reset');
+AssertEquals_BOOL(Expected := FALSE, Actual := fb.trailingIgnored, Message := 'trailingIgnored is reset');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

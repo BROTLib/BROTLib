@@ -207,7 +207,11 @@ organised into four layers:
 - **`FB_InfluxMessage`** — parses Influx line-protocol messages (`measurement,tags parameter=value[,parameter=value ...]`)
   received on the command topic, one pair at a time (`remaining` holds the payload for the next pair).
   `FB_Comm_MQTT_Influx` walks up to 8 pairs per message and applies `track`/`slew` last, so they see the
-  coordinates of the same message.
+  coordinates of the same message. Several fields go in **one comma-separated field set without spaces**:
+  `command elevation=50,azimuth=150,slew=1`. A space ends the field set (what follows is the optional timestamp),
+  so `command elevation=50 azimuth=150 slew=1` applies only `elevation=50`; the ignored rest is logged as a
+  warning (`MQTT command: fields must be separated by commas, ignored: ...`) and `track`/`slew` of such a
+  message are not run (BROTLib#79).
 - **`F_EscapeInfluxString`** / **`F_IsNumericValue`** — Influx string escaping
   and strict numeric validation (incl. scientific notation).
 - **`FB_EventLog`** — structured event/error logging with severity and message

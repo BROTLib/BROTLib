@@ -23,6 +23,9 @@ VAR
 	bOut_Of_Range_Coordinates_Are_Rejected	: BOOL;
 	bRange_Limits_Are_Accepted	: BOOL;
 	bRejected_Value_Clears_The_Buffer	: BOOL;
+	bSpaced_Fields_Do_Not_Slew	: BOOL;
+	bSpace_Before_Comma_Does_Not_Run_The_Verb	: BOOL;
+	bSpace_In_A_Later_Pair_Does_Not_Run_The_Verb	: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -44,6 +47,9 @@ Non_Numeric_Coordinate_Is_Rejected();
 Out_Of_Range_Coordinates_Are_Rejected();
 Range_Limits_Are_Accepted();
 Rejected_Value_Clears_The_Buffer();
+Spaced_Fields_Do_Not_Slew();
+Space_Before_Comma_Does_Not_Run_The_Verb();
+Space_In_A_Later_Pair_Does_Not_Run_The_Verb();
 ]]></ST>
     </Implementation>
     <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
@@ -216,6 +222,61 @@ IF NOT bTrailing_Timestamp_Does_Not_Break_The_Last_Field THEN
 	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'timestamp: number of Track calls');
 	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'timestamp: right ascension');
 	AssertEquals_LREAL(Expected := 20.5, Actual := stub.fTrackDec, Delta := 1.0E-9, Message := 'timestamp: declination');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Spaced_Fields_Do_Not_Slew" Id="{85a33eed-1627-4e91-86a9-d0f1721ed637}">
+      <Declaration><![CDATA[// BROTLib#79: only the first field of a space-separated message arrives; nothing slews (the ADS warning is checked by hand).
+METHOD PRIVATE Spaced_Fields_Do_Not_Slew
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Spaced_Fields_Do_Not_Slew');
+IF NOT bSpaced_Fields_Do_Not_Slew THEN
+	bSpaced_Fields_Do_Not_Slew := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command azimuth=150 elevation=50 slew=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nSlew, Message := 'spaced fields: number of Slew calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Space_Before_Comma_Does_Not_Run_The_Verb" Id="{0080847f-df28-46b2-8884-0a8c4590784f}">
+      <Declaration><![CDATA[// BROTLib#79: ignored text in a message means track/slew of that message are not run; otherwise this would slew to the
+// buffered elevation 30 with azimuth 150, a target nobody sent.
+METHOD PRIVATE Space_Before_Comma_Does_Not_Run_The_Verb
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Space_Before_Comma_Does_Not_Run_The_Verb');
+IF NOT bSpace_Before_Comma_Does_Not_Run_The_Verb THEN
+	bSpace_Before_Comma_Does_Not_Run_The_Verb := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command elevation=30');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command azimuth=150 elevation=50,slew=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nSlew, Message := 'space before comma: number of Slew calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Space_In_A_Later_Pair_Does_Not_Run_The_Verb" Id="{289cc1db-7f74-42da-a6b3-73a02e99de35}">
+      <Declaration><![CDATA[METHOD PRIVATE Space_In_A_Later_Pair_Does_Not_Run_The_Verb
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Space_In_A_Later_Pair_Does_Not_Run_The_Verb');
+IF NOT bSpace_In_A_Later_Pair_Does_Not_Run_The_Verb THEN
+	bSpace_In_A_Later_Pair_Does_Not_Run_The_Verb := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command azimuth=150,elevation=50 slew=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nSlew, Message := 'space in a later pair: number of Slew calls');
 	TEST_FINISHED();
 END_IF
 ]]></ST>

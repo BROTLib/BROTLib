@@ -42,8 +42,13 @@ END_VAR]]></Declaration>
         <ST><![CDATA[// A message can carry several parameter=value pairs (command a=1,b=2). Data fields (rightascension, declination,
 // elevation, azimuth, ...) are applied first and track/slew last, so they always use the coordinates of this
 // message, whatever the field order; for a single-field message nothing changes (BROTLib#39).
-_DispatchPass(sPayloadRcv := sPayloadRcv, bVerbPass := FALSE);
-_DispatchPass(sPayloadRcv := sPayloadRcv, bVerbPass := TRUE);
+// Fields separated by spaces instead of commas are dropped by the parser (BROTLib#79): the warning is logged in the
+// data pass and track/slew of that message are not run, since they would use a half-applied target.
+IF _DispatchPass(sPayloadRcv := sPayloadRcv, bVerbPass := FALSE) THEN
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT command: track/slew of this message not run %s', sPayloadRcv);
+ELSE
+	_DispatchPass(sPayloadRcv := sPayloadRcv, bVerbPass := TRUE);
+END_IF
 ]]></ST>
       </Implementation>
     </Method>
@@ -252,7 +257,8 @@ END_IF
 // this pass: bVerbPass FALSE applies everything except track/slew, TRUE applies only track/slew. Running the
 // data pass first means track/slew always see the coordinates of the SAME message (any field order), and a
 // single-field message behaves exactly as before. At most MAX_FIELDS pairs are walked per message.
-METHOD PRIVATE _DispatchPass
+// Returns TRUE (data pass only) when text after a space was ignored and logged, see BROTLib#79.
+METHOD PRIVATE _DispatchPass : BOOL
 VAR_INPUT
 	sPayloadRcv		: STRING(255);
 	bVerbPass		: BOOL;
@@ -262,18 +268,28 @@ VAR
 	sNext			: STRING(255);
 	nFields			: INT;
 	bVerb			: BOOL;
+	bTrailingLogged	: BOOL;
 END_VAR
 VAR CONSTANT
 	MAX_FIELDS		: INT := 8;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[sNext := sPayloadRcv;
+        <ST><![CDATA[_DispatchPass := FALSE;
+sNext := sPayloadRcv;
 WHILE sNext <> '' AND nFields < MAX_FIELDS DO
 	nFields := nFields + 1;
 	influxMessage(sPayload := sNext);
 	IF influxMessage.measurement <> 'command' THEN
 		RETURN;
+	END_IF
+	// fields separated by spaces instead of commas: everything after the space was dropped by the parser.
+	// Logged once per message, in the data pass only (both passes see the same pairs), BROTLib#79.
+	IF influxMessage.trailingIgnored AND NOT bVerbPass AND NOT bTrailingLogged THEN
+		bTrailingLogged := TRUE;
+		_DispatchPass := TRUE;
+		ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG,
+			'MQTT command: fields must be separated by commas, ignored: %s', influxMessage.trailing);
 	END_IF
 	bVerb := influxMessage.parameter = 'track' OR influxMessage.parameter = 'slew';
 	IF bVerb = bVerbPass THEN

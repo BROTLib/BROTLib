@@ -1,4 +1,4 @@
-# BROTLibTests
+﻿# BROTLibTests
 
 TcUnit tests for BROTLib. A separate PLC project, so no test code ends up in the shipped library. It
 references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telescope project does.
@@ -16,7 +16,7 @@ references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telesco
 | `FB_Blink_Tests` | `FB_BLINK` | off/on modes, timing per mode, measured high/low durations (real time, +-60 ms) |
 | `FB_InfluxLineProtocol_Tests` | `F_InfluxFieldValue`, `F_EscapeInfluxTag`, `F_TruncateInfluxEscaped` | integer / float / boolean / quoted typing (exponents are floats), escaping of tag values, field keys and measurement names, cutting an escaped string without splitting an escape pair |
 | `FB_AstroClockSync_Tests` | `FB_AstroClockSync` | the sync and validity logic behind `FB_AstroClock`: no sync and no validity before the first good read, no sync on a failed read, error counting, recovery |
-| `FB_InfluxMessage_Tests` | `FB_InfluxMessage` | the MQTT command parser: single pair, numbers, tags dropped, trailing timestamp dropped, quotes stripped, several pairs walked via `remaining` (BROTLib#39), tags and timestamp kept in `remaining`, no space gives empty outputs, outputs reset between calls |
+| `FB_InfluxMessage_Tests` | `FB_InfluxMessage` | the MQTT command parser: single pair, numbers, tags dropped, trailing timestamp dropped, quotes stripped, several pairs walked via `remaining` (BROTLib#39), tags and timestamp kept in `remaining`, no space gives empty outputs, outputs reset between calls, text after a space reported as `trailing` unless it is a timestamp (BROTLib#79) |
 | `FB_Comm_MQTT_Influx_Tests` | `FB_Comm_MQTT_Influx._handleMQTTMessage` (with `FB_TelescopeStub`) | single-field messages as pyBROT and BROTgui send them, one-message `track`/`slew` with the data in any order, same-message data beats a stale buffer, incomplete pair dropped, buffer cleared after `track`, trailing timestamp, other measurement ignored, at most 8 fields |
 
 79 test cases in total.
