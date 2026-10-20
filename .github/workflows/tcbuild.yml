@@ -12,7 +12,9 @@ name: TcBuild
 # Tags are ignored (the release flow tags after a build).
 #
 # The job is called `build` and covers the tests too, so a failing test blocks the required `build` check on
-# main. Every repo of the org builds on every push, so the check name `build` exists everywhere. release.yml
+# main. A missing/expired trial license or a stopped user-mode runtime does NOT: the tests are skipped with a
+# warning, so releases are not blocked whenever that hand-renewed infrastructure is down (IAG
+# tools/github-rulesets.sh). Every repo of the org builds on every push, so the check name `build` exists everywhere. release.yml
 # dispatches this workflow for the version bump (a push made with GITHUB_TOKEN starts no workflow).
 #
 # Not cancelled when a newer push arrives: a test run is deploying to the runtime and talking to a hidden XAE
@@ -54,31 +56,41 @@ jobs:
             Where-Object { $_.SessionId -eq $session } |
             ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
 
-      # The PLC needs a license. The 7-day trial is renewed by hand; fail with a clear message instead of a
-      # cryptic activation error once it has run out, or when a license the tests need is not in it.
+      # The PLC needs a license. The 7-day trial is renewed by hand. Once it has run out, or when a license the
+      # tests need is not in it, the tests cannot run: warn with a clear message and skip them (output ok=false)
+      # instead of failing the build, which would block releases (the compile steps do not need it).
       # TF6701 (IoT MQTT): FB_Comm_MQTT_Influx_Tests instantiates FB_Comm_MQTT_Influx (BROTLib#39). Without it
       # TwinCAT stays in Config and the run looks like a TcUnit timeout.
       - name: Check TwinCAT license
+        id: license
         shell: powershell
         run: |
+          # (not `>>`: Windows PowerShell 5.1 would write UTF-16, which the runner cannot parse)
+          function Skip($msg) { Write-Host "::warning::$msg The tests are skipped."; [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=false`n"); exit 0 }
           $file = 'C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs'
-          if (-not (Test-Path $file)) { throw "No trial license at $file" }
+          if (-not (Test-Path $file)) { Skip "No trial license at $file." }
           $expire = [datetime]([xml](Get-Content $file)).TcLicenseInfo.LicenseInfo.ExpireTime
           $left = $expire - (Get-Date)
           Write-Host "Trial license expires $expire ($([math]::Round($left.TotalHours)) h left)"
-          if ($left.TotalSeconds -le 0) { throw "The TwinCAT trial license expired $expire. Renew it: XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License." }
+          if ($left.TotalSeconds -le 0) { Skip "The TwinCAT trial license expired $expire. Renew it: XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License." }
           $have = @(([xml](Get-Content $file)).SelectNodes('//*[local-name()="License"]') | ForEach-Object { $_.OrderNo })
           $missing = @('TC1200', 'TF6701') | Where-Object { $have -notcontains $_ }
-          if ($missing) { throw "The TwinCAT trial license does not contain $($missing -join ', '). Renew it with these ticked: XAE > SYSTEM > License > Manage Licenses, then 7 Days Trial License." }
+          if ($missing) { Skip "The TwinCAT trial license does not contain $($missing -join ', '). Renew it with these ticked: XAE > SYSTEM > License > Manage Licenses, then 7 Days Trial License." }
           if ($left.TotalDays -lt 2) { Write-Host "::warning::TwinCAT trial license expires $expire" }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
 
       # The runtime is started at boot by the scheduled task 'TwinCAT UmRT_Default'.
+      # Not running: warn and skip the tests (output ok=false), same reason as the license check.
       - name: Check user-mode runtime
+        id: runtime
         shell: powershell
         run: |
           if (-not (Get-Process TcSystemServiceUm -ErrorAction SilentlyContinue)) {
-            throw "The TwinCAT user-mode runtime is not running. It is started at boot by the scheduled task 'TwinCAT UmRT_Default'; start it with: Start-ScheduledTask 'TwinCAT UmRT_Default'"
+            Write-Host "::warning::The TwinCAT user-mode runtime is not running. It is started at boot by the scheduled task 'TwinCAT UmRT_Default'; start it with: Start-ScheduledTask 'TwinCAT UmRT_Default'. The tests are skipped."
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=false`n")
+            exit 0
           }
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
 
       # A cold XAE start can outlast TcBuild's own COM retry window, which then fails with exit 3 (busy) on every
       # retry below. Starting and quitting one XAE first leaves the following starts fast. Best effort: never
@@ -133,6 +145,7 @@ jobs:
 
       # Exit 0 = all passed, 1 = a test failed, 2 = no result within the timeout.
       - name: Run tests
+        if: steps.license.outputs.ok == 'true' && steps.runtime.outputs.ok == 'true'
         shell: powershell
         run: |
           & .\BROTLibTests\tools\Run-Tests.ps1

@@ -324,5 +324,5 @@ runtime, because the 4024 real-time runtime does not run there. Setup, the one-c
 
 CI: `tcbuild.yml` compiles BROTLib and runs the suites on the self-hosted runner on every push and on demand (installs
 the checked-out BROTLib, builds BROTLibTests, runs `Run-Tests.ps1`). The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
-by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tcbuild.yml` fails
-with a clear message once it has expired or lacks a license the tests need.
+by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tcbuild.yml` warns and
+skips the tests (the build stays green, so releases are not blocked) once it has expired or lacks a license the tests need.
