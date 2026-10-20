@@ -76,8 +76,15 @@ try {
         $sysMan = $null
         for ($i = 0; $null -eq $sysMan; $i++) {
             if ($i -ge 60) { throw "XAE did not load a TwinCAT project from $Solution" }
-            if ((Invoke-Retry { $dte.Solution.Projects.Count }) -ge 1) {
-                $sysMan = Invoke-Retry { ,$dte.Solution.Projects.Item(1).Object }
+            # Count can already be 1 while Item(1) or its Object is still null mid-load; treat that as "not yet"
+            try {
+                if ((Invoke-Retry { $dte.Solution.Projects.Count }) -ge 1) {
+                    $sysMan = Invoke-Retry { ,$dte.Solution.Projects.Item(1).Object }
+                }
+            }
+            catch [System.Management.Automation.RuntimeException] {
+                if ($i -ge 59) { throw }
+                $sysMan = $null
             }
             if ($null -eq $sysMan) { Start-Sleep -Seconds 1 }
         }
