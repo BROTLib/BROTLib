@@ -35,3 +35,8 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   `Move`/`Home(fReference)`/`Stop` (#63); merge order (BROTLib then HalfBROT back to back), IAG50cm to the new
   version, telescope checks. Design: `fb-axis-command-interface.md`. **accepted**, not started (B2; IAG50cm focus
   homes to its stored last position)
+- [2026-10-20-command-field-separator-79.md](2026-10-20-command-field-separator-79.md) —
+  `command azimuth=150 elevation=50 slew=1` (spaces instead of commas) applies only the first field and drops the
+  rest silently: new `FB_InfluxMessage` outputs `trailing`/`trailingIgnored`, one ADS warning per message in
+  `_DispatchPass`, README syntax example, MONET/S re-test. **proposed**, nothing implemented; open: also skip
+  `track`/`slew` of such a message, publish the warning over MQTT (BROTLib#79)
