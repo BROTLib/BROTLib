@@ -20,6 +20,8 @@ permissions:
 jobs:
   library:
     runs-on: [self-hosted, twincat, windows]
+    # A healthy library build takes a few minutes; without a limit a hung TcXaeShell blocks the single runner.
+    timeout-minutes: 30
     steps:
       - name: Validate tag
         shell: powershell
@@ -33,6 +35,17 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
+      # TcBuild starts TcXaeShell through COM, in the session of the runner service. A leftover one from an
+      # earlier or cancelled job makes the next TcBuild fail with RPC_E_SERVERCALL_RETRYLATER (exit code 3).
+      # Only this job's own session is touched: an XAE someone opened interactively is left alone.
+      - name: Stop leftover TwinCAT build processes
+        shell: powershell
+        run: |
+          $session = (Get-Process -Id $PID).SessionId
+          Get-Process -Name TcXaeShell, TcBuild -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq $session } |
+            ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
+
       - name: Save library with TcBuild
         shell: powershell
         env:
@@ -40,10 +53,10 @@ jobs:
         run: |
           $file = Join-Path $env:RUNNER_TEMP "BROTLib_$($env:TAG).library"
           # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER): retry
-          for ($i = 1; $i -le 4; $i++) {
+          for ($i = 1; $i -le 6; $i++) {
             & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
             if ($LASTEXITCODE -ne 3) { break }
-            Start-Sleep -Seconds 30
+            Start-Sleep -Seconds 60
           }
           # exit 1 = built with compile warnings, still a success (see tcbuild.yml)
           if ($LASTEXITCODE -gt 1) { throw "TcBuild failed with exit code $LASTEXITCODE" }
@@ -65,3 +78,12 @@ jobs:
             gh release create $env:TAG $env:LIBRARY_FILE --verify-tag --title $env:TAG --generate-notes
           }
           if ($LASTEXITCODE -ne 0) { throw "gh release failed with exit code $LASTEXITCODE" }
+
+      - name: Stop leftover TwinCAT build processes
+        if: always()
+        shell: powershell
+        run: |
+          $session = (Get-Process -Id $PID).SessionId
+          Get-Process -Name TcXaeShell, TcBuild -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq $session } |
+            ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
