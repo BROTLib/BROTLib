@@ -285,8 +285,8 @@ park and startup sequences set the focus themselves and are not affected.
   (`.github/workflows/tcbuild.yml`,
   `release.yml`, `tag-release.yml`), not the older `build.ps1`/`build.yml`
   pipeline (removed). On the self-hosted runner (push only, never
-  `pull_request`) BROTLib runs `tests.yml` (compiles BROTLib and runs the
-  tests) and `tcbuild.yml` (compile check) on every push; the other repos of the org run
+  `pull_request`) BROTLib runs `tcbuild.yml` (compiles BROTLib and runs the
+  tests, one job `build`) on every push; the other repos of the org run
   `tcbuild.yml` on every push as their compile check. Runner setup: [specs/design/twincat-ci-runner-setup.md](specs/design/twincat-ci-runner-setup.md).
 
 ---
@@ -326,8 +326,7 @@ helpers). TcBuild only compiles, so running them needs a TwinCAT runtime; on Win
 runtime, because the 4024 real-time runtime does not run there. Setup, the one-command run and the known gaps are in
 [BROTLibTests/README.md](BROTLibTests/README.md).
 
-CI: `tests.yml` runs the suites on the self-hosted runner on every push (installs the checked-out BROTLib, builds
-BROTLibTests, runs `Run-Tests.ps1`), and `tcbuild.yml` compiles BROTLib on every push and on
-demand. The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
-by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tests.yml` fails
-with a clear message once it has expired or lacks a license the tests need.
+CI: `tcbuild.yml` compiles BROTLib and runs the suites on the self-hosted runner on every push and on demand (installs
+the checked-out BROTLib, builds BROTLibTests, runs `Run-Tests.ps1`). The runtime needs a TwinCAT license; until a permanent one is installed that is a 7-day trial that is renewed
+by hand (it must include TF6701, because the MQTT handler tests instantiate the IoT client), and `tcbuild.yml` warns and
+skips the tests (the build stays green, so releases are not blocked) once it has expired or lacks a license the tests need.

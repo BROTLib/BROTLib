@@ -71,7 +71,6 @@ jobs:
           # A push made with GITHUB_TOKEN starts no workflow, so without this the release PR head has no
           # checks. workflow_dispatch is the exception: the runs report their checks on the bump commit.
           gh workflow run tcbuild.yml --ref develop
-          gh workflow run tests.yml --ref develop
 
       - name: Open release PR (develop -> main)
         env:

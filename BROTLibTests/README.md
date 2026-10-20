@@ -79,11 +79,12 @@ the configuration, log in and start the PLC. TcUnit prints every result to the e
 
 ## In CI
 
-`.github/workflows/tests.yml` runs on every push (never on pull requests: the runner is self-hosted) and does, in
-order: check that the trial license has not expired and the user-mode runtime is running, install the checked-out
-BROTLib into the machine's library repository, build `BROTLibTests.sln`, run `tools/Run-Tests.ps1`. Runs are queued
-and not cancelled, because a cancelled run leaves a stray hidden XAE behind. `tcbuild.yml` is the plain compile check
-of `BROTLib.sln`; it runs on pushes to `main` (the release merges) and on demand.
+`.github/workflows/tcbuild.yml` runs on every push (never on pull requests: the runner is self-hosted) and does, in
+order: check that the trial license has not expired and the user-mode runtime is running (if not: warn and skip the tests, the build stays green), install the checked-out
+BROTLib into the machine's library repository, build `BROTLibTests.sln`, run `tools/Run-Tests.ps1`. Installing BROTLib is
+the compile check, so there is no separate build step. It is one job called `build`, so a failing test blocks the
+required `build` check on `main`. Runs are queued and not cancelled, because a cancelled run leaves a stray hidden XAE
+behind. It also runs on demand.
 
 The runner and the runtime share the machine with whoever works in XAE there. `Run-Tests.ps1` and `Install-TcUnit.ps1`
 only quit and kill the XAE instance they started themselves, so an XAE you open meanwhile is left alone. They do
@@ -99,8 +100,8 @@ that runtime while a run is going, and expect the library repository to change a
   there; without it TwinCAT stays in Config after the restart and `Run-Tests.ps1` stops with a message saying so.
   The license is bound to the machine's System ID (shown on
   the Order Information (Runtime) tab; it stays the same across a runtime restart and a reboot) and its expiry is
-  in `C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs`. `tests.yml` fails with a clear
-  message once it has expired or lacks TC1200 or TF6701. Permanent TC1200 and TF6701 licenses are needed for
+  in `C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs`. `tcbuild.yml` warns and skips
+  the tests (without failing the build) once it has expired or lacks TC1200 or TF6701. Permanent TC1200 and TF6701 licenses are needed for
   unattended CI.
 - **TcUnit sizing.** TcUnit's defaults (1000 suites x 100 tests x 1000 assertions) allocate about 78 MB of PLC
   data, which the user-mode runtime cannot start. The project overrides them to 32 / 32 / 256 in the
