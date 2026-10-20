@@ -21,11 +21,27 @@ concurrency:
 jobs:
   build:
     runs-on: [self-hosted, twincat, windows]
+    # A healthy build takes 1-8 minutes. Without a limit a hung TcXaeShell blocks the single runner (and the
+    # CI of every repo) for the default 6 hours. On a timeout the job is cancelled and the `always()` cleanup
+    # step below still runs.
+    timeout-minutes: 20
     permissions:
       contents: read
       statuses: write   # the commit status below
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # TcBuild starts TcXaeShell through COM (parent svchost, in the session of the runner service). A hung or
+      # cancelled build leaves it behind and it can break the next build. Stop what runs in this job's own
+      # session: a TcXaeShell someone opened interactively runs in another session and is left alone.
+      - name: Stop leftover TwinCAT build processes
+        if: always()
+        shell: powershell
+        run: |
+          $session = (Get-Process -Id $PID).SessionId
+          Get-Process -Name TcXaeShell, TcBuild -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq $session } |
+            ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
 
       - name: Build BROTLib.sln
         shell: powershell
@@ -54,3 +70,13 @@ jobs:
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" `
             -f state="$env:STATE" -f context=build -f description="TcBuild (dispatched run)" -f target_url="$env:RUN_URL"
           if ($LASTEXITCODE -ne 0) { throw "posting the commit status failed with exit code $LASTEXITCODE" }
+
+      # Same cleanup after the build, so a hung or timed-out build does not leave TcXaeShell behind.
+      - name: Stop leftover TwinCAT build processes (after the build)
+        if: always()
+        shell: powershell
+        run: |
+          $session = (Get-Process -Id $PID).SessionId
+          Get-Process -Name TcXaeShell, TcBuild -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq $session } |
+            ForEach-Object { Write-Host "stopping $($_.ProcessName) $($_.Id)"; Stop-Process -Id $_.Id -Force }
