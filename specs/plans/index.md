@@ -59,3 +59,9 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   change); `FB_AxisCommand` releases `Execute` on `Done OR CommandAborted` (#92); 16 TcUnit cases, BROTLib 0.9.1,
   then pin bumps, IAG50cm last with an on-site check. **proposed**, nothing implemented; open: join vs plain
   no-op, `MC_Home` abort vs error, retry after `MC_Stop` error (BROTLib#93, #92)
+- [2026-10-21-focus-retarget-stop-range-122.md](2026-10-21-focus-retarget-stop-range-122.md) —
+  `focus=500` runs the focus to the clamp limit 100 (beyond the far switch at ~92), a new target and `stop=1` are
+  ignored: re-target while moving (`FB_MoveFollower`), new `I_Focus.Stop()` called by the telescopes' stop, `I_Focus`
+  `MinPosition`/`MaxPosition` and an out-of-range rejection in `FB_Comm_MQTT_Influx`, site limits 0.5..91.5 in
+  MONETS/MONETN. **implemented** and released 2026-10-21 (BROTLib 0.10.0, HalfBROT 0.6.0, MONETcommon 0.9.4, MONETS
+  1.4.3, MONETN 0.4.3, IAG50cm 0.4.1); on-site re-test open (MONETcommon#122)
