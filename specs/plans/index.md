@@ -45,3 +45,9 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   `FB_Comm_MQTT_Influx` applies `focus` only at READY_STATE 1 and logs the rejection; park/startup focus writes
   unaffected; IAG50cm adds the property (0.9.0), tests with a focus stub, MONET/S re-test. **proposed**, nothing
   implemented; open: gate 1 only or wider, interface vs `__QUERYINTERFACE`, no telescope connected (BROTLib#74)
+- [2026-10-21-axis-stop-idempotent-93-92.md](2026-10-21-axis-stop-idempotent-93-92.md) —
+  `FB_Axis.Stop()` no longer restarts `MC_Stop` while a stop is pending, running or finishing (a repeated call
+  joins it and gets one more `StopDone` pulse, so the `StopAxis` setters and both transaction blocks need no
+  change); `FB_AxisCommand` releases `Execute` on `Done OR CommandAborted` (#92); 16 TcUnit cases, BROTLib 0.9.1,
+  then pin bumps, IAG50cm last with an on-site check. **proposed**, nothing implemented; open: join vs plain
+  no-op, `MC_Home` abort vs error, retry after `MC_Stop` error (BROTLib#93, #92)
