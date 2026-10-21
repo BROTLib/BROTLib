@@ -53,3 +53,9 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   then `FB_CommandArbiter` and the template body in `FB_BaseTelescopeControl`; release chain and on-site checks per
   step. **proposed**, nothing implemented, starts after #122; open: base in BROTLib vs a new library, arbiter-only
   end state, policy per divergence, time seam, IAG cabinet in tests (BROTLib#25, #67, MONETcommon#36, #24)
+- [2026-10-21-axis-stop-idempotent-93-92.md](2026-10-21-axis-stop-idempotent-93-92.md) —
+  `FB_Axis.Stop()` no longer restarts `MC_Stop` while a stop is pending, running or finishing (a repeated call
+  joins it and gets one more `StopDone` pulse, so the `StopAxis` setters and both transaction blocks need no
+  change); `FB_AxisCommand` releases `Execute` on `Done OR CommandAborted` (#92); 16 TcUnit cases, BROTLib 0.9.1,
+  then pin bumps, IAG50cm last with an on-site check. **proposed**, nothing implemented; open: join vs plain
+  no-op, `MC_Home` abort vs error, retry after `MC_Stop` error (BROTLib#93, #92)
