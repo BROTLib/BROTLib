@@ -7,6 +7,7 @@
   never fails the step (best effort). It must not end with 'exit': that would reset $LASTEXITCODE, which the
   caller still needs. Writes, as a collapsible log group:
     - the TwinCAT / build related processes with session, start time, responding state and main window title
+    - how those processes changed over 5 s (CPU, threads, responding): busy or stuck?
     - every top-level window of those processes, including hidden ones: a modal dialog nobody can dismiss in the
       session of the runner service blocks COM calls and shows up here (visible, enabled, title, class)
     - recent Application event log errors of those processes
@@ -57,6 +58,24 @@ public static class XaeWin {
     $windows = [XaeWin]::Windows($pids)
     Write-Host "Top-level windows of these processes: $($windows.Count)"
     $windows | ForEach-Object { Write-Host "  $_" }
+
+    # Busy or stuck? Sample the same processes again after a few seconds: a TcXaeShell that is still compiling or
+    # loading uses CPU and its thread count moves, a deadlocked one does neither (and may stop responding).
+    $interval = 5
+    if ($procs.Count -gt 0) {
+        # (a Process object reads CPU live, so the first values are kept here before the wait)
+        $first = @{}
+        foreach ($p in $procs) { $first[$p.Id] = @{ Cpu = $p.CPU; Threads = $p.Threads.Count } }
+        Start-Sleep -Seconds $interval
+        Write-Host "Change over $interval s:"
+        foreach ($p in $procs) {
+            $now = Get-Process -Id $p.Id -ErrorAction SilentlyContinue
+            if (-not $now) { Write-Host ("  {0} pid {1}: gone" -f $p.ProcessName, $p.Id); continue }
+            $cpu = [math]::Round(($now.CPU - $first[$p.Id].Cpu), 2)
+            Write-Host ("  {0} pid {1}: cpu +{2}s ({3}% of one core), threads {4} -> {5}, responding={6}" -f
+                $p.ProcessName, $p.Id, $cpu, [math]::Round(100 * $cpu / $interval), $first[$p.Id].Threads, $now.Threads.Count, $now.Responding)
+        }
+    }
 
     $since = (Get-Date).AddMinutes(-15)
     $events = @(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 1, 2; StartTime = $since } -ErrorAction SilentlyContinue |
