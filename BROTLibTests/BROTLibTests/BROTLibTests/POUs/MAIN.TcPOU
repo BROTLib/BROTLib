@@ -18,6 +18,7 @@ VAR
 	fbInfoConnectionTests		: FB_InfoConnection_Tests;
 	fbSetpointEnableTests		: F_SetpointEnableExecute_Tests;
 	fbAxisCommandTests		: FB_AxisCommand_Tests;
+	fbMoveFollowerTests		: FB_MoveFollower_Tests;
     fbStartupReadinessTests : FB_StartupReadiness_Tests;
     fbStartupControlTests : FB_StartupControl_Tests;
 END_VAR
