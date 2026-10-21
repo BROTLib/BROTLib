@@ -1,0 +1,320 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_MoveFollower_Tests" Id="{007b757b-9653-4fa3-b5ee-3ee10b9b17eb}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_MoveFollower, the start / re-target / stop logic of the focus blocks (MONETcommon#122). Each
+// fbF(...) call is one cycle; MoveDone, Aborted and StopDone are what fbAxis reported in its last call.
+FUNCTION_BLOCK FB_MoveFollower_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Start_When_Off_Target();
+No_Start_Within_Tolerance();
+No_Start_When_Not_Ready_Requests_Enable();
+Retarget_While_Moving_Restarts();
+Retarget_Within_Tolerance_No_Restart();
+Hunting_Does_Not_Restart();
+MoveDone_Ends_Move();
+Abort_Ends_Move();
+Abort_Of_Old_Move_After_Restart_Is_Ignored();
+Error_Ends_Move();
+Stop_Blocks_Restart_Until_New_Target();
+Stop_Without_Move_Returns_False();
+Inactive_Never_Starts();
+]]></ST>
+    </Implementation>
+    <Method Name="Start_When_Off_Target" Id="{18c23736-7b2f-428e-83c0-4eaf8f8f397d}">
+      <Declaration><![CDATA[// Off target and ready: one start, then it is moving.
+METHOD PRIVATE Start_When_Off_Target
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Start_When_Off_Target');
+fT := 50.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'moving');
+AssertEquals_LREAL(Expected := 50.0, Actual := fbF.fMoveTarget, Delta := 1.0E-9, Message := 'move target');
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'no second start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Start_Within_Tolerance" Id="{841caf47-c3bf-4d54-aa6c-78ab5097a08c}">
+      <Declaration><![CDATA[// At the target: nothing to do.
+METHOD PRIVATE No_Start_Within_Tolerance
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Start_Within_Tolerance');
+fT := 36.002; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Start_When_Not_Ready_Requests_Enable" Id="{10f888c7-a8e5-4525-a0fd-de04aaf40d3c}">
+      <Declaration><![CDATA[// Off target but the axis is not ready: ask for the enable, start nothing.
+METHOD PRIVATE No_Start_When_Not_Ready_Requests_Enable
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Start_When_Not_Ready_Requests_Enable');
+fT := 50.0; fA := 36.0; bR := FALSE;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bNeedEnable, Message := 'need enable');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Retarget_While_Moving_Restarts" Id="{7af1b6f9-6939-409b-9855-cc337653606f}">
+      <Declaration><![CDATA[// A new target during the move restarts it once (MONETcommon#122).
+METHOD PRIVATE Retarget_While_Moving_Restarts
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Retarget_While_Moving_Restarts');
+fT := 60.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fA := 40.0; fT := 40.5;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'restart');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'still moving');
+AssertEquals_LREAL(Expected := 40.5, Actual := fbF.fMoveTarget, Delta := 1.0E-9, Message := 'new move target');
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'one restart only');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Retarget_Within_Tolerance_No_Restart" Id="{7ddc6fc2-940f-4598-ba2d-dee8ad75b48b}">
+      <Declaration><![CDATA[// A target change below the tolerance does not restart.
+METHOD PRIVATE Retarget_Within_Tolerance_No_Restart
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Retarget_Within_Tolerance_No_Restart');
+fT := 60.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fT := 60.003;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'restart');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Hunting_Does_Not_Restart" Id="{6144aab4-06ee-4018-be60-de50f446f81c}">
+      <Declaration><![CDATA[// The actual position oscillates around a fixed target: no restart (HalfBROT#85).
+METHOD PRIVATE Hunting_Does_Not_Restart
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Hunting_Does_Not_Restart');
+fT := 36.0; fA := 36.5;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fA := 35.96;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'restart low');
+fA := 36.04;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'restart high');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MoveDone_Ends_Move" Id="{32df6425-daa1-4768-a98e-ebcf4567ef1e}">
+      <Declaration><![CDATA[// MoveDone ends the move; at the target nothing starts.
+METHOD PRIVATE MoveDone_Ends_Move
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('MoveDone_Ends_Move');
+fT := 50.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fA := 50.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Abort_Ends_Move" Id="{69275bb4-c5da-4246-8d55-b3a1b0f8c98d}">
+      <Declaration><![CDATA[// An aborted move ends; the still open target starts it again.
+METHOD PRIVATE Abort_Ends_Move
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Abort_Ends_Move');
+fT := 50.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fA := 40.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := TRUE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start again');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Abort_Of_Old_Move_After_Restart_Is_Ignored" Id="{e3b4639a-bebc-40cb-9104-1b8d44b2f117}">
+      <Declaration><![CDATA[// The abort that a restart causes for the old move does not end the new one.
+METHOD PRIVATE Abort_Of_Old_Move_After_Restart_Is_Ignored
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Abort_Of_Old_Move_After_Restart_Is_Ignored');
+fT := 60.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fT := 45.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := TRUE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'moving');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'no extra start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Ends_Move" Id="{cf5bc90f-6c01-4af4-8168-c0ca0867b156}">
+      <Declaration><![CDATA[// An axis error ends the move, nothing restarts it.
+METHOD PRIVATE Error_Ends_Move
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Ends_Move');
+fT := 50.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := TRUE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+// the error is gone, the target is still open: it starts again
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start after the error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Blocks_Restart_Until_New_Target" Id="{bd78d734-c06b-4178-bbf3-78609612032a}">
+      <Declaration><![CDATA[// After Stop() the old target is held; a new one moves again.
+METHOD PRIVATE Stop_Blocks_Restart_Until_New_Target
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Blocks_Restart_Until_New_Target');
+fT := 50.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fA := 42.0;
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.Stop(), Message := 'Stop returns TRUE while moving');
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'held');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'still held after StopDone');
+fT := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'new target moves');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Without_Move_Returns_False" Id="{324eae43-8310-4fc2-a190-990b72de81d6}">
+      <Declaration><![CDATA[// Stop() with nothing running returns FALSE.
+METHOD PRIVATE Stop_Without_Move_Returns_False
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Without_Move_Returns_False');
+fT := 36.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.Stop(), Message := 'Stop returns FALSE at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Inactive_Never_Starts" Id="{1f5f65d9-fecc-403e-b010-1de0c0e7f4bb}">
+      <Declaration><![CDATA[// Not active (manual mode, not calibrated): no start, no move.
+METHOD PRIVATE Inactive_Never_Starts
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	fT		: LREAL;
+	fA		: LREAL;
+	bR		: BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Inactive_Never_Starts');
+fT := 50.0; fA := 36.0;
+fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := FALSE, bReady := bR, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'need enable');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

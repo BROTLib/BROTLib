@@ -113,7 +113,7 @@ organised into four layers:
    | `I_Axis` / `I_BaseAxis` | Motion axes (position, velocity, tracking, homing) |
    | `I_Dome` | Dome rotation and shutter |
    | `I_Roof` | Roof (dome enclosure) open/close control |
-   | `I_Focus`, `I_Filter`, `I_Brake` | Instrument subsystems |
+   | `I_Focus`, `I_Filter`, `I_Brake` | Instrument subsystems (`I_Focus` has `MinPosition`/`MaxPosition` and `Stop()`) |
    | `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics` | Telescope infrastructure |
    | `I_Comm` | Telemetry/log publishing (`Publish`, `PublishLog`) |
 
@@ -182,7 +182,9 @@ organised into four layers:
 
 - **`FB_BaseAxis` / `FB_Axis`** — axis abstraction over a TwinCAT NC axis:
   position and velocity control, `isTracking` handling, homing/referencing,
-  limit handling and error checking. `FB_AxisControl`-style blocks in the
+  limit handling and error checking. `FB_Axis.Stop()` is idempotent: while a
+  stop is pending, running or finishing it starts no second `MC_Stop`, and
+  `StopDone` still follows. `FB_AxisControl`-style blocks in the
   hardware libraries (`HalfBROT`, `MONETcommon`) extend these.
 - **`FB_PointingModelForward`** — Tpoint-style parametric pointing model
   (9 terms: AOFF, BNP, AN_A, AE_A, NPAE, EOFF, AN_E, AE_E, TF), producing
@@ -230,7 +232,10 @@ published at 1 s while slewing/tracking and 5 s when idle.
 
 `focus` is applied only while the telescope reports READY_STATE 1 (online, `I_Telescope.ReadyState`); parked,
 parking, starting up, in error or with no `Telescope` connected it is rejected with a log entry (BROTLib#74). The
-park and startup sequences set the focus themselves and are not affected.
+park and startup sequences set the focus themselves and are not affected. A `focus` target outside
+`I_Focus.MinPosition`..`MaxPosition` is rejected with a log entry and the old target is kept (MONETcommon#122). `stop`
+goes to the telescope, which stops its focus with `I_Focus.Stop()`. `FB_MoveFollower` is the shared start/re-target
+logic for focus blocks: a new target during a move restarts the move.
 
 ### Utilities and timing
 

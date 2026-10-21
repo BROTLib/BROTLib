@@ -174,8 +174,8 @@ What the implementation changed against the design above, found while building:
 - **`VAR_IN_OUT CONSTANT` accepts only variables** on this TwinCAT version (3.1.4024): literals and expressions are
   compile errors ("needs variable as input"). Still mandatory per call, which was the point; callers with an
   expression put it into a local variable first (HalfBROT focus).
-- **`FB_AxisCommand`** holds the request -> `Execute` logic for move, home and stop (pure, 7 TcUnit cases): rising
-  `Execute` once allowed (one cycle low first if still TRUE), **released on `Done`** (`MC_Stop` must not be held, it
+- **`FB_AxisCommand`** holds the request -> `Execute` logic for move, home and stop (pure, TcUnit cases): rising
+  `Execute` once allowed (one cycle low first if still TRUE), **released on `Done` or `CommandAborted`** (#92; `MC_Stop` must not be held, it
   keeps the axis in Stopping; this also gives the same one-cycle `Done` pulse the telescope state machines saw
   before), kept on an error until the next request or `Reset`. Outputs `MovePending`/`HomePending` on `FB_Axis`.
 - **Adapter in the `I_Axis` setters**, so the telescope state machines are unchanged: `MoveAxis`/`StopAxis`
@@ -188,6 +188,10 @@ What the implementation changed against the design above, found while building:
   check like the reference itself). IAG50cm hour angle and declination implement it empty (they home through
   `FB_LatchHome`).
 - **`Stop()` drops pending `MoveTo()`/`Home()`**, so they do not start after a stop.
+- **`Stop()` is idempotent** (#93): while a stop is pending, running or still finishing (Stopping) no second `MC_Stop`
+  is started (`FB_AxisCommand.RequestIfIdle`), and `StopDone` still follows every call: from the running stop, or as
+  one extra pulse (`Joined`) when the axis reaches StandStill after a call that was joined to a finishing stop. After
+  an `MC_Stop` error the stop is retried. `Stop()` returns TRUE only when a new `MC_Stop` was requested.
 - **Behaviour changes** (to check on the telescopes): a move that lost `Ready` no longer restarts by itself when
   `Ready` returns; `Reset` releases a stuck command, which clears its MC error.
 

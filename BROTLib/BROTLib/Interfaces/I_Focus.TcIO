@@ -2,5 +2,25 @@
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <Itf Name="I_Focus" Id="{1a3f6670-f8af-4019-b502-f4da4afb4275}">
     <Declaration><![CDATA[INTERFACE I_Focus EXTENDS I_BaseAxis]]></Declaration>
+    <Property Name="MinPosition" Id="{685d9364-9b24-4da7-9b5d-dbdb60d75162}">
+      <Declaration><![CDATA[// Lower end of the focus travel the axis accepts as a target; the MQTT handler rejects targets below it (MONETcommon#122).
+PROPERTY MinPosition : LREAL]]></Declaration>
+      <Get Name="Get" Id="{ddebce7c-b7bc-4467-abed-073b17a157ec}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="MaxPosition" Id="{142ddf27-ef42-4992-843d-1d812d1da934}">
+      <Declaration><![CDATA[// Upper end of the focus travel the axis accepts as a target; the MQTT handler rejects targets above it (MONETcommon#122).
+PROPERTY MaxPosition : LREAL]]></Declaration>
+      <Get Name="Get" Id="{1a0f48bb-caf1-4e27-b2fa-f0f83e2a73a5}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="Stop" Id="{123cac1a-d88e-412b-9854-f8c09d4f3b0b}">
+      <Declaration><![CDATA[// Stop a running focus move (MC_Stop) and hold the position reached: the target becomes the actual position at
+// StopDone, so the automatic positioning does not restart the move. A new Position afterwards moves again.
+// Returns FALSE and does nothing when there is nothing to stop. MONETcommon#122.
+METHOD Stop : BOOL]]></Declaration>
+    </Method>
   </Itf>
 </TcPlcObject>

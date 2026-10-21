@@ -35,6 +35,12 @@ VAR
 	bFocus_Rejected_Without_Telescope	: BOOL;
 	bFocus_Garbage_Still_Rejected_When_Online	: BOOL;
 	bFocus_Gate_Does_Not_Touch_Other_Fields	: BOOL;
+	bFocus_Above_Max_Rejected	: BOOL;
+	bFocus_Below_Min_Rejected	: BOOL;
+	bFocus_At_Limits_Applied	: BOOL;
+	bFocus_OutOfRange_Keeps_Old_Target	: BOOL;
+	bFocus_Range_Not_Checked_When_Not_Online	: BOOL;
+	bStop_Command_Does_Not_Stop_Focus_Directly	: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -66,6 +72,12 @@ Focus_Applied_When_Online();
 Focus_Rejected_Without_Telescope();
 Focus_Garbage_Still_Rejected_When_Online();
 Focus_Gate_Does_Not_Touch_Other_Fields();
+Focus_Above_Max_Rejected();
+Focus_Below_Min_Rejected();
+Focus_At_Limits_Applied();
+Focus_OutOfRange_Keeps_Old_Target();
+Focus_Range_Not_Checked_When_Not_Online();
+Stop_Command_Does_Not_Stop_Focus_Directly();
 ]]></ST>
     </Implementation>
     <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
@@ -81,6 +93,9 @@ fbComm._handleMQTTMessage(sPayloadRcv := 'command slew=1');
 stub.ClearCounters();
 stub.fReadyState := 1.0;
 focus.Position := 10.0;
+focus.fMinPosition := -1.0E6;
+focus.fMaxPosition := 1.0E6;
+focus.nStop := 0;
 ]]></ST>
       </Implementation>
     </Method>
@@ -530,6 +545,128 @@ IF NOT bFocus_Gate_Does_Not_Touch_Other_Fields THEN
 	fbComm._handleMQTTMessage(sPayloadRcv := 'command elevation=50,azimuth=150,focus=36.5,slew=1');
 	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus in a multi-field message');
 	AssertEquals_INT(Expected := 1, Actual := stub.nSlew, Message := 'slew still forwarded');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Above_Max_Rejected" Id="{c0f0cc5c-c1a0-4f44-96a7-a08eb4c9381f}">
+      <Declaration><![CDATA[// MONETcommon#122: a target above the focus travel is rejected, not clamped (focus=500 ran to the end of travel).
+METHOD PRIVATE Focus_Above_Max_Rejected
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Above_Max_Rejected');
+IF NOT bFocus_Above_Max_Rejected THEN
+	bFocus_Above_Max_Rejected := TRUE;
+	ResetHandler();
+	focus.fMaxPosition := 91.5;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=500');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus=500');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=91.6');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus=91.6');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Below_Min_Rejected" Id="{3955e398-af23-40ee-bfb1-b4bdb38ccf0c}">
+      <Declaration><![CDATA[// MONETcommon#122: a target below the focus travel is rejected.
+METHOD PRIVATE Focus_Below_Min_Rejected
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Below_Min_Rejected');
+IF NOT bFocus_Below_Min_Rejected THEN
+	bFocus_Below_Min_Rejected := TRUE;
+	ResetHandler();
+	focus.fMinPosition := 15.0;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=-5');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus=-5');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=14.9');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus=14.9');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_At_Limits_Applied" Id="{154428f0-db63-44fe-8bc8-5db6e9013791}">
+      <Declaration><![CDATA[// MONETcommon#122: the limits themselves are valid targets.
+METHOD PRIVATE Focus_At_Limits_Applied
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_At_Limits_Applied');
+IF NOT bFocus_At_Limits_Applied THEN
+	bFocus_At_Limits_Applied := TRUE;
+	ResetHandler();
+	focus.fMinPosition := 15.0;
+	focus.fMaxPosition := 91.5;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=91.5');
+	AssertEquals_LREAL(Expected := 91.5, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus at max');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=15');
+	AssertEquals_LREAL(Expected := 15.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'focus at min');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_OutOfRange_Keeps_Old_Target" Id="{04cb912e-0c97-4371-b362-79c5601e7c69}">
+      <Declaration><![CDATA[// MONETcommon#122: a rejected target leaves the last valid one, so a running move continues.
+METHOD PRIVATE Focus_OutOfRange_Keeps_Old_Target
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_OutOfRange_Keeps_Old_Target');
+IF NOT bFocus_OutOfRange_Keeps_Old_Target THEN
+	bFocus_OutOfRange_Keeps_Old_Target := TRUE;
+	ResetHandler();
+	focus.fMaxPosition := 91.5;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=60');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=500');
+	AssertEquals_LREAL(Expected := 60.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'old target kept');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Focus_Range_Not_Checked_When_Not_Online" Id="{be51584f-9ff2-47a7-80af-dc16c666c6f0}">
+      <Declaration><![CDATA[// MONETcommon#122: the online gate (#74) comes first; a parked telescope rejects an in-range target too.
+METHOD PRIVATE Focus_Range_Not_Checked_When_Not_Online
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Focus_Range_Not_Checked_When_Not_Online');
+IF NOT bFocus_Range_Not_Checked_When_Not_Online THEN
+	bFocus_Range_Not_Checked_When_Not_Online := TRUE;
+	ResetHandler();
+	focus.fMaxPosition := 91.5;
+	stub.fReadyState := 0.0;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=60');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'in range while parked');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Command_Does_Not_Stop_Focus_Directly" Id="{6612a15b-f2a2-49cf-a59b-2ec0d9b77759}">
+      <Declaration><![CDATA[// MONETcommon#122: 'stop' goes to the telescope only; the telescope stops its focus (pins the design).
+METHOD PRIVATE Stop_Command_Does_Not_Stop_Focus_Directly
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Command_Does_Not_Stop_Focus_Directly');
+IF NOT bStop_Command_Does_Not_Stop_Focus_Directly THEN
+	bStop_Command_Does_Not_Stop_Focus_Directly := TRUE;
+	ResetHandler();
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command stop=1');
+	AssertEquals_INT(Expected := 0, Actual := focus.nStop, Message := 'focus stopped by the handler');
 	TEST_FINISHED();
 END_IF
 ]]></ST>

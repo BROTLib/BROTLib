@@ -54,7 +54,7 @@ VAR_OUTPUT
 	HomeActive:	BOOL;
 	// the axis is ready
 	Ready:		BOOL;
-	// the command has been aborted
+	// the command has been aborted (a pulse of the MC block; Execute of the aborted command is released on it, #92)
 	CommandAborted: BOOL;
 	// axis busy
 	Busy: 		BOOL;
@@ -95,7 +95,7 @@ VAR
 	Axis_SetpointEnable:	MC_ExtSetPointGenEnable;
 	MoveCommand:	FB_AxisCommand;	// MoveTo()/CancelMove() (#63)
 	HomeCommand:	FB_AxisCommand;	// Home()/CancelHome()
-	StopCommand:	FB_AxisCommand;	// Stop()
+	StopCommand:	FB_AxisCommand;	// Stop(), idempotent (#93)
 	HomeReference:	LREAL;			// reference position of the last Home() (#62)
 	SetpointEnableFailed:	BOOL;	// setpoint enable failed; no retry until Reset or the end of the track request (#9)
 	Axis_SetpointDisable:	MC_ExtSetPointGenDisable;
@@ -205,7 +205,8 @@ Axis_SetpointDisable(Axis := AxisRef,
 
 (* end of tracking section  ********************************************** *)
 
-MoveCommand(Allowed := Ready AND Calibrated, Reset := Reset, Done := Axis_Modulo.Done OR Axis_Move.Done);
+MoveCommand(Allowed := Ready AND Calibrated, Reset := Reset, Done := Axis_Modulo.Done OR Axis_Move.Done,
+	Aborted := Axis_Modulo.CommandAborted OR Axis_Move.CommandAborted);	// #92
 MovePending := MoveCommand.Pending;
 IF isModuloAxis THEN
 	Axis_Modulo(
@@ -232,7 +233,7 @@ Axis_Jog(
 	Axis := 		AxisRef);
 
 
-HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done);
+HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted);	// #92
 HomePending := HomeCommand.Pending;
 Axis_Home(
 	Axis := 			AxisRef,
@@ -259,11 +260,14 @@ StopAllowed :=	Axis_Status.StandStill OR
 				Axis_Status.SynchronizedMotion OR
 				Axis_Status.Homing;
 
-StopCommand(Allowed := StopAllowed, Reset := Reset, Done := Axis_Stop.Done);
+StopCommand(Allowed := StopAllowed, Reset := Reset, Done := Axis_Stop.Done, Aborted := Axis_Stop.CommandAborted,
+	Busy := Axis_Status.Stopping, Idle := Axis_Status.StandStill);
 Axis_Stop(
 	Axis := 	AxisRef,
 	Execute := 	StopCommand.Execute,
 	Done => 	StopDone);
+// #93: a Stop() joined to a stop that was already finishing reports StopDone once the axis is at rest
+StopDone := StopDone OR StopCommand.Joined;
 (*
 Axis_Position(
 	Axis := 	AxisRef,
@@ -394,6 +398,10 @@ Home := TRUE;
     </Method>
     <Method Name="Stop" Id="{3f23c5e2-5b72-477a-8fc0-71b441e818d2}">
       <Declaration><![CDATA[// Stop the axis (MC_Stop). Also drops pending MoveTo()/Home() requests, so they do not start after the stop.
+// Idempotent (#93): while a stop is pending, running or still finishing (Stopping), no second MC_Stop is started and
+// the call returns FALSE; StopDone still follows (from the running stop, or once the axis is at rest, so a caller can
+// see two StopDone pulses for one stop). After an MC_Stop error the stop is retried. TRUE when a new MC_Stop was
+// requested.
 METHOD Stop : BOOL
 ]]></Declaration>
       <Implementation>
@@ -401,8 +409,7 @@ METHOD Stop : BOOL
 HomeCommand.Cancel();
 MovePending := FALSE;
 HomePending := FALSE;
-StopCommand.Request();
-Stop := TRUE;
+Stop := StopCommand.RequestIfIdle(Busy := Stopping, Done := StopDone, Failed := Axis_Stop.Error);
 ]]></ST>
       </Implementation>
     </Method>

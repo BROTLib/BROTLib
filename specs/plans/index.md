@@ -45,6 +45,14 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   `FB_Comm_MQTT_Influx` applies `focus` only at READY_STATE 1 and logs the rejection; park/startup focus writes
   unaffected; IAG50cm adds the property (0.9.0), tests with a focus stub, MONET/S re-test. **proposed**, nothing
   implemented; open: gate 1 only or wider, interface vs `__QUERYINTERFACE`, no telescope connected (BROTLib#74)
+- [2026-10-21-telescope-state-machine-unification.md](2026-10-21-telescope-state-machine-unification.md) —
+  the telescope state machine exists twice (MONETcommon `FB_MonetTelescopeControl`, IAG50cm `FB_TelescopeControl`;
+  the MONETN copy of BROTLib#25 is gone): block-by-block comparison (identical / diverged with the newer fix /
+  site-specific), characterization tests first (mock rig subclassing the real axis blocks, scenario suites in
+  MONETcommonTests and IAG50cmTests), neutral refactors, pure units and one N-axis stop transaction into BROTLib,
+  then `FB_CommandArbiter` and the template body in `FB_BaseTelescopeControl`; release chain and on-site checks per
+  step. **proposed**, nothing implemented, starts after #122; open: base in BROTLib vs a new library, arbiter-only
+  end state, policy per divergence, time seam, IAG cabinet in tests (BROTLib#25, #67, MONETcommon#36, #24)
 - [2026-10-21-axis-stop-idempotent-93-92.md](2026-10-21-axis-stop-idempotent-93-92.md) —
   `FB_Axis.Stop()` no longer restarts `MC_Stop` while a stop is pending, running or finishing (a repeated call
   joins it and gets one more `StopDone` pulse, so the `StopAxis` setters and both transaction blocks need no

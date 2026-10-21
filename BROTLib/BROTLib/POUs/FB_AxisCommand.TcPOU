@@ -5,26 +5,38 @@
 // cycle before the MC block, turns it into a rising Execute as soon as Allowed (if Execute is still TRUE from the last
 // command it is held FALSE for one cycle first, so the MC block sees an edge). Execute is released when the block
 // reports Done: MC_Stop must not be held (it keeps the axis in Stopping), and it gives the same one-cycle Done pulse as
-// the old caller-cleared flags. On an error Execute stays TRUE, so the block keeps its Error, until the next request
-// or Reset. Pure logic, tested without an NC axis (FB_AxisCommand_Tests).
+// the old caller-cleared flags. It is also released when the block reports CommandAborted (another command took over,
+// #92). On an error Execute stays TRUE, so the block keeps its Error, until the next request or Reset.
+// RequestIfIdle() requests only when the command is not already on its way and joins one that is finishing (#93).
+// Pure logic, tested without an NC axis (FB_AxisCommand_Tests).
 FUNCTION_BLOCK FB_AxisCommand
 VAR_INPUT
 	Allowed		: BOOL;		// the MC block may start now (e.g. Ready AND Calibrated); a request waits until then
 	Reset		: BOOL;		// drops a pending request and releases Execute, which clears the MC block's error
 	Done		: BOOL;		// Done of the MC block from its last call
+	Aborted		: BOOL;		// CommandAborted of the MC block from its last call: releases Execute like Done (#92)
+	// for RequestIfIdle (stop channel): the axis is still finishing a command of this kind (Stopping) ...
+	Busy		: BOOL;
+	// ... and has finished it (StandStill): a joined request ends with a Joined pulse (#93). Both FALSE for move and home.
+	Idle		: BOOL;
 END_VAR
 VAR_OUTPUT
 	Execute		: BOOL;		// for the MC block's Execute
 	Pending		: BOOL;		// a request is waiting for Allowed or for the one-cycle low
+	// one cycle: a RequestIfIdle() that was joined to a finishing command has seen the axis come to rest (#93)
+	Joined		: BOOL;
 END_VAR
 VAR
 	Requested	: BOOL;
+	Joining		: BOOL;		// a joined RequestIfIdle() waits for Idle
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[IF Reset THEN
+      <ST><![CDATA[Joined := FALSE;
+IF Reset THEN
 	Requested := FALSE;
 	Execute := FALSE;
+	Joining := FALSE;
 ELSIF Requested THEN
 	IF Execute THEN
 		Execute := FALSE;		// still TRUE from the last command: one cycle low, so the next TRUE is an edge
@@ -32,8 +44,17 @@ ELSIF Requested THEN
 		Execute := TRUE;
 		Requested := FALSE;
 	END_IF
-ELSIF Done THEN
+ELSIF Done OR Aborted THEN		// #92: an aborted command never reports Done
 	Execute := FALSE;
+END_IF
+// #93: a joined request ends when the axis is at rest; if it leaves Busy any other way (disabled, error stop), no pulse
+IF Joining AND NOT Execute AND NOT Requested THEN
+	IF Idle THEN
+		Joined := TRUE;
+		Joining := FALSE;
+	ELSIF NOT Busy THEN
+		Joining := FALSE;
+	END_IF
 END_IF
 Pending := Requested;
 ]]></ST>
@@ -46,7 +67,36 @@ METHOD Request : BOOL
       <Implementation>
         <ST><![CDATA[Requested := TRUE;
 Pending := TRUE;
+Joining := FALSE;		// a real command reports its own Done
 Request := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle" Id="{7d2b9e41-5c08-4a63-b1f7-3e6a90c4d825}">
+      <Declaration><![CDATA[// Request unless this command is already on its way (#93). A pending request starts anyway; a running command
+// (Execute, its Done not seen yet, no error) reports its own Done. A command that has finished while the axis is
+// still Busy (Done seen but Execute not released yet, or Busy without Execute) is joined: Joined pulses once the
+// body sees Idle. A failed command is retried, as Request() does. TRUE only when a new command was requested.
+METHOD RequestIfIdle : BOOL
+VAR_INPUT
+	Busy	: BOOL;		// the axis is still finishing (stop: FB_Axis.Stopping)
+	Done	: BOOL;		// the MC block reported Done in its latest call (stop: FB_Axis.StopDone)
+	Failed	: BOOL;		// the MC block reports an error (stop: Axis_Stop.Error)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF Requested THEN
+	RETURN;					// pending: starts as soon as Allowed
+END_IF
+IF Execute AND NOT Done AND NOT Failed THEN
+	RETURN;					// running: its own Done is still to come
+END_IF
+IF NOT Failed AND (Busy OR Execute) THEN
+	Joining := TRUE;		// finishing: Joined when the axis is at rest, no second command
+	RETURN;
+END_IF
+Request();
+RequestIfIdle := TRUE;
 ]]></ST>
       </Implementation>
     </Method>
