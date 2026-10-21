@@ -36,15 +36,20 @@ try {
     $tree = (git rev-parse "$Sha^{tree}").Trim()
     Write-Host "Tree of $Sha is $tree"
 
-    $shas = @(gh run list --repo $Repo --workflow $Workflow --status success --limit $Limit --json headSha | ConvertFrom-Json |
-        ForEach-Object { $_.headSha } | Where-Object { $_ -ne $Sha } | Select-Object -Unique)
+    # (a native command that fails does not throw: check its exit code, or an empty result looks like "no earlier
+    # run". A private repo needs `actions: read` in the permissions of the job, or `gh run list` fails with 403.)
+    $runs = gh run list --repo $Repo --workflow $Workflow --status success --limit $Limit --json headSha
+    if ($LASTEXITCODE -ne 0) { throw "gh run list failed with exit code $LASTEXITCODE (a private repo needs 'actions: read' in the permissions of the job)." }
+    $shas = @($runs | ConvertFrom-Json | ForEach-Object { $_.headSha } | Where-Object { $_ -ne $Sha } | Select-Object -Unique)
     foreach ($candidate in $shas) {
-        $candidateTree = (gh api "repos/$Repo/git/commits/$candidate" --jq .tree.sha).Trim()
-        if ($candidateTree -ne $tree) { continue }
+        $candidateTree = gh api "repos/$Repo/git/commits/$candidate" --jq .tree.sha
+        if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Cannot read commit $candidate (gh exit code $LASTEXITCODE), skipping it."; continue }
+        if ("$candidateTree".Trim() -ne $tree) { continue }
         # (filtered here, not with --jq: Windows PowerShell 5.1 strips the double quotes inside a native argument,
         # which turns `"tests-passed"` into a jq subtraction and the count into nothing)
-        $passed = @(gh api "repos/$Repo/commits/$candidate/statuses" | ConvertFrom-Json |
-            Where-Object { $_.context -eq $Context -and $_.state -eq 'success' }).Count
+        $statuses = gh api "repos/$Repo/commits/$candidate/statuses"
+        if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Cannot read the statuses of $candidate (gh exit code $LASTEXITCODE), skipping it."; continue }
+        $passed = @($statuses | ConvertFrom-Json | Where-Object { $_.context -eq $Context -and $_.state -eq 'success' }).Count
         if ($passed -gt 0) {
             Write-Host "Same tree as $candidate, which was built and tested successfully: the build and tests are skipped."
             Set-Same $true
