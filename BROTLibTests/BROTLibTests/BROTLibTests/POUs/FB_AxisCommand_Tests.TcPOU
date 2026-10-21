@@ -414,8 +414,9 @@ END_VAR
         <ST><![CDATA[TEST('Join_Dropped_Without_Rest');
 fbCmd.RequestIfIdle(Busy := TRUE, Done := FALSE, Failed := FALSE);
 fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := TRUE);
-fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
-fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Idle := TRUE);
+// inputs keep their last value when a call leaves them out: Busy has to be set to FALSE explicitly
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := FALSE, Idle := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := FALSE, Idle := TRUE);
 AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'dropped join: no Joined');
 TEST_FINISHED();
 ]]></ST>
