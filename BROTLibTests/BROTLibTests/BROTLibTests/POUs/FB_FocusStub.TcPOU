@@ -3,10 +3,42 @@
   <POU Name="FB_FocusStub" Id="{ba5ff146-f04c-4648-979f-d5c065e2dcc0}" SpecialFunc="None">
     <Declaration><![CDATA[// Minimal I_Focus for the MQTT handler tests: Position is stored by FB_BaseAxis, nothing moves (BROTLib#74).
 FUNCTION_BLOCK FB_FocusStub EXTENDS BROTLib.FB_BaseAxis IMPLEMENTS BROTLib.I_Focus
+VAR_INPUT
+	fMinPosition	: LREAL := -1.0E6;	// travel, as the real focus blocks report it (MONETcommon#122)
+	fMaxPosition	: LREAL := 1.0E6;
+	nStop			: INT;				// number of Stop() calls
+END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[]]></ST>
     </Implementation>
+    <Property Name="MinPosition" Id="{dcb05d04-2922-45aa-a8bd-4dfae8859572}">
+      <Declaration><![CDATA[PROPERTY MinPosition : LREAL]]></Declaration>
+      <Get Name="Get" Id="{44935ebe-42c3-47ad-bea6-18679e9b9a5b}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[MinPosition := fMinPosition;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="MaxPosition" Id="{a844c814-16b5-4cff-90eb-f549351e2ff5}">
+      <Declaration><![CDATA[PROPERTY MaxPosition : LREAL]]></Declaration>
+      <Get Name="Get" Id="{6e6976cc-dc86-48e9-b887-875be9fa2791}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[MaxPosition := fMaxPosition;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="Stop" Id="{0a0dd558-c6f5-49f1-aab9-65d0aa61c69b}">
+      <Declaration><![CDATA[METHOD Stop : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nStop := nStop + 1;
+Stop := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="_StartHoming" Id="{cff36c3c-f927-4b62-9082-dbd69acf4694}">
       <Declaration><![CDATA[METHOD _StartHoming : BOOL
 ]]></Declaration>
