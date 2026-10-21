@@ -17,6 +17,9 @@ name: TcBuild
 # tools/github-rulesets.sh). Every repo of the org builds on every push, so the check name `build` exists everywhere. release.yml
 # dispatches this workflow for the version bump (a push made with GITHUB_TOKEN starts no workflow).
 #
+# Skipped when the pushed tree is one that already passed (typically the merge of a tested branch): see the
+# `Skip if this tree was already built and tested` step. A workflow_dispatch run always builds.
+#
 # Not cancelled when a newer push arrives: a test run is deploying to the runtime and talking to a hidden XAE
 # instance, and killing that mid-run leaves a stray TcXaeShell behind. Runs queue instead (GitHub keeps only
 # the newest pending one).
@@ -44,6 +47,16 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # A merge brings a new commit but often the tree that already passed on the branch. Then the build and the
+      # tests below are skipped; the job still ends green, so the required `build` check is satisfied.
+      # See tools/Find-TestedTree.ps1 (best effort: on any doubt it answers "full build").
+      - name: Skip if this tree was already built and tested
+        id: same
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\tools\Find-TestedTree.ps1
+
       # TcBuild starts TcXaeShell through COM (parent svchost, in the session of the runner service). A hung or
       # cancelled build leaves it behind and it can break the next build. Stop what runs in this job's own
       # session: a TcXaeShell someone opened interactively runs in another session and is left alone.
@@ -62,6 +75,7 @@ jobs:
       # TF6701 (IoT MQTT): FB_Comm_MQTT_Influx_Tests instantiates FB_Comm_MQTT_Influx (BROTLib#39). Without it
       # TwinCAT stays in Config and the run looks like a TcUnit timeout.
       - name: Check TwinCAT license
+        if: steps.same.outputs.same != 'true'
         id: license
         shell: powershell
         run: |
@@ -82,6 +96,7 @@ jobs:
       # The runtime is started at boot by the scheduled task 'TwinCAT UmRT_Default'.
       # Not running: warn and skip the tests (output ok=false), same reason as the license check.
       - name: Check user-mode runtime
+        if: steps.same.outputs.same != 'true'
         id: runtime
         shell: powershell
         run: |
@@ -96,6 +111,7 @@ jobs:
       # retry below. Starting and quitting one XAE first leaves the following starts fast. Best effort: never
       # fails the job, and only touches the XAE instance started here.
       - name: Warm up XAE
+        if: steps.same.outputs.same != 'true'
         shell: powershell
         run: |
           $before = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
@@ -123,6 +139,7 @@ jobs:
       # build. A `*` reference picks the highest version in the shared library repository, and a branch build of
       # that library overwrites its version slot, so the result depended on what ran last.
       - name: Install pinned libraries
+        if: steps.same.outputs.same != 'true'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
@@ -131,6 +148,7 @@ jobs:
       # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER, exit 3): retry.
       # Exit 1 = built with compile warnings, still a success (see tcbuild.yml).
       - name: Install BROTLib
+        if: steps.same.outputs.same != 'true'
         shell: powershell
         run: |
           $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
@@ -143,6 +161,7 @@ jobs:
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
       - name: Build BROTLibTests
+        if: steps.same.outputs.same != 'true'
         shell: powershell
         working-directory: BROTLibTests
         run: |
@@ -156,11 +175,25 @@ jobs:
 
       # Exit 0 = all passed, 1 = a test failed, 2 = no result within the timeout.
       - name: Run tests
-        if: steps.license.outputs.ok == 'true' && steps.runtime.outputs.ok == 'true'
+        id: tests
+        if: steps.same.outputs.same != 'true' && steps.license.outputs.ok == 'true' && steps.runtime.outputs.ok == 'true'
         shell: powershell
         run: |
           & .\BROTLibTests\tools\Run-Tests.ps1
           exit $LASTEXITCODE
+
+      # Proof for tools/Find-TestedTree.ps1 that the tests really ran on this commit (a run that skipped them
+      # because the license or runtime was missing is green too and must not vouch for a later commit).
+      - name: Mark the commit as tested (status `tests-passed`)
+        if: steps.tests.outcome == 'success'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" `
+            -f state=success -f context=tests-passed -f description="BROTLibTests passed" -f target_url="$env:RUN_URL"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::posting the tests-passed status failed with exit code $LASTEXITCODE" }
 
       # A workflow_dispatch run (release.yml dispatches one for the version bump) is not linked to the
       # release PR, so its `build` check run does not satisfy the required `build` check on main and the PR
