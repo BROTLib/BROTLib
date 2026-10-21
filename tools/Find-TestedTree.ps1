@@ -39,8 +39,11 @@ try {
     foreach ($candidate in $shas) {
         $candidateTree = (gh api "repos/$Repo/git/commits/$candidate" --jq .tree.sha).Trim()
         if ($candidateTree -ne $tree) { continue }
-        $passed = gh api "repos/$Repo/commits/$candidate/statuses" --jq '[.[] | select(.context == "tests-passed" and .state == "success")] | length'
-        if ([int]$passed -gt 0) {
+        # (filtered here, not with --jq: Windows PowerShell 5.1 strips the double quotes inside a native argument,
+        # which turns `"tests-passed"` into a jq subtraction and the count into nothing)
+        $passed = @(gh api "repos/$Repo/commits/$candidate/statuses" | ConvertFrom-Json |
+            Where-Object { $_.context -eq 'tests-passed' -and $_.state -eq 'success' }).Count
+        if ($passed -gt 0) {
             Write-Host "Same tree as $candidate, which was built and tested successfully: the build and tests are skipped."
             Set-Same $true
             exit 0
