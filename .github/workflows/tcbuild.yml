@@ -107,34 +107,6 @@ jobs:
           }
           [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
 
-      # A cold XAE start can outlast TcBuild's own COM retry window, which then fails with exit 3 (busy) on every
-      # retry below. Starting and quitting one XAE first leaves the following starts fast. Best effort: never
-      # fails the job, and only touches the XAE instance started here.
-      - name: Warm up XAE
-        if: steps.same.outputs.same != 'true'
-        shell: powershell
-        run: |
-          $before = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object Id)
-          $dte = $null
-          $own = @()
-          try {
-            $dte = New-Object -ComObject 'TcXaeShell.DTE.15.0'
-            $own = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $before -notcontains $_.Id } | ForEach-Object Id)
-            for ($n = 0; $n -lt 120; $n++) {
-              try { if ($null -ne $dte.Solution) { break } } catch { }
-              Start-Sleep -Seconds 1
-            }
-            Start-Sleep -Seconds 10
-            Write-Host "XAE ready after about $n s"
-          }
-          catch { Write-Host "::warning::XAE warm-up failed: $($_.Exception.Message)" }
-          finally {
-            if ($dte -and $own.Count -gt 0) { try { $dte.Quit() } catch { } }
-            Start-Sleep -Seconds 3
-            Get-Process TcXaeShell -ErrorAction SilentlyContinue | Where-Object { $own -contains $_.Id } | ForEach-Object { Stop-Process -Id $_.Id -Force }
-          }
-          exit 0
-
       # The org libraries this repo pins in its .plcproj files are reinstalled from their GitHub release before the
       # build. A `*` reference picks the highest version in the shared library repository, and a branch build of
       # that library overwrites its version slot, so the result depended on what ran last.
@@ -145,18 +117,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: .\tools\Install-PinnedLibraries.ps1
 
-      # TcBuild drives XAE over COM and is sometimes busy (RPC_E_SERVERCALL_RETRYLATER, exit 3): retry.
-      # Exit 1 = built with compile warnings, still a success (see tcbuild.yml).
+      # tools/Invoke-XaeBuild.ps1 builds through the XAE automation interface and replaces TcBuild.exe: a cold XAE
+      # start (about 20 s of CPU on the runner) outlasts TcBuild's own COM retry window of about 17 s, so TcBuild
+      # failed with exit 3 (busy) on try after try, each restarting XAE. The script waits for XAE (up to 120 s).
+      # Same exit codes as TcBuild; exit 1 = built with compile warnings, still a success.
       - name: Install BROTLib
         if: steps.same.outputs.same != 'true'
         shell: powershell
         run: |
           $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
-          for ($i = 1; $i -le 8; $i++) {
-            & "$env:GITHUB_WORKSPACE\tools\Invoke-TcBuild.ps1" -TcBuildArgs 'install', 'BROTLib.sln', '-x', 'BROTLib', '-p', 'BROTLib', '-l', $file
-            if ($LASTEXITCODE -ne 3) { break }
-            Start-Sleep -Seconds 30
-          }
+          & "$env:GITHUB_WORKSPACE\tools\Invoke-XaeBuild.ps1" install BROTLib.sln -XaeProject BROTLib -PlcProject BROTLib -LibraryFile $file
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
@@ -165,11 +135,7 @@ jobs:
         shell: powershell
         working-directory: BROTLibTests
         run: |
-          for ($i = 1; $i -le 8; $i++) {
-            & "$env:GITHUB_WORKSPACE\tools\Invoke-TcBuild.ps1" -TcBuildArgs 'build', 'BROTLibTests.sln'
-            if ($LASTEXITCODE -ne 3) { break }
-            Start-Sleep -Seconds 30
-          }
+          & "$env:GITHUB_WORKSPACE\tools\Invoke-XaeBuild.ps1" build BROTLibTests.sln
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
