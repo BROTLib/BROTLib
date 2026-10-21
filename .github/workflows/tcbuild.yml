@@ -153,12 +153,10 @@ jobs:
         run: |
           $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
           for ($i = 1; $i -le 8; $i++) {
-            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
+            & "$env:GITHUB_WORKSPACE\tools\Invoke-TcBuild.ps1" -TcBuildArgs 'install', 'BROTLib.sln', '-x', 'BROTLib', '-p', 'BROTLib', '-l', $file
             if ($LASTEXITCODE -ne 3) { break }
-            if ($i -eq 1) { & "$env:GITHUB_WORKSPACE\tools\Write-XaeDiagnostics.ps1" -Label 'after the first busy try' }
             Start-Sleep -Seconds 30
           }
-          if ($LASTEXITCODE -eq 3) { & "$env:GITHUB_WORKSPACE\tools\Write-XaeDiagnostics.ps1" -Label 'after the last busy try' }
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
@@ -168,12 +166,10 @@ jobs:
         working-directory: BROTLibTests
         run: |
           for ($i = 1; $i -le 8; $i++) {
-            & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLibTests.sln
+            & "$env:GITHUB_WORKSPACE\tools\Invoke-TcBuild.ps1" -TcBuildArgs 'build', 'BROTLibTests.sln'
             if ($LASTEXITCODE -ne 3) { break }
-            if ($i -eq 1) { & "$env:GITHUB_WORKSPACE\tools\Write-XaeDiagnostics.ps1" -Label 'after the first busy try' }
             Start-Sleep -Seconds 30
           }
-          if ($LASTEXITCODE -eq 3) { & "$env:GITHUB_WORKSPACE\tools\Write-XaeDiagnostics.ps1" -Label 'after the last busy try' }
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
