@@ -3,7 +3,7 @@
   <POU Name="FB_FocusStub" Id="{ba5ff146-f04c-4648-979f-d5c065e2dcc0}" SpecialFunc="None">
     <Declaration><![CDATA[// Minimal I_Focus for the MQTT handler tests: Position is stored by FB_BaseAxis, nothing moves (BROTLib#74).
 FUNCTION_BLOCK FB_FocusStub EXTENDS BROTLib.FB_BaseAxis IMPLEMENTS BROTLib.I_Focus
-VAR
+VAR_INPUT
 	fMinPosition	: LREAL := -1.0E6;	// travel, as the real focus blocks report it (MONETcommon#122)
 	fMaxPosition	: LREAL := 1.0E6;
 	nStop			: INT;				// number of Stop() calls
