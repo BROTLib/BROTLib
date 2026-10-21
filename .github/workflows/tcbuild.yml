@@ -134,7 +134,7 @@ jobs:
         shell: powershell
         run: |
           $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
-          for ($i = 1; $i -le 4; $i++) {
+          for ($i = 1; $i -le 8; $i++) {
             & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l $file
             if ($LASTEXITCODE -ne 3) { break }
             Start-Sleep -Seconds 30
@@ -146,7 +146,7 @@ jobs:
         shell: powershell
         working-directory: BROTLibTests
         run: |
-          for ($i = 1; $i -le 4; $i++) {
+          for ($i = 1; $i -le 8; $i++) {
             & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLibTests.sln
             if ($LASTEXITCODE -ne 3) { break }
             Start-Sleep -Seconds 30
