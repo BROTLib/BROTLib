@@ -130,7 +130,7 @@ jobs:
         shell: powershell
         run: |
           $file = Join-Path $env:RUNNER_TEMP 'BROTLib.library'
-          & "$env:GITHUB_WORKSPACE\tools\Invoke-XaeBuild.ps1" install BROTLib.sln -XaeProject BROTLib -PlcProject BROTLib -LibraryFile $file
+          tctool BROTLib.sln library --xae BROTLib --plc BROTLib --out $file --install
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
@@ -139,7 +139,7 @@ jobs:
         shell: powershell
         working-directory: BROTLibTests
         run: |
-          & "$env:GITHUB_WORKSPACE\tools\Invoke-XaeBuild.ps1" build BROTLibTests.sln
+          tctool BROTLibTests.sln build
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
