@@ -113,7 +113,7 @@ organised into four layers:
    | `I_Axis` / `I_BaseAxis` | Motion axes (position, velocity, tracking, homing) |
    | `I_Dome` | Dome rotation and shutter |
    | `I_Roof` | Roof (dome enclosure) open/close control |
-   | `I_Focus`, `I_Filter`, `I_Brake` | Instrument subsystems |
+   | `I_Focus`, `I_Filter`, `I_Brake` | Instrument subsystems (`I_Focus` has `MinPosition`/`MaxPosition` and `Stop()`) |
    | `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics` | Telescope infrastructure |
    | `I_Comm` | Telemetry/log publishing (`Publish`, `PublishLog`) |
 
@@ -232,7 +232,10 @@ published at 1 s while slewing/tracking and 5 s when idle.
 
 `focus` is applied only while the telescope reports READY_STATE 1 (online, `I_Telescope.ReadyState`); parked,
 parking, starting up, in error or with no `Telescope` connected it is rejected with a log entry (BROTLib#74). The
-park and startup sequences set the focus themselves and are not affected.
+park and startup sequences set the focus themselves and are not affected. A `focus` target outside
+`I_Focus.MinPosition`..`MaxPosition` is rejected with a log entry and the old target is kept (MONETcommon#122). `stop`
+goes to the telescope, which stops its focus with `I_Focus.Stop()`. `FB_MoveFollower` is the shared start/re-target
+logic for focus blocks: a new target during a move restarts the move.
 
 ### Utilities and timing
 

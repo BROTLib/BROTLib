@@ -155,10 +155,18 @@ ELSIF parameter = 'focus' AND Focus <> 0 THEN
 	// BROTLib#74: a client may move the focus only while the telescope is online (READY_STATE 1). Parked, parking,
 	// starting up, in error, not operational, in manual mode (suspended) or with no telescope connected, the command
 	// is rejected and logged. The park and startup sequences write Focus.Position directly and are not affected.
-	// Unit and travel depend on the telescope; the range check only rejects garbage, the focus axis enforces its limits
+	// Unit and travel depend on the telescope: garbage is rejected by _ParseLREAL, a target outside the travel of the
+	// focus (Focus.MinPosition..MaxPosition) is rejected here and the old target kept (MONETcommon#122: a clamp
+	// turned focus=500 into an unattended run to the end of travel)
 	IF _FocusAllowed(sPayloadRcv := sPayloadRcv)
 		AND_THEN _ParseLREAL(parameter := parameter, value := value, fMin := -1.0E6, fMax := 1.0E6, fValue => fValue) THEN
-		Focus.Position := fValue;
+		IF fValue < Focus.MinPosition OR fValue > Focus.MaxPosition THEN
+			ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT focus rejected: outside the focus range %s',
+				CONCAT(CONCAT(CONCAT(CONCAT(value, ' not in '), LREAL_TO_STRING(Focus.MinPosition)), '..'),
+				LREAL_TO_STRING(Focus.MaxPosition)));
+		ELSE
+			Focus.Position := fValue;
+		END_IF
 	END_IF
 ELSIF parameter = 'cover_open' AND MirrorCovers <> 0 THEN
 	MirrorCovers.Open();

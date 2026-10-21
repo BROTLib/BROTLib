@@ -155,6 +155,9 @@
     <Compile Include="POUs\FB_Axis.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_MoveFollower.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_AxisCommand.TcPOU">
       <SubType>Code</SubType>
     </Compile>

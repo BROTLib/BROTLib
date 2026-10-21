@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_MoveFollower" Id="{23365788-3912-43ba-8d95-0adf2d8a4eee}" SpecialFunc="None">
+    <Declaration><![CDATA[// Lets an axis follow a changing target with MoveTo() (MONETcommon#122). Starts a move when the axis is off target,
+// restarts it when the target moves by more than fTolerance while the move runs (the MC block takes Position only on
+// its rising Execute), and ends it on MoveDone, abort, error or stop. Nothing starts while bError is set. The caller does the NC calls: it calls
+// fbAxis.MoveTo() whenever bStartMove is TRUE. Comparing with the target the running move was started with
+// (fMoveTarget), not with the actual position, keeps a hunting axis (HalfBROT#85) from restarting its move.
+// Pure logic, tested without an NC axis (FB_MoveFollower_Tests).
+FUNCTION_BLOCK FB_MoveFollower
+VAR_INPUT
+	fTarget		: LREAL;	// requested position
+	fActual		: LREAL;	// actual position
+	fTolerance	: LREAL;	// positioning tolerance
+	bActive		: BOOL;		// automatic positioning allowed (automatic mode, calibrated, not homing)
+	bReady		: BOOL;		// the axis can start a move (fbAxis.Ready)
+	bMoveDone	: BOOL;		// MoveDone of fbAxis from its last call
+	bAborted	: BOOL;		// the move was aborted (another command took over)
+	bError		: BOOL;		// axis error
+	bStopDone	: BOOL;		// StopDone of fbAxis from its last call
+END_VAR
+VAR_OUTPUT
+	bStartMove	: BOOL;		// call fbAxis.MoveTo() in this cycle
+	bMoving		: BOOL;		// a move to fMoveTarget is running or pending
+	bNeedEnable	: BOOL;		// off target, but the axis is not ready: the caller enables it
+	fMoveTarget	: LREAL;	// target the running move was started with
+END_VAR
+VAR
+	bStopping	: BOOL;		// Stop() was called: no start or restart until the target changes
+	fHeldTarget	: LREAL;	// target at the time of Stop()
+	bRestarted	: BOOL;		// the move was restarted in the last cycle, its abort of the old move is not the end
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[bStartMove := FALSE;
+bNeedEnable := FALSE;
+
+// the end of a move; the abort that a restart causes for the old move does not end the new one
+IF bMoveDone OR bError OR bStopDone OR (bAborted AND NOT bRestarted) THEN
+	bMoving := FALSE;
+END_IF
+bRestarted := FALSE;
+
+// after Stop() the old target stays blocked, a new one moves again
+IF bStopping AND ABS(fTarget - fHeldTarget) > fTolerance THEN
+	bStopping := FALSE;
+END_IF
+
+IF NOT bActive THEN
+	bMoving := FALSE;
+ELSIF NOT bStopping AND NOT bError THEN
+	IF bMoving THEN
+		IF ABS(fTarget - fMoveTarget) > fTolerance THEN
+			bStartMove := TRUE;
+			bRestarted := TRUE;
+			fMoveTarget := fTarget;
+		END_IF
+	ELSIF ABS(fTarget - fActual) > fTolerance THEN
+		IF bReady THEN
+			bStartMove := TRUE;
+			bMoving := TRUE;
+			fMoveTarget := fTarget;
+		ELSE
+			bNeedEnable := TRUE;
+		END_IF
+	END_IF
+END_IF
+]]></ST>
+    </Implementation>
+    <Method Name="Stop" Id="{6b0a54fd-52aa-4d53-8192-c7640a3eeedb}">
+      <Declaration><![CDATA[// The caller stops the axis: end the move and hold the current target. TRUE if a move was running or pending.
+METHOD Stop : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Stop := bMoving;
+bStopping := TRUE;
+fHeldTarget := fTarget;
+bMoving := FALSE;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
