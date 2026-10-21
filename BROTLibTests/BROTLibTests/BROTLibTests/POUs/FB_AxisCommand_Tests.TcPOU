@@ -2,7 +2,9 @@
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_AxisCommand_Tests" Id="{5f290697-5ee2-4554-a2b1-c3b1204db5b4}" SpecialFunc="None">
     <Declaration><![CDATA[// Tests for BROTLib.FB_AxisCommand, the request -> Execute logic behind FB_Axis.Move/Home/Stop (#63). Each fbCmd(...)
-// call is one cycle; Done is what the MC block reported in its last call.
+// call is one cycle; Done is what the MC block reported in its last call. RequestIfIdle() and the join (#93), the
+// release on CommandAborted (#92) and a scan model of the MONETcommon#96 stop loop are covered here, because
+// FB_Axis_Tests cannot produce Stopping or an aborted command without an NC axis.
 FUNCTION_BLOCK FB_AxisCommand_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
 END_VAR
@@ -15,6 +17,19 @@ Request_While_Running_Retriggers();
 Error_Keeps_Execute();
 Reset_Releases_And_Drops();
 Cancel_Drops_Pending();
+Aborted_Releases_Execute();
+Request_After_Abort_Starts_At_Once();
+Request_Wins_Over_Aborted();
+RequestIfIdle_Twice_In_One_Scan();
+RequestIfIdle_Each_Scan_While_Running();
+RequestIfIdle_While_Pending();
+RequestIfIdle_After_Done_Joins();
+RequestIfIdle_While_Stopping_Joins();
+RequestIfIdle_At_Rest_Gives_New_Edge();
+RequestIfIdle_After_Error_Retries();
+Join_Dropped_Without_Rest();
+Reset_And_Request_End_A_Join();
+Stop_Loop_Of_96_Gives_One_Edge();
 ]]></ST>
     </Implementation>
     <Method Name="Idle_Without_Request" Id="{234a4bd0-443d-44b3-bbca-f42eeacf4f93}">
@@ -148,6 +163,341 @@ fbCmd.Cancel();
 AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'cancelled: Pending');
 fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
 AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'allowed later: nothing starts: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Aborted_Releases_Execute" Id="{73914cd6-012f-42d7-8896-e14d8304a0f6}">
+      <Declaration><![CDATA[// #92: a command aborted by another one never reports Done; Execute is released on CommandAborted.
+METHOD PRIVATE Aborted_Releases_Execute
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Aborted_Releases_Execute');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'started: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Aborted := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'aborted: Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'aborted: Pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'stays released: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Request_After_Abort_Starts_At_Once" Id="{e4e98858-3b0d-4774-8d5b-f24bd4c0b09e}">
+      <Declaration><![CDATA[// After the release on an abort a new request starts without the one-cycle low.
+METHOD PRIVATE Request_After_Abort_Starts_At_Once
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Request_After_Abort_Starts_At_Once');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Aborted := TRUE);
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'new request: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Request_Wins_Over_Aborted" Id="{37785377-02b1-461d-8be7-12976e1f7106}">
+      <Declaration><![CDATA[// A request made while an abort is reported still gets its one-cycle low and a new edge.
+METHOD PRIVATE Request_Wins_Over_Aborted
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Request_Wins_Over_Aborted');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Aborted := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'one cycle low: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'new edge: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_Twice_In_One_Scan" Id="{564fc775-ee2e-4135-9204-9bdf3075a506}">
+      <Declaration><![CDATA[// #93: two stop requests in one scan give one rising Execute.
+METHOD PRIVATE RequestIfIdle_Twice_In_One_Scan
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	nEdges	: INT;
+	bPrev	: BOOL;
+	bAccepted1	: BOOL;
+	bAccepted2	: BOOL;
+	i	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_Twice_In_One_Scan');
+bAccepted1 := fbCmd.RequestIfIdle(Busy := FALSE, Done := FALSE, Failed := FALSE);
+bAccepted2 := fbCmd.RequestIfIdle(Busy := FALSE, Done := FALSE, Failed := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := bAccepted1, Message := 'first: accepted');
+AssertEquals_BOOL(Expected := FALSE, Actual := bAccepted2, Message := 'second: ignored');
+FOR i := 1 TO 6 DO
+	fbCmd(Allowed := TRUE, Reset := FALSE, Done := (i = 3));
+	IF fbCmd.Execute AND NOT bPrev THEN nEdges := nEdges + 1; END_IF
+	bPrev := fbCmd.Execute;
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := nEdges, Message := 'rising edges of Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_Each_Scan_While_Running" Id="{3f2310a6-e9ec-4535-b23d-95667151c113}">
+      <Declaration><![CDATA[// #93: a stop request in every scan while the command runs does not drop Execute before Done.
+METHOD PRIVATE RequestIfIdle_Each_Scan_While_Running
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	nEdges	: INT;
+	bPrev	: BOOL;
+	bAccepted1	: BOOL;
+	bAccepted2	: BOOL;
+	i	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_Each_Scan_While_Running');
+fbCmd.Request();
+FOR i := 1 TO 3 DO
+	fbCmd.RequestIfIdle(Busy := TRUE, Done := FALSE, Failed := FALSE);
+	fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+	IF fbCmd.Execute AND NOT bPrev THEN nEdges := nEdges + 1; END_IF
+	bPrev := fbCmd.Execute;
+	AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'running: Execute');
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := nEdges, Message := 'rising edges of Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_While_Pending" Id="{ddbdd47a-a840-4808-b062-26a7cf637823}">
+      <Declaration><![CDATA[// #93: a request that waits for Allowed is kept, a second one is ignored.
+METHOD PRIVATE RequestIfIdle_While_Pending
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	nEdges	: INT;
+	bPrev	: BOOL;
+	bAccepted1	: BOOL;
+	bAccepted2	: BOOL;
+	i	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_While_Pending');
+bAccepted1 := fbCmd.RequestIfIdle(Busy := FALSE, Done := FALSE, Failed := FALSE);
+bAccepted2 := fbCmd.RequestIfIdle(Busy := FALSE, Done := FALSE, Failed := FALSE);
+fbCmd(Allowed := FALSE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := bAccepted1, Message := 'first: accepted');
+AssertEquals_BOOL(Expected := FALSE, Actual := bAccepted2, Message := 'second: ignored');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Pending, Message := 'still pending');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'not allowed: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'allowed: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_After_Done_Joins" Id="{92d53655-d6b7-49ee-a9fb-2cc3f1dea428}">
+      <Declaration><![CDATA[// #93: the scan in which the MC block reported Done (Execute not released yet): no second command, Joined once
+// the axis is at rest.
+METHOD PRIVATE RequestIfIdle_After_Done_Joins
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	bAccepted	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_After_Done_Joins');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+bAccepted := fbCmd.RequestIfIdle(Busy := TRUE, Done := TRUE, Failed := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := bAccepted, Message := 'joined: not a new command');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := TRUE, Busy := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'done: Execute released');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'still stopping: Joined');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'still stopping: Joined');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Idle := TRUE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Joined, Message := 'at rest: Joined');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Pending, Message := 'never pending');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Idle := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'one pulse only');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'no second command: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_While_Stopping_Joins" Id="{713d1a3d-a4bd-43af-a98e-66e9f36cb9d1}">
+      <Declaration><![CDATA[// #93, the loop of MONETcommon#96: Execute already released, the axis is still Stopping.
+METHOD PRIVATE RequestIfIdle_While_Stopping_Joins
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	bAccepted	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_While_Stopping_Joins');
+bAccepted := fbCmd.RequestIfIdle(Busy := TRUE, Done := FALSE, Failed := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := bAccepted, Message := 'joined: not a new command');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'stopping: Joined');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'stopping: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Idle := TRUE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Joined, Message := 'at rest: Joined');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_At_Rest_Gives_New_Edge" Id="{37d8e7bd-15dd-4318-b88f-f6e4d643f4e5}">
+      <Declaration><![CDATA[// #93: after the axis is at rest again a request starts a new command.
+METHOD PRIVATE RequestIfIdle_At_Rest_Gives_New_Edge
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	bAccepted	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_At_Rest_Gives_New_Edge');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := TRUE);
+bAccepted := fbCmd.RequestIfIdle(Busy := FALSE, Done := FALSE, Failed := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := bAccepted, Message := 'at rest: accepted');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'new command: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestIfIdle_After_Error_Retries" Id="{d25ddbc9-cac4-4715-ba57-8926a27aefd6}">
+      <Declaration><![CDATA[// An MC block error keeps Execute; a request after it retriggers (one cycle low, new edge) as Request() does.
+METHOD PRIVATE RequestIfIdle_After_Error_Retries
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+	bAccepted	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('RequestIfIdle_After_Error_Retries');
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+bAccepted := fbCmd.RequestIfIdle(Busy := FALSE, Done := FALSE, Failed := TRUE);
+AssertEquals_BOOL(Expected := TRUE, Actual := bAccepted, Message := 'after error: accepted');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Execute, Message := 'one cycle low: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'new edge: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Join_Dropped_Without_Rest" Id="{3d15941d-606d-4040-bb3e-5cd0528815ec}">
+      <Declaration><![CDATA[// #93: if the axis leaves Busy without coming to rest (disabled, error stop) the join ends without a pulse.
+METHOD PRIVATE Join_Dropped_Without_Rest
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Join_Dropped_Without_Rest');
+fbCmd.RequestIfIdle(Busy := TRUE, Done := FALSE, Failed := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := TRUE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Idle := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'dropped join: no Joined');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset_And_Request_End_A_Join" Id="{166e9c6b-94d0-4fb9-ad71-0ca06a1e1f4e}">
+      <Declaration><![CDATA[// #93: Reset and a real Request() end a join.
+METHOD PRIVATE Reset_And_Request_End_A_Join
+VAR
+	fbCmd	: BROTLib.FB_AxisCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Reset_And_Request_End_A_Join');
+fbCmd.RequestIfIdle(Busy := TRUE, Done := FALSE, Failed := FALSE);
+fbCmd(Allowed := TRUE, Reset := TRUE, Done := FALSE, Busy := TRUE);
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Idle := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'after Reset: no Joined');
+fbCmd.RequestIfIdle(Busy := TRUE, Done := FALSE, Failed := FALSE);
+fbCmd.Request();
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := FALSE, Busy := TRUE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCmd.Execute, Message := 'real request: Execute');
+fbCmd(Allowed := TRUE, Reset := FALSE, Done := TRUE, Idle := TRUE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCmd.Joined, Message := 'after Request: no Joined');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Loop_Of_96_Gives_One_Edge" Id="{48a2a99b-298f-4d02-b38d-fe9ecb917c22}">
+      <Declaration><![CDATA[// #93 scan model: the caller of MONETcommon 0.9.0 writes the stop request in every scan in which the axis is not
+// StandStill, behind a level that is cleared on StopDone. Axis model: Stopping from the rising Execute, Done after 3
+// scans, StandStill one scan after Execute is released. With Request() instead of RequestIfIdle() the same model
+// restarts MC_Stop 7 to 14 times (Done after 5 to 2 scans).
+METHOD PRIVATE Stop_Loop_Of_96_Gives_One_Edge
+VAR
+	fbCmd		: BROTLib.FB_AxisCommand;
+	nState		: INT := 1;		// 0 StandStill, 1 moving, 2 Stopping (model of the axis)
+	nCnt		: INT;
+	bExecPrev	: BOOL;
+	bMcDone		: BOOL;
+	bStopDone	: BOOL;
+	bStopping	: BOOL;
+	bStopAxis	: BOOL;		// the level of the axis control block: cleared on StopDone
+	bStopStart	: BOOL;
+	bAccepted	: BOOL;
+	nEdges		: INT;
+	i			: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Loop_Of_96_Gives_One_Edge');
+FOR i := 1 TO 40 DO
+	// caller rule of MONETcommon 0.9.0: write the stop request in every scan in which the axis is not StandStill
+	IF nState <> 0 AND NOT bStopAxis THEN
+		bStopAxis := TRUE;
+		bAccepted := fbCmd.RequestIfIdle(Busy := bStopping, Done := bStopDone, Failed := FALSE);
+	END_IF
+	fbCmd(Allowed := (nState <> 2), Reset := FALSE, Done := bMcDone, Busy := (nState = 2), Idle := (nState = 0));
+	bStopping := (nState = 2);
+	// MC_Stop: Stopping from the rising Execute, Done after 3 scans, Stopping until Execute is released
+	bMcDone := FALSE;
+	bStopStart := fbCmd.Execute AND NOT bExecPrev AND nState <> 2;
+	IF bStopStart THEN
+		nState := 2;
+		nCnt := 0;
+		nEdges := nEdges + 1;
+	END_IF
+	IF fbCmd.Execute AND nState = 2 THEN
+		nCnt := nCnt + 1;
+		bMcDone := (nCnt = 3);
+	ELSIF NOT fbCmd.Execute AND nState = 2 AND nCnt >= 3 THEN
+		nState := 0;
+	END_IF
+	bExecPrev := fbCmd.Execute;
+	bStopDone := bMcDone OR fbCmd.Joined;
+	IF bStopDone THEN
+		bStopAxis := FALSE;
+	END_IF
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := nEdges, Message := 'one MC_Stop in 40 scans');
+AssertEquals_INT(Expected := 0, Actual := nState, Message := 'axis ends at rest');
+AssertEquals_BOOL(Expected := FALSE, Actual := bStopAxis, Message := 'level cleared');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

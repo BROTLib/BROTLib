@@ -182,7 +182,9 @@ organised into four layers:
 
 - **`FB_BaseAxis` / `FB_Axis`** — axis abstraction over a TwinCAT NC axis:
   position and velocity control, `isTracking` handling, homing/referencing,
-  limit handling and error checking. `FB_AxisControl`-style blocks in the
+  limit handling and error checking. `FB_Axis.Stop()` is idempotent: while a
+  stop is pending, running or finishing it starts no second `MC_Stop`, and
+  `StopDone` still follows. `FB_AxisControl`-style blocks in the
   hardware libraries (`HalfBROT`, `MONETcommon`) extend these.
 - **`FB_PointingModelForward`** — Tpoint-style parametric pointing model
   (9 terms: AOFF, BNP, AN_A, AE_A, NPAE, EOFF, AN_E, AE_E, TF), producing
