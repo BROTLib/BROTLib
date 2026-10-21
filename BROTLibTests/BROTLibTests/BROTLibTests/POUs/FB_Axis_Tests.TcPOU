@@ -20,6 +20,9 @@ Move_Is_Ignored_Without_Calibration();
 Home_Request_Is_Kept_While_Not_Homed();
 HomeActive_Is_Low_While_Idle();
 Home_Call_Is_Accepted_While_Idle();
+Stop_Twice_In_One_Scan();
+Stop_Repeated_Next_Scan();
+Ignored_Stop_Still_Cancels_Move();
 ]]></ST>
     </Implementation>
     <Method Name="SetActPos" Id="{2b7e4c91-8d35-4f06-a1c8-9e3d5b70f214}">
@@ -235,6 +238,68 @@ fbAxis(AxisRef := axisRef);
 bAccepted := fbAxis.Home(fReference := fReference);
 AssertTrue(Condition := bAccepted, Message := 'Home() is accepted when no homing runs (the guard only ignores calls during a homing)');
 AssertTrue(Condition := fbAxis.HomePending, Message := 'the accepted request is pending');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Twice_In_One_Scan" Id="{27f9fd59-94b4-4508-811e-8f96312e4049}">
+      <Declaration><![CDATA[// #93: the second Stop() in a scan is ignored.
+METHOD PRIVATE Stop_Twice_In_One_Scan
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+	bFirst	: BOOL;
+	bSecond	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Twice_In_One_Scan');
+fbAxis(AxisRef := axisRef);
+bFirst := fbAxis.Stop();
+bSecond := fbAxis.Stop();
+AssertTrue(Condition := bFirst, Message := 'first Stop() requests an MC_Stop');
+AssertFalse(Condition := bSecond, Message := 'second Stop() in the same scan is ignored');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Repeated_Next_Scan" Id="{8181193f-ebae-46c1-b8cf-f4d318f567ac}">
+      <Declaration><![CDATA[// #93: a Stop() in the next scan, while the first request is still pending or running, is ignored.
+METHOD PRIVATE Stop_Repeated_Next_Scan
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+	bFirst	: BOOL;
+	bSecond	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Repeated_Next_Scan');
+fbAxis(AxisRef := axisRef);
+bFirst := fbAxis.Stop();
+fbAxis(AxisRef := axisRef);
+bSecond := fbAxis.Stop();
+AssertTrue(Condition := bFirst, Message := 'first Stop() requests an MC_Stop');
+AssertFalse(Condition := bSecond, Message := 'repeated Stop() while the stop is on its way is ignored');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Ignored_Stop_Still_Cancels_Move" Id="{8d24cf24-3308-4d08-9479-07d4ad46d6d1}">
+      <Declaration><![CDATA[// #93: an ignored Stop() still drops a MoveTo() requested after the first one.
+METHOD PRIVATE Ignored_Stop_Still_Cancels_Move
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Ignored_Stop_Still_Cancels_Move');
+fbAxis(AxisRef := axisRef);
+fbAxis.Stop();
+fbAxis.MoveTo();
+fbAxis.Stop();
+AssertFalse(Condition := fbAxis.MovePending, Message := 'the ignored Stop() cancelled the pending move');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
