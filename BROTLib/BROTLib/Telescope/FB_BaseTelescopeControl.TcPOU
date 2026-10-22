@@ -61,8 +61,8 @@ VAR
 	
 	bPowerFailure		: BOOL;		// triggers power-failure event
 	tpPowerOnWarning	: TP;		// triggers power warning
-	tonPowerTimeout		: TON;		// power on timeout
-	tonCommandTimeout	: TON;		// command timeout
+	tonPowerTimeout		: FB_TimeoutTimer;		// power on timeout
+	tonCommandTimeout	: FB_TimeoutTimer;		// command timeout
 	tonTrackingDelay	: TON;		// tracking delay
 	
 	TCSpowerEvent,
