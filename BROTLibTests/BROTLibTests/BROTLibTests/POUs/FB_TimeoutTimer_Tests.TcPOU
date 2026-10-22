@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_TimeoutTimer_Tests" Id="{5a6b8931-231b-469c-aa85-359426e1bedf}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_TimeoutTimer, the TON with the test seam for the long command timeouts.
+FUNCTION_BLOCK FB_TimeoutTimer_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Default_Divisor_Keeps_The_Preset();
+Divisor_Shortens_The_Preset();
+Divisor_Zero_Is_Treated_As_One();
+]]></ST>
+    </Implementation>
+    <Method Name="Default_Divisor_Keeps_The_Preset" Id="{e0d17f1b-7bbe-4992-946f-06c0558138ad}">
+      <Declaration><![CDATA[METHOD PRIVATE Default_Divisor_Keeps_The_Preset
+VAR
+	fbTimer	: BROTLib.FB_TimeoutTimer;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Default_Divisor_Keeps_The_Preset');
+BROTLib.GVL_TimeSeam.nTimeDivisor := 1;
+fbTimer(IN := TRUE, PT := T#12H);
+AssertFalse(Condition := fbTimer.Q, Message := 'a 12 h timer is not elapsed after one scan');
+fbTimer(IN := FALSE, PT := T#12H);
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Divisor_Shortens_The_Preset" Id="{e880835b-fc02-41e9-b505-936b036994f5}">
+      <Declaration><![CDATA[METHOD PRIVATE Divisor_Shortens_The_Preset
+VAR_INST
+	fbTimer	: BROTLib.FB_TimeoutTimer;
+	nScans	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Divisor_Shortens_The_Preset');
+// 12 h / 43200000 = 1 ms: elapsed within a few scans, whatever the cycle time
+BROTLib.GVL_TimeSeam.nTimeDivisor := 43200000;
+fbTimer(IN := TRUE, PT := T#12H);
+nScans := nScans + 1;
+IF fbTimer.Q OR nScans > 1000 THEN
+	AssertTrue(Condition := fbTimer.Q, Message := 'the divided timer elapses');
+	fbTimer(IN := FALSE, PT := T#12H);
+	BROTLib.GVL_TimeSeam.nTimeDivisor := 1;
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Divisor_Zero_Is_Treated_As_One" Id="{7ed8ae95-896f-4b0c-b614-072a727c444f}">
+      <Declaration><![CDATA[METHOD PRIVATE Divisor_Zero_Is_Treated_As_One
+VAR
+	fbTimer	: BROTLib.FB_TimeoutTimer;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Divisor_Zero_Is_Treated_As_One');
+BROTLib.GVL_TimeSeam.nTimeDivisor := 0;
+fbTimer(IN := TRUE, PT := T#12H);
+AssertFalse(Condition := fbTimer.Q, Message := 'no division by zero, the preset is kept');
+fbTimer(IN := FALSE, PT := T#12H);
+BROTLib.GVL_TimeSeam.nTimeDivisor := 1;
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
