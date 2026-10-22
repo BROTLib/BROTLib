@@ -468,6 +468,21 @@ because they shape the tests; the rest can wait until the characterization suite
 
 (Filled while steps 1 and 2 run: test name, pinned line, current behaviour, proposed decision.)
 
+### Step 3 (2026-10-22)
+
+- Done and merged on develop, unreleased: 3.1/3.2 `_ReadAxes` + `ST_AxisStatus` (MONETcommon#138, IAG50cm#149), 3.3/3.4 `_LogEvents` +
+  `_HandleReset` (MONETcommon#140, IAG50cm#150), all characterization suites green and unedited. In IAG50cm the axis reset of #11 stays in
+  the body: it runs after the error ID, and an axis `Reset()` can change the state the ID is derived from.
+- **3.5 `_StageGuard` not done, proposed to drop from step 3.** The prologues of the stage machines are not the same thing:
+  IAG50cm uses `bReset OR bError OR bStop OR bInterupted` in goto/home/park/slew (the power-on has its own, with `NOT bPower`);
+  MONETcommon uses four variants: goto/slew `bReset OR bError OR bInterrupted OR NOT <flag>`, home `bReset OR bError OR bInterrupted` (no stage
+  reset), park `bReset OR bStop OR bInterrupted` (no `bError`, the emergency park needs it), power-on `bReset OR bStop OR bInterrupted`.
+  One guard per FB would only cover goto/slew on MONET and would bake the differences in. They are the decision-3 divergences (does a stop
+  abort a power-on, does an error abort a park), so the guard belongs to the arbiter/template of step 5, as a policy.
+- Time seam (decision 4) done: `FB_TimeoutTimer` with a per-instance `nDivisor` (BROTLib 0.10.3), `nTimeDivisor` on both telescope FBs,
+  timeout suites `MonetTimeouts_Tests` (3) and `IagTimeouts_Tests` (2). A global divisor does not work: TcUnit runs all suites in the same
+  PLC cycles.
+
 ## Not in this plan
 
 - Focus behaviour (MONETcommon#122, other agent).
