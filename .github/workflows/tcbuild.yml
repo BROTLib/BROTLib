@@ -74,39 +74,6 @@ jobs:
       # instead of failing the build, which would block releases (the compile steps do not need it).
       # TF6701 (IoT MQTT): FB_Comm_MQTT_Influx_Tests instantiates FB_Comm_MQTT_Influx (BROTLib#39). Without it
       # TwinCAT stays in Config and the run looks like a TcUnit timeout.
-      - name: Check TwinCAT license
-        if: steps.same.outputs.same != 'true'
-        id: license
-        shell: powershell
-        run: |
-          # (not `>>`: Windows PowerShell 5.1 would write UTF-16, which the runner cannot parse)
-          function Skip($msg) { Write-Host "::warning::$msg The tests are skipped."; [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=false`n"); exit 0 }
-          $file = 'C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs'
-          if (-not (Test-Path $file)) { Skip "No trial license at $file." }
-          $expire = [datetime]([xml](Get-Content $file)).TcLicenseInfo.LicenseInfo.ExpireTime
-          $left = $expire - (Get-Date)
-          Write-Host "Trial license expires $expire ($([math]::Round($left.TotalHours)) h left)"
-          if ($left.TotalSeconds -le 0) { Skip "The TwinCAT trial license expired $expire. Renew it: XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License." }
-          $have = @(([xml](Get-Content $file)).SelectNodes('//*[local-name()="License"]') | ForEach-Object { $_.OrderNo })
-          $missing = @('TC1200', 'TF6701') | Where-Object { $have -notcontains $_ }
-          if ($missing) { Skip "The TwinCAT trial license does not contain $($missing -join ', '). Renew it with these ticked: XAE > SYSTEM > License > Manage Licenses, then 7 Days Trial License." }
-          if ($left.TotalDays -lt 2) { Write-Host "::warning::TwinCAT trial license expires $expire" }
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
-
-      # The runtime is started at boot by the scheduled task 'TwinCAT UmRT_Default'.
-      # Not running: warn and skip the tests (output ok=false), same reason as the license check.
-      - name: Check user-mode runtime
-        if: steps.same.outputs.same != 'true'
-        id: runtime
-        shell: powershell
-        run: |
-          if (-not (Get-Process TcSystemServiceUm -ErrorAction SilentlyContinue)) {
-            Write-Host "::warning::The TwinCAT user-mode runtime is not running. It is started at boot by the scheduled task 'TwinCAT UmRT_Default'; start it with: Start-ScheduledTask 'TwinCAT UmRT_Default'. The tests are skipped."
-            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=false`n")
-            exit 0
-          }
-          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ok=true`n")
-
       - name: Get tctool
         shell: powershell
         env:
@@ -134,28 +101,28 @@ jobs:
           if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
           exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
 
-      - name: Build BROTLibTests
+      # One tctool call: build the tests, then deploy them to the user-mode runtime and wait for TcUnit, in one XAE
+      # session. `run` checks the license and the runtime first (--require-license) and returns 13 if the tests
+      # cannot run: the build is checked either way, the job stays green with a warning (--skip-if-unavailable), and
+      # `ran` stays false so no `tests-passed` status is posted. Exit 0/1 = built and passed (1 = warnings),
+      # 2 = compile errors, 10 = a test failed or none ran, 11 = timeout, 14 = TwinCAT stayed in Config.
+      - name: Build and run BROTLibTests
+        id: tests
         if: steps.same.outputs.same != 'true'
         shell: powershell
         working-directory: BROTLibTests
         run: |
-          tctool BROTLibTests.sln build
-          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }
-          exit 0   # exit 1 = built with compile warnings: still a success, but the step would end with code 1
-
-      # Exit 0 = all passed, 1 = a test failed, 2 = no result within the timeout.
-      - name: Run tests
-        id: tests
-        if: steps.same.outputs.same != 'true' && steps.license.outputs.ok == 'true' && steps.runtime.outputs.ok == 'true'
-        shell: powershell
-        run: |
-          & .\BROTLibTests\tools\Run-Tests.ps1
-          exit $LASTEXITCODE
+          tctool BROTLibTests.sln build run --require-license TC1200,TF6701 --skip-if-unavailable
+          $code = $LASTEXITCODE
+          # (not `>>`: Windows PowerShell 5.1 would write UTF-16, which the runner cannot parse)
+          if ($code -le 1) { [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ran=true`n"); exit 0 }
+          if ($code -eq 13) { [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ran=false`n"); exit 0 }
+          exit $code
 
       # Proof for tools/Find-TestedTree.ps1 that the tests really ran on this commit (a run that skipped them
       # because the license or runtime was missing is green too and must not vouch for a later commit).
       - name: Mark the commit as tested (status `tests-passed`)
-        if: steps.tests.outcome == 'success'
+        if: steps.tests.outputs.ran == 'true'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
