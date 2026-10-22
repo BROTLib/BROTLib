@@ -1,4 +1,4 @@
-﻿# BROTLibTests
+# BROTLibTests
 
 TcUnit tests for BROTLib. A separate PLC project, so no test code ends up in the shipped library. It
 references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telescope project does.
@@ -50,7 +50,7 @@ tolerance.
 One-time setup on a machine:
 
 0. Get `tctool` (one exe, [BROTLib/TcTool](https://github.com/BROTLib/TcTool), private) and put it on `PATH`, e.g.
-   `gh release download v0.3.1 --repo BROTLib/TcTool --pattern tctool.exe --dir C:\Tools	ctool`. CI downloads the version pinned in
+   `gh release download v0.3.1 --repo BROTLib/TcTool --pattern tctool.exe --dir C:\Tools\tctool`. CI downloads the version pinned in
    `.github/tctool-version` itself.
 1. Install TcUnit into the local library repository. This starts a hidden XAE instance:
    ```powershell
