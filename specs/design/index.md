@@ -43,9 +43,9 @@ no IAG-private infrastructure/credential/incident details — those stay in IAG'
   dependency chain* (2026-09-16)
   (Repos: BROTLib, MONETcommon, HalfBROT, AstroBROT, IAG50cm, MONETN, MONETS, MONETRoof)
 - [twincat-ci-runner-setup.md](twincat-ci-runner-setup.md) — step-by-step
-  self-hosted TwinCAT CI runner setup (dev tooling, TcBuild, org-level runner registration,
-  workflow template, known gotchas/flakiness), distilled from the CI investigation so standing up
-  a fresh dedicated build VM is quick. *reference* (2026-09-16)
+  self-hosted TwinCAT CI runner setup (dev tooling, tctool and its token, org-level runner registration,
+  workflow template, known gotchas/flakiness; TcBuild is historical), distilled from the CI investigation so standing up
+  a fresh dedicated build VM is quick. *reference* (2026-09-16, tctool section 2026-10-22)
   (Repos: BROTLib, AstroBROT, IAG50cm, MONETcommon, HalfBROT, MONETRoof)
 - [fleet-library-update-automation.md](fleet-library-update-automation.md) — general
   `RepTool.exe` reference: installing a prebuilt `.library` with no source checkout (for a future
