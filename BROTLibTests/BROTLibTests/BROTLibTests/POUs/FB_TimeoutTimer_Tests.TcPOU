@@ -20,10 +20,9 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Default_Divisor_Keeps_The_Preset');
-BROTLib.GVL_TimeSeam.nTimeDivisor := 1;
-fbTimer(IN := TRUE, PT := T#12H);
+fbTimer(IN := TRUE, PT := T#12H, nDivisor := 1);
 AssertFalse(Condition := fbTimer.Q, Message := 'a 12 h timer is not elapsed after one scan');
-fbTimer(IN := FALSE, PT := T#12H);
+fbTimer(IN := FALSE, PT := T#12H, nDivisor := 1);
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -38,13 +37,11 @@ END_VAR
       <Implementation>
         <ST><![CDATA[TEST('Divisor_Shortens_The_Preset');
 // 12 h / 43200000 = 1 ms: elapsed within a few scans, whatever the cycle time
-BROTLib.GVL_TimeSeam.nTimeDivisor := 43200000;
-fbTimer(IN := TRUE, PT := T#12H);
+fbTimer(IN := TRUE, PT := T#12H, nDivisor := 43200000);
 nScans := nScans + 1;
 IF fbTimer.Q OR nScans > 1000 THEN
 	AssertTrue(Condition := fbTimer.Q, Message := 'the divided timer elapses');
-	fbTimer(IN := FALSE, PT := T#12H);
-	BROTLib.GVL_TimeSeam.nTimeDivisor := 1;
+	fbTimer(IN := FALSE, PT := T#12H, nDivisor := 1);
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -58,11 +55,9 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Divisor_Zero_Is_Treated_As_One');
-BROTLib.GVL_TimeSeam.nTimeDivisor := 0;
-fbTimer(IN := TRUE, PT := T#12H);
+fbTimer(IN := TRUE, PT := T#12H, nDivisor := 0);
 AssertFalse(Condition := fbTimer.Q, Message := 'no division by zero, the preset is kept');
-fbTimer(IN := FALSE, PT := T#12H);
-BROTLib.GVL_TimeSeam.nTimeDivisor := 1;
+fbTimer(IN := FALSE, PT := T#12H, nDivisor := 1);
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
