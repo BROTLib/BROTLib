@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_TimeoutTimer" Id="{be2effaf-8032-44f0-b85c-850071e4590c}" SpecialFunc="None">
+    <Declaration><![CDATA[// On-delay timer for the long command timeouts. Same behaviour as TON, but the preset time is divided by
+// GVL_TimeSeam.nTimeDivisor (default 1), so a test can run a 12 h timeout in a few scans.
+FUNCTION_BLOCK FB_TimeoutTimer
+VAR_INPUT
+	IN	: BOOL;
+	PT	: TIME;
+END_VAR
+VAR_OUTPUT
+	Q	: BOOL;
+	ET	: TIME;
+END_VAR
+VAR
+	ton	: TON;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF GVL_TimeSeam.nTimeDivisor > 1 THEN
+	ton(IN := IN, PT := DWORD_TO_TIME(TIME_TO_DWORD(PT) / GVL_TimeSeam.nTimeDivisor), Q => Q, ET => ET);
+ELSE
+	ton(IN := IN, PT := PT, Q => Q, ET => ET);
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

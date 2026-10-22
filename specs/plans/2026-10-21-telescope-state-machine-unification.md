@@ -445,11 +445,16 @@ because they shape the tests; the rest can wait until the characterization suite
    when ready (#82). **Park vs power-on is the exception:** the precedence differs today and is a safety behaviour.
    Default to MONET's rule (park wins over power-on, MONETcommon#87) but make it a policy input of the arbiter and
    have Tim, or whoever runs IAG50cm, decide it for IAG explicitly.
+   **Decided (Tim, 2026-10-22): agreed.** Pinned by the characterization suites: axis error (MONET emergency park goes to
+   IAG), reset without an error (IAG ignores it, goes to MONET), park during power-on (park wins, as an arbiter input
+   `bParkWinsOverPowerOn`; the IAG50cm owner still has to confirm it for IAG before IAG changes). Order: IAG safety
+   changes first, MONET behaviour changes last, each as its own commit and release.
 4. **Time seam** for the long timeouts (600 s, 2 min, 12 h): none (on site only), or an injectable time source in
    the timeout blocks.
    **Recommendation:** add the seam, small and test-only. The timeouts are where the state machine hides bugs and a
    12 h timer cannot be checked on site. The default is the real clock, so production behaviour does not change. If it
    turns out to be invasive, fall back to testing the timeouts through pure functions only.
+   **Decided (Tim, 2026-10-22): agreed.** Do it before the steps that move the timeout logic (3 to 5).
 5. **IAG cabinet in tests:** pointer writes from the test (no production change) or make the cabinet an input.
    **Recommendation:** pointer writes (step 0.3). Making the cabinet an input is the cleaner design, but it changes
    IAG's interface during the refactor. Revisit it as its own small change once IAG sits on the shared base.
