@@ -1,6 +1,13 @@
 # Stop and retarget while tracking: wait for the setpoint generator to be off (BROTLib#101)
 
-**Status: proposed, 2026-10-22.** Plan only, no PLC code changed. Base: BROTLib `develop` (0.10.3), MONETcommon `develop`
+**Status: steps 1 to 3 merged to develop, 2026-10-22; not released, not tested on a telescope.** Fix B: MONETcommon#145
+(tests red without it, 3 failed; green with it, 169 cases). Fix A: BROTLib#123 (189 cases). Deviations from the design below:
+the function is `F_ExtSetpointActive` (not `F_MotionAllowed`), the status field `ExtSetPointGenEnabled` exists (compiled), a stop
+request also drives `MC_ExtSetPointGenDisable` (a stop with Tracking still TRUE would otherwise wait for ever), and the disable's
+error is not added to the axis `Error` (a disable on an unpowered axis may report one, spurious emergency parks); a failed disable
+lets the command through instead. Open: releases (MONETcommon 0.9.8, BROTLib 0.10.4 and the pin chain), step 4 test result
+(the retarget test passed, so the new target is tracked again), step 5 on the telescope.
+Original status: proposed. Plan only, no PLC code changed. Base: BROTLib `develop` (0.10.3), MONETcommon `develop`
 (0.9.7), HalfBROT `develop` (0.7.1). Related: MONETcommon#84 (stop during a slew, the change that introduced the
 same-scan stop), MONETcommon#96 (`FB_MonetStopTransaction`), BROTLib#93/#92 (stop idempotent, `FB_AxisCommand`),
 BROTLib#25 / MONETcommon#36 (state machine unification).
