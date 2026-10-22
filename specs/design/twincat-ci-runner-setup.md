@@ -292,8 +292,9 @@ tag → `.library` on the Release. It can also be run by hand for any existing t
 
 `--xae` and `--plc` (TcBuild: `-x`, `-p`) are the XAE project and PLC project names from the `.sln`/`.tsproj`; they
 differ in case from the repo name for MONETRoof (`--xae MONETroof --plc MonetRoof`). Using the `.plcproj`'s `<Name>`
-(`MONETRoof`) fails: `tctool` answers with "no PLC project ...; found: ...". The workflow gets `tctool` from the pinned
-release (`.github/tctool-version`), not from the tagged tree, so an old tag can be released again.
+(`MONETRoof`) fails: `tctool` answers with "no PLC project ...; found: ...". The workflow downloads `tctool` in the version
+pinned in `.github/tctool-version`, but that file and `tools/Get-TcTool.ps1` come from the checked-out tag, so a tag from before
+they existed cannot be released with this workflow (the build would need a second checkout of `develop` for the tooling).
 
 ## Known TcBuild flakiness (historical; `tctool` handles the COM busy case itself)
 

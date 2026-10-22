@@ -58,8 +58,9 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           $file = Join-Path $env:RUNNER_TEMP "BROTLib_$($env:TAG).library"
-          # tctool is pinned in .github/tctool-version and not taken from the tagged tree, so a tag from before the
-          # old script existed can be re-released. Exit 1 = built with compile warnings.
+          # tctool is the version pinned in .github/tctool-version, but that file and tools/Get-TcTool.ps1 come from the
+          # checked-out tag, so a tag from before they existed cannot be released with this workflow. Exit 1 = built
+          # with compile warnings.
           tctool BROTLib.sln library --xae BROTLib --plc BROTLib --out $file --install
           if ($LASTEXITCODE -gt 1) { throw "tctool failed with exit code $LASTEXITCODE" }
           if (-not (Test-Path $file)) { throw "tctool did not write $file" }
