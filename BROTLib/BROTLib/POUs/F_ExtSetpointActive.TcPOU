@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_ExtSetpointActive" Id="{4affb0e9-3534-49ad-a0f0-ae36bf33089e}" SpecialFunc="None">
+    <Declaration><![CDATA[// TRUE while FB_Axis's external setpoint generator is on or still being disabled (#101). The NC rejects a motion command
+// (MC_Stop, MC_MoveAbsolute, MC_Jog) on a generator-driven axis with 0x4257, so FB_Axis holds them until this is FALSE.
+// Pure logic, so it can be tested without an NC axis. Status is read at the top of the cycle, so it can still say "enabled"
+// in the cycle after MC_ExtSetPointGenDisable reported Done: Done wins. A failed disable must not hold a stop for ever: the
+// command is let through then (the NC may reject it, as before, but the error is visible and Reset recovers).
+FUNCTION F_ExtSetpointActive : BOOL
+VAR_INPUT
+	StatusEnabled	: BOOL;		// Axis_Status.Status.ExtSetPointGenEnabled (the NC says the generator is on)
+	DisableBusy		: BOOL;		// MC_ExtSetPointGenDisable.Busy of the last call
+	DisableDone		: BOOL;		// MC_ExtSetPointGenDisable.Done of the last call
+	DisableError	: BOOL;		// MC_ExtSetPointGenDisable.Error of the last call
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_ExtSetpointActive := NOT DisableError AND (DisableBusy OR (StatusEnabled AND NOT DisableDone));
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

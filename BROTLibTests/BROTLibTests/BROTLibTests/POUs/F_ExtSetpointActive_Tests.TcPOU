@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_ExtSetpointActive_Tests" Id="{9c068ac4-15e3-46ba-996b-16b6e14425e1}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_ExtSetpointActive, the hold of FB_Axis's stop, move and jog while the external setpoint generator is on (#101).
+FUNCTION_BLOCK F_ExtSetpointActive_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Idle_Axis_Is_Not_Active();
+Generator_On_Is_Active();
+Disable_Running_Is_Active();
+Done_Wins_Over_Stale_Status();
+Failed_Disable_Does_Not_Hold_Commands();
+]]></ST>
+    </Implementation>
+    <Method Name="Idle_Axis_Is_Not_Active" Id="{80d9ea63-4b0a-4cf8-b0ec-8eaec87fec84}">
+      <Declaration><![CDATA[// never tracked: nothing holds a command
+METHOD PRIVATE Idle_Axis_Is_Not_Active
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Idle_Axis_Is_Not_Active');
+AssertEquals_BOOL(Expected := FALSE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := FALSE, DisableBusy := FALSE, DisableDone := FALSE, DisableError := FALSE), Message := 'idle');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Generator_On_Is_Active" Id="{464f3fec-7552-43be-b1f0-347203e4e998}">
+      <Declaration><![CDATA[// the NC says the generator is on, no disable running
+METHOD PRIVATE Generator_On_Is_Active
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Generator_On_Is_Active');
+AssertEquals_BOOL(Expected := TRUE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := TRUE, DisableBusy := FALSE, DisableDone := FALSE, DisableError := FALSE), Message := 'tracking: active');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Disable_Running_Is_Active" Id="{b3c7e336-8d1e-4435-a670-f175b3dd3efa}">
+      <Declaration><![CDATA[// the disable has started: the stop must still wait
+METHOD PRIVATE Disable_Running_Is_Active
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Disable_Running_Is_Active');
+AssertEquals_BOOL(Expected := TRUE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := TRUE, DisableBusy := TRUE, DisableDone := FALSE, DisableError := FALSE), Message := 'disable busy: active');
+AssertEquals_BOOL(Expected := TRUE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := FALSE, DisableBusy := TRUE, DisableDone := FALSE, DisableError := FALSE), Message := 'disable busy, status already off: active');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Done_Wins_Over_Stale_Status" Id="{24ae6e21-39cf-4025-b98f-bfb7795a9850}">
+      <Declaration><![CDATA[// the status is read at the top of the cycle and can lag one cycle behind Done
+METHOD PRIVATE Done_Wins_Over_Stale_Status
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Done_Wins_Over_Stale_Status');
+AssertEquals_BOOL(Expected := FALSE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := TRUE, DisableBusy := FALSE, DisableDone := TRUE, DisableError := FALSE), Message := 'disable done, status still on: not active');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Failed_Disable_Does_Not_Hold_Commands" Id="{dea67d1b-e883-4f3c-98a4-faa2d8a725b4}">
+      <Declaration><![CDATA[// a failed disable must not hold a stop for ever
+METHOD PRIVATE Failed_Disable_Does_Not_Hold_Commands
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Failed_Disable_Does_Not_Hold_Commands');
+AssertEquals_BOOL(Expected := FALSE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := TRUE, DisableBusy := FALSE, DisableDone := FALSE, DisableError := TRUE), Message := 'disable error: not active');
+AssertEquals_BOOL(Expected := FALSE, Actual := BROTLib.F_ExtSetpointActive(StatusEnabled := TRUE, DisableBusy := TRUE, DisableDone := FALSE, DisableError := TRUE), Message := 'disable error while busy: not active');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
