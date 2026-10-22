@@ -6,7 +6,7 @@
 .DESCRIPTION
     Every `<DefaultResolution>Name, 1.2.3 (Company)</DefaultResolution>` of one of the org's libraries (see $Orgs)
     with a concrete version is looked up as release v1.2.3 of the library's repo, its .library asset is downloaded and
-    installed with RepTool. A `*` (wildcard) is skipped: the test projects reference the library they test that way.
+    installed with `tctool install-library` (RepTool). A `*` (wildcard) is skipped: the test projects reference the library they test that way.
 
     Why: the version slot of the shared library repository is overwritten by every CI run that installs a branch of
     that library with the same ProjectVersion (a branch cut before a fix reinstalls its old code over the fixed
@@ -23,8 +23,6 @@
 param(
     [string]$Root,
     [string]$Owner = 'BROTLib',
-    [string]$RepTool = 'C:\TwinCAT\3.1\Components\Plc\Common\RepTool.exe',
-    [string]$ProfileDir = 'C:\TwinCAT\3.1\Components\Plc\Profiles',
     [int]$TimeoutSeconds = 600
 )
 $ErrorActionPreference = 'Stop'
@@ -64,26 +62,9 @@ foreach ($key in ($pins.Keys | Sort-Object)) {
     if (@(Get-ChildItem $target -Filter *.library).Count -ne 1) { throw "Expected exactly one .library asset in $Owner/$repo v$version." }
 }
 
-# --- 3. install with RepTool -------------------------------------------------------------------------------------
-# The profile has to match the installed XAE build; take the newest "TwinCAT PLC Control_Build_<n>".
-$prof = Get-ChildItem $ProfileDir -Filter 'TwinCAT PLC Control_Build_*.profile' |
-    Sort-Object { [version]($_.BaseName -replace '.*_Build_', '') } -Descending | Select-Object -First 1
-if (-not $prof) { throw "No 'TwinCAT PLC Control_Build_*.profile' in $ProfileDir" }
-
-# Start-Process instead of `&`: PowerShell mangles an argument like --profile="a b" that contains spaces (see
-# specs/design/fleet-library-update-automation.md in BROTLib).
-$out = Join-Path $env:RUNNER_TEMP 'reptool-out.txt'
-$err = Join-Path $env:RUNNER_TEMP 'reptool-err.txt'
-$p = Start-Process $RepTool -ArgumentList "--profile=`"$($prof.BaseName)`"", '--installLibsRecurs', "`"$dir`"" `
-    -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
-$null = $p.Handle   # Windows PowerShell 5.1 only keeps ExitCode of a -PassThru process if the handle was read
-if (-not $p.WaitForExit($TimeoutSeconds * 1000)) {
-    $p.Kill()
-    Get-Content $out, $err -ErrorAction SilentlyContinue | Write-Host
-    throw "RepTool did not finish within $TimeoutSeconds s."
-}
-$log = Get-Content $out, $err -ErrorAction SilentlyContinue
-$log | Write-Host
-# RepTool reports a failed install in its log; its exit code is 255 then, but check the text as well.
-if ($p.ExitCode -ne 0 -or ($log | Select-String 'Failed installing')) { throw "RepTool failed installing the pinned libraries (exit code $($p.ExitCode))." }
+# --- 3. install with tctool ---------------------------------------------------------------------------------------
+# tctool (BROTLib/TcTool, put on PATH by tools/Get-TcTool.ps1) installs everything below $dir with RepTool in one
+# call, using the profile of the installed XAE build, and takes the shared TwinCAT lock while it does.
+& tctool install-library --file $dir --reptool-timeout $TimeoutSeconds
+if ($LASTEXITCODE -ne 0) { throw "tctool failed installing the pinned libraries (exit code $LASTEXITCODE)." }
 Write-Host "Installed $($pins.Count) pinned librar$(if ($pins.Count -eq 1) { 'y' } else { 'ies' })."
