@@ -1,4 +1,4 @@
-﻿# BROTLibTests
+# BROTLibTests
 
 TcUnit tests for BROTLib. A separate PLC project, so no test code ends up in the shipped library. It
 references the *installed* BROTLib (`BROTLib, * (BROT)`), exactly like a telescope project does.
@@ -38,24 +38,27 @@ Tests that would fail today are left out rather than written red. Add them when 
 
 ## Running the tests
 
-TcBuild only compiles, so running the tests needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it. CI does this on the self-hosted runner, see [In CI](#in-ci) below.
+A build only compiles, so running the tests needs a TwinCAT runtime that executes the PLC, plus a (trial) license for it. CI does this on the self-hosted runner, see [In CI](#in-ci) below.
 
 **Windows 11 note.** The TwinCAT 3.1 Build 4024 *real-time* runtime does not run on Windows 11
 ([Beckhoff system requirements](https://infosys.beckhoff.com/content/1033/tc3_overview/6162419083.html)); Run mode
-fails with `Init4\RTime: Start Interrupt: Ticker started >> AdsError: 6 (port 200)`. XAE and TcBuild are fine.
+fails with `Init4\RTime: Start Interrupt: Ticker started >> AdsError: 6 (port 200)`. XAE and tctool are fine.
 Use the beta **user-mode runtime** that ships with TwinCAT instead (`C:\TwinCAT\3.1\Runtimes\UmRT_Default`, see
 the `Readme.txt` there for its terms of use). It has no real-time guarantees, which is why the timing test has a
 tolerance.
 
 One-time setup on a machine:
 
+0. Get `tctool` (one exe, [BROTLib/TcTool](https://github.com/BROTLib/TcTool), private) and put it on `PATH`, e.g.
+   `gh release download v0.3.1 --repo BROTLib/TcTool --pattern tctool.exe --dir C:\Tools\tctool`. CI downloads the version pinned in
+   `.github/tctool-version` itself.
 1. Install TcUnit into the local library repository. This starts a hidden XAE instance:
    ```powershell
    .\BROTLibTests\tools\Install-TcUnit.ps1
    ```
 2. Make sure the current BROTLib is installed too (the tests use the *installed* copy, not the source tree):
    ```powershell
-   & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" install BROTLib.sln -x BROTLib -p BROTLib -l BROTLib.library
+   tctool BROTLib.sln library --xae BROTLib --plc BROTLib --out BROTLib.library --install
    ```
 
 Every run:
@@ -66,13 +69,12 @@ Every run:
    ```
    On the CI machine this is done at boot by the scheduled task `TwinCAT UmRT_Default` (runs `Start.bat` as
    SYSTEM, hidden, restarted up to 3 times if it fails), so there is nothing to start by hand there.
-2. Build, deploy and run. Exit code 0 = all passed, 1 = a test failed, 2 = no result within the timeout:
+2. Build, deploy and run. Exit code 0 = all passed (1 = passed with warnings), 2 = compile errors, 10 = a test failed or none ran, 11 = timeout, 13 = license or runtime missing (the tests are skipped), 14 = TwinCAT stayed in Config:
    ```powershell
-   & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build BROTLibTests.sln
-   .\BROTLibTests\tools\Run-Tests.ps1
+   tctool BROTLibTests.sln build run --require-license TC1200,TF6701
    ```
    It overwrites whatever boot project is on the target runtime (default `192.168.4.1.1.1`, override with
-   `-TargetNetId`). The counters are printed; the individual failing assertions are in the TwinCAT ADS log
+   `--target`). The counters are printed; the individual failing assertions are in the TwinCAT ADS log
    (XAE error list) when you open the project in XAE and connect to the target.
 
 To debug interactively instead: open `BROTLibTests.sln` in XAE, choose the user-mode runtime as target, activate
@@ -81,14 +83,16 @@ the configuration, log in and start the PLC. TcUnit prints every result to the e
 ## In CI
 
 `.github/workflows/tcbuild.yml` runs on every push (never on pull requests: the runner is self-hosted) and does, in
-order: check that the trial license has not expired and the user-mode runtime is running (if not: warn and skip the tests, the build stays green), install the checked-out
-BROTLib into the machine's library repository, build `BROTLibTests.sln`, run `tools/Run-Tests.ps1`. Installing BROTLib is
+order: install the checked-out BROTLib into the machine's library repository (`tctool BROTLib.sln library --install`),
+then `tctool BROTLibTests.sln build run --require-license TC1200,TF6701`, which builds the tests and, in the same XAE session, checks
+that the trial license is valid and contains TC1200 and TF6701 and that the user-mode runtime is running (if not it returns 13: the tests
+are skipped with a warning, the build stays green), deploys, and reads the TcUnit result. Installing BROTLib is
 the compile check, so there is no separate build step. It is one job called `build`, so a failing test blocks the
 required `build` check on `main`. Runs are queued and not cancelled, because a cancelled run leaves a stray hidden XAE
 behind. It also runs on demand.
 
-The runner and the runtime share the machine with whoever works in XAE there. `Run-Tests.ps1` and `Install-TcUnit.ps1`
-only quit and kill the XAE instance they started themselves, so an XAE you open meanwhile is left alone. They do
+The runner and the runtime share the machine with whoever works in XAE there. `tctool` and `Install-TcUnit.ps1`
+only quit and kill the XAE instance they started themselves, so an XAE you open meanwhile is left alone. `tctool run` and the script do
 overwrite the boot project on the target runtime (`192.168.4.1.1.1`) and restart TwinCAT, so do not be connected to
 that runtime while a run is going, and expect the library repository to change after a run.
 
@@ -98,7 +102,7 @@ that runtime while a run is going, and expect the library repository to change a
   (captcha): XAE > SYSTEM > License > Manage Licenses > 7 Days Trial License. TF6701 (TC3 IoT Communication, MQTT) is
   needed because `FB_Comm_MQTT_Influx_Tests` instantiates `FB_Comm_MQTT_Influx`, which contains the `Tc3_IotBase`
   MQTT client (#39). The trial covers only the licenses in the list when it is generated, so check that TF6701 is
-  there; without it TwinCAT stays in Config after the restart and `Run-Tests.ps1` stops with a message saying so.
+  there; without it TwinCAT stays in Config after the restart and `tctool run` returns 14 with a message saying so.
   The license is bound to the machine's System ID (shown on
   the Order Information (Runtime) tab; it stays the same across a runtime restart and a reboot) and its expiry is
   in `C:\TwinCAT\3.1\Runtimes\UmRT_Default\3.1\Target\License\TrialLicense.tclrs`. `tcbuild.yml` warns and skips
