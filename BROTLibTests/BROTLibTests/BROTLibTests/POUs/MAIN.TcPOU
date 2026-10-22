@@ -21,6 +21,7 @@ VAR
 	fbMoveFollowerTests		: FB_MoveFollower_Tests;
     fbStartupReadinessTests : FB_StartupReadiness_Tests;
     fbStartupControlTests : FB_StartupControl_Tests;
+	fbTimeoutTimerTests		: FB_TimeoutTimer_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

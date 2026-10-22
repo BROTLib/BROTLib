@@ -179,6 +179,12 @@
     <Compile Include="POUs\FB_InfluxMessage.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="GVLs\GVL_TimeSeam.TcGVL">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_TimeoutTimer.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_TONTP.TcPOU">
       <SubType>Code</SubType>
     </Compile>
