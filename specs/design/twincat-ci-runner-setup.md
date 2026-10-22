@@ -16,6 +16,68 @@ MONETRoof, and any future custom TwinCAT library/telescope repo in the `brotlib`
   only use doesn't appear to need a runtime license (you're never deploying to hardware from this
   machine).
 
+## tctool: builds, library installs and TcUnit runs (since 2026-10-22)
+
+CI no longer uses `TcBuild.exe` or the per-repo scripts `Invoke-XaeBuild.ps1`, `Run-Tests.ps1` and
+`Install-TcUnit.ps1`. All of it is [`tctool.exe`](https://github.com/BROTLib/TcTool) (C#, .NET Framework 4.8): one
+executable that drives XAE through its automation interface, with a deadline on every phase. Design and CLI:
+the TcTool repo. This section is what the runner needs.
+
+- **Nothing to install.** Each repo pins a version in `.github/tctool-version`; the step `Get tctool` runs
+  `tools/Get-TcTool.ps1`, which downloads that release of `BROTLib/TcTool` (checks the SHA-256) into the runner's tool
+  cache once per version and puts it on `PATH` for the following steps. Roll back by changing the version in that file.
+- **Access token.** `BROTLib/TcTool` is private, so the download needs the org secret **`TCTOOL_TOKEN`**: a fine-grained
+  personal access token with *Contents: read* on `BROTLib/TcTool` only. Org settings > Secrets and variables > Actions >
+  `TCTOOL_TOKEN` > *Repository access* lists the repos that may use it; add a repo there before it switches. The token
+  has an expiry date: when it passes, every TwinCAT job fails at `Get tctool` ("GH_TOKEN is empty" or a 404).
+- **XAE.** Still needed (XAE 4024, TcXaeShell). `tctool` takes the machine-wide mutex `Global\BROT-TwinCAT-UmRT` for the
+  whole invocation, so only one TwinCAT job runs at a time, like the old scripts. It starts its own XAE, puts it into a
+  job object (it dies with `tctool`) and quits it afterwards; it never touches another `TcXaeShell`.
+
+What the workflows call:
+
+| Call | Replaces |
+|---|---|
+| `tctool X.sln build` | `Invoke-XaeBuild.ps1 build`, `TcBuild build` |
+| `tctool X.sln library --xae <XAE project> --plc <PLC project> --out <file> --install` | `Invoke-XaeBuild.ps1 install`, `TcBuild install ... -l` |
+| `tctool install-library --file <dir or .library>` | the RepTool call in `Install-PinnedLibraries.ps1` |
+| `tctool install-library --via xae --file <lib>` (after `X.sln`) | `Install-TcUnit.ps1` (not used in CI yet) |
+| `tctool X.sln build run --require-license TC1200,TF6701 --skip-if-unavailable` | the license and runtime check steps, the tests build and `Run-Tests.ps1` |
+| `tctool check --license <list> --runtime` | the inline license/runtime check steps, by hand or as a step of its own |
+
+`run` checks the license (all `*.tclrs` of the user-mode runtime: not expired, order numbers present; or just not
+expired with `--require-valid-license`) and the `TcSystemServiceUm` process **before** it starts XAE or touches the
+runtime. If one is missing it returns 13: the build before it is still checked, the job stays green with a warning, and the
+workflow sets `ran=false` so no `tests-passed` status is posted. A license with less than 48 h left is a warning (exit 1).
+`run` deploys the boot project to the user-mode runtime (`192.168.4.1.1.1` or `127.0.0.1.1.1`; another target needs
+`--allow-remote-target`), quits XAE, then waits for TcUnit over ADS and reads the counters. The name of the PLC project
+is the XAE/PLC name from the `.sln`/`.tsproj`, not the repo name (`MONETRoof`: `MONETroof` / `MonetRoof`); `--xae` and
+`--plc` default to the only project, and a wrong name is answered with the list of the existing ones.
+
+Exit codes (0 and 1 are successes; the workflows treat 13 as success with a warning):
+
+| Code | Meaning |
+|---|---|
+| 0 / 1 | all steps ok / ok with compile warnings or an expiring license |
+| 2 | compile errors (`build`, `library`) |
+| 4 | other error: XAE did not start, project did not load, COM error, RepTool failed |
+| 5 | bad arguments or a missing file |
+| 10 | `run`: a TcUnit test case failed, or 0 cases ran |
+| 11 | a deadline expired (XAE ready, project load, `--deadline`, TcUnit); XAE is killed and its windows are logged |
+| 12 | another TwinCAT job held the lock for `--lock-timeout` |
+| 13 | `run`/`check`: license or runtime missing |
+| 14 | `run`: TwinCAT stayed in Config after the restart (usually a license the boot project needs, e.g. TF6701) |
+
+Exit code 3 of TcBuild ("COM busy") is never returned: `tctool` retries rejected COM calls itself for `--call-timeout`
+(60 s) and starts XAE only once per solution, so a cold XAE start (about 20 s of CPU) no longer fails.
+
+Testing `tctool` itself on the runner: the TcTool repo has the workflow `integration`
+(`gh workflow run integration.yml --repo BROTLib/TcTool`, `workflow_dispatch` only, never on pull requests). It uses the
+same `twincat-tests` concurrency group idea as the CI, installs a few throwaway libraries (`TcToolIntegrationLib`,
+`TcToolSlotA/B/C`, no uninstall) into the library repository of the runner, and kills XAE processes of its own session
+only. The script `Check-LibrarySlots.ps1` showed that RepTool, `SaveAsLibrary(..., install)` and `InstallLibrary('System')`
+all write to `Managed Libraries\<Company>\<Name>\<Version>`.
+
 ## 1. Dev tooling
 
 ```powershell
@@ -60,7 +122,11 @@ gh auth refresh -h github.com -s admin:org   # to register an ORG-level runner (
 Both are separate device-code prompts too. `admin:org` is a significant scope — an AI agent's
 auto-mode classifier will refuse to even initiate that refresh; only a human can request it.
 
-## 3. TcBuild
+## 3. TcBuild (superseded by tctool, not needed on a new runner)
+
+> Since 2026-10-22 nothing in the org's workflows calls `TcBuild.exe` any more (see the tctool section above). The
+> installation below is kept for the history; a new runner does not need it. It also still has the reason for the
+> switch: on a cold XAE start TcBuild gave up after about 17 s with exit 3.
 
 MSI lives in the [`JustusRijke/TcBuild`](https://github.com/JustusRijke/TcBuild) repo's own tree,
 **not** published via GitHub Releases or NuGet — `dotnet tool install --global TcBuild` grabs an
@@ -147,10 +213,17 @@ jobs:
     runs-on: [self-hosted, twincat, windows]
     steps:
       - uses: actions/checkout@v4
+      - name: Get tctool
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.TCTOOL_TOKEN }}
+        run: .\tools\Get-TcTool.ps1
       - name: Build
         shell: powershell
         run: |
-          & "C:\Program Files\Industrial Brains B.V\TcBuild\TcBuild.exe" build SomeSolution.sln
+          tctool SomeSolution.sln build
+          if ($LASTEXITCODE -gt 1) { exit $LASTEXITCODE }   # 1 = built with compile warnings: a success
+          exit 0
 ```
 
 `push` and `workflow_dispatch` — **not** `pull_request`. A prior attempt auto-triggered on every
@@ -210,18 +283,20 @@ modified since release," not a bug to force back to `true`.
 ## Publishing the compiled library with each release
 
 `release-library.yml` (BROTLib, AstroBROT, HalfBROT, MONETcommon, MONETRoof) builds a tag on the
-runner with `TcBuild install ... -l <Repo>_<tag>.library` and attaches the saved file to that tag's
+runner with `tctool <Repo>.sln library --xae ... --plc ... --out <Repo>_<tag>.library --install` and attaches the saved file to that tag's
 GitHub Release, creating the Release if it does not exist. `tag-release.yml` dispatches it right
 after it pushes a new tag, so the whole chain is: dispatch `release.yml` → merge the release PR →
 tag → `.library` on the Release. It can also be run by hand for any existing tag
 (`gh workflow run release-library.yml -f tag=v0.4.1`), e.g. to backfill. Unlike `tcbuild.yml` it is
 `workflow_dispatch` only (it is triggered by `tag-release.yml`, not by pushes), and it needs to exist on `main` before it can be dispatched.
 
-`-x` and `-p` are the XAE project and PLC project names from the `.sln`/`.tsproj`; they differ in
-case from the repo name for MONETRoof (`-x MONETroof -p MonetRoof`). Using the `.plcproj`'s `<Name>`
-(`MONETRoof`) fails with "Subitem 'MONETRoof Project' ... not found".
+`--xae` and `--plc` (TcBuild: `-x`, `-p`) are the XAE project and PLC project names from the `.sln`/`.tsproj`; they
+differ in case from the repo name for MONETRoof (`--xae MONETroof --plc MonetRoof`). Using the `.plcproj`'s `<Name>`
+(`MONETRoof`) fails: `tctool` answers with "no PLC project ...; found: ...". The workflow downloads `tctool` in the version
+pinned in `.github/tctool-version`, but that file and `tools/Get-TcTool.ps1` come from the checked-out tag, so a tag from before
+they existed cannot be released with this workflow (the build would need a second checkout of `develop` for the tooling).
 
-## Known TcBuild flakiness (retry, don't debug)
+## Known TcBuild flakiness (historical; `tctool` handles the COM busy case itself)
 
 - `RPC_E_SERVERCALL_RETRYLATER` (exit 3, "message filter indicated application is busy") — cold-
   start COM flakiness, especially the very first build after install or after an idle period.
@@ -234,7 +309,7 @@ case from the repo name for MONETRoof (`-x MONETroof -p MonetRoof`). Using the `
   orphaned session server-side — "A session for this runner already exists" on the next start.
   Self-heals via the listener's own 30s-backoff retry within ~1-2 minutes; no action needed.
 
-## TcBuild exit codes (resolves the old "telescope solutions fail" wall)
+## TcBuild exit codes (historical; the `tctool` codes are in the tctool section)
 
 Per TcBuild's README: **0** = built, **1** = built *with compile warnings* (a success), **2** =
 compile errors, **3** = COM busy (retry), **4** = unknown exception, **5** = missing file. Full XAE

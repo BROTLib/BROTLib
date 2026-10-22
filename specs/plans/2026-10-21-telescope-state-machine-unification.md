@@ -397,6 +397,43 @@ slew, stop during slew, park during power-on, reset under motion, switch to manu
 injected axis error only if Tim agrees to provoke one), then MONET/N the same, IAG50cm (power-on, slew, stop, park,
 reset after an error). Cross-reference the existing lists MONETcommon#61-#65; record results in this file.
 
+#### Checklist for the first visit (2026-10-22): MONETcommon 0.9.6, BROTLib 0.10.3, IAG50cm 0.4.3
+
+Covers the time seam and the timer swap (0.9.5), the refactors 3.1 to 3.4 (0.9.6) and the open MONETcommon#122 retest. Intended
+behaviour change of the refactors: none. Note the installed versions first (rollback target). If a check fails, stop and roll back
+before the next telescope. Results go into this section and as a comment on the issues.
+
+Before the visit: cut and merge a MONETS and a MONETN release (pins BROTLib 0.10.3, HalfBROT 0.6.0, MONETcommon 0.9.6); IAG50cm 0.4.3 is tagged.
+
+**A. MONET/S, then MONET/N**
+
+- [ ] 1. Power-on from parked: READY_STATE 1.0 (note the time, new warnings or rejections in the log)
+- [ ] 2. Slew to a safe position: axes move and arrive, `bSlewing` TRUE then FALSE
+- [ ] 3. Stop during the slew (`stop=1`): each axis stopped once, `bStopped` TRUE, no error
+- [ ] 4. Park during power-on: the park wins (MONETcommon#87), covers close, telescope parks
+- [ ] 5. Reset under motion: abort stop, no moving axis is reset, no NC error 0x4260
+- [ ] 6. Switch to manual under motion: axes stop once, then the pendant gets them; back to automatic is clean
+- [ ] 7. Goto and track over a night: no false timeout errors 16#10/16#30/16#40, no unexpected rejections
+- [ ] 8. Emergency park by an axis error: only if provoked with Tim's agreement, otherwise "mock only"
+
+**B. MONETcommon#122 retest (MONET/S, focus online and idle)**
+
+- [ ] 1. `focus=30` moves from 36.0 and reaches about 30
+- [ ] 2. `focus=500` is rejected or clamped with a log message, the focus does not run past the limit
+- [ ] 3. `focus=36` redirects the focus to 36
+- [ ] 4. `stop=1` stops the focus axis
+
+**C. IAG50cm**
+
+- [ ] 1. Power-on  - [ ] 2. Slew  - [ ] 3. Stop during the slew  - [ ] 4. Park
+- [ ] 5. Reset after an error: errored axes reset, second pass about 2.5 s later
+- [ ] 6. Normal use over a night
+
+Record per check: result (pass, fail, deviation), date and time, installed versions, log lines for anything unexpected, and the
+actual focus positions for B.
+
+**Results:** (not run yet)
+
 ## Risks
 
 - **The mock lies.** Scenario tests pass on a motion model; real `MC_Stop`/`MC_MoveAbsolute` timing differs (e.g. the
@@ -467,6 +504,21 @@ because they shape the tests; the rest can wait until the characterization suite
 ## Findings
 
 (Filled while steps 1 and 2 run: test name, pinned line, current behaviour, proposed decision.)
+
+### Step 3 (2026-10-22)
+
+- Done and merged on develop, unreleased: 3.1/3.2 `_ReadAxes` + `ST_AxisStatus` (MONETcommon#138, IAG50cm#149), 3.3/3.4 `_LogEvents` +
+  `_HandleReset` (MONETcommon#140, IAG50cm#150), all characterization suites green and unedited. In IAG50cm the axis reset of #11 stays in
+  the body: it runs after the error ID, and an axis `Reset()` can change the state the ID is derived from.
+- **3.5 `_StageGuard` not done, proposed to drop from step 3.** The prologues of the stage machines are not the same thing:
+  IAG50cm uses `bReset OR bError OR bStop OR bInterupted` in goto/home/park/slew (the power-on has its own, with `NOT bPower`);
+  MONETcommon uses four variants: goto/slew `bReset OR bError OR bInterrupted OR NOT <flag>`, home `bReset OR bError OR bInterrupted` (no stage
+  reset), park `bReset OR bStop OR bInterrupted` (no `bError`, the emergency park needs it), power-on `bReset OR bStop OR bInterrupted`.
+  One guard per FB would only cover goto/slew on MONET and would bake the differences in. They are the decision-3 divergences (does a stop
+  abort a power-on, does an error abort a park), so the guard belongs to the arbiter/template of step 5, as a policy.
+- Time seam (decision 4) done: `FB_TimeoutTimer` with a per-instance `nDivisor` (BROTLib 0.10.3), `nTimeDivisor` on both telescope FBs,
+  timeout suites `MonetTimeouts_Tests` (3) and `IagTimeouts_Tests` (2). A global divisor does not work: TcUnit runs all suites in the same
+  PLC cycles.
 
 ## Not in this plan
 

@@ -100,6 +100,7 @@ VAR
 	SetpointEnableFailed:	BOOL;	// setpoint enable failed; no retry until Reset or the end of the track request (#9)
 	Axis_SetpointDisable:	MC_ExtSetPointGenDisable;
 	StopAllowed:	BOOL;
+	ExtActive:	BOOL;	// the setpoint generator is on or being disabled: no motion command (#101)
 	// Direction for Axis_SetpointFeed
 	Direction:			DINT;
 	// difference between set position and measured position
@@ -200,12 +201,19 @@ MC_ExtSetPointGenFeed(
 	Direction :=	Direction,
 	Axis :=			AxisRef);
 
+// #101: a stop request also disables the generator (a stop with Tracking still TRUE would otherwise wait for ever)
 Axis_SetpointDisable(Axis := AxisRef,
-	Execute := NOT Tracking);
+	Execute := NOT Tracking OR StopCommand.Pending OR StopCommand.Execute);
+// the NC rejects stop, move and jog with 0x4257 while the generator is on: the commands wait until it is off
+ExtActive := F_ExtSetpointActive(
+	StatusEnabled :=	Axis_Status.Status.ExtSetPointGenEnabled,
+	DisableBusy :=		Axis_SetpointDisable.Busy,
+	DisableDone :=		Axis_SetpointDisable.Done,
+	DisableError :=		Axis_SetpointDisable.Error);
 
 (* end of tracking section  ********************************************** *)
 
-MoveCommand(Allowed := Ready AND Calibrated, Reset := Reset, Done := Axis_Modulo.Done OR Axis_Move.Done,
+MoveCommand(Allowed := Ready AND Calibrated AND NOT ExtActive, Reset := Reset, Done := Axis_Modulo.Done OR Axis_Move.Done,
 	Aborted := Axis_Modulo.CommandAborted OR Axis_Move.CommandAborted);	// #92
 MovePending := MoveCommand.Pending;
 IF isModuloAxis THEN
@@ -226,8 +234,8 @@ ELSE
 END_IF
 
 Axis_Jog(
-	JogForward := 	Jog_Forward AND Ready AND Enable_Positive,
-	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative,
+	JogForward := 	Jog_Forward AND Ready AND Enable_Positive AND NOT ExtActive,
+	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative AND NOT ExtActive,
 	Mode := 		MC_JOGMODE_STANDARD_FAST,
 	Done => 		JogDone,
 	Axis := 		AxisRef);
@@ -260,7 +268,7 @@ StopAllowed :=	Axis_Status.StandStill OR
 				Axis_Status.SynchronizedMotion OR
 				Axis_Status.Homing;
 
-StopCommand(Allowed := StopAllowed, Reset := Reset, Done := Axis_Stop.Done, Aborted := Axis_Stop.CommandAborted,
+StopCommand(Allowed := StopAllowed AND NOT ExtActive, Reset := Reset, Done := Axis_Stop.Done, Aborted := Axis_Stop.CommandAborted,
 	Busy := Axis_Status.Stopping, Idle := Axis_Status.StandStill);
 Axis_Stop(
 	Axis := 	AxisRef,
