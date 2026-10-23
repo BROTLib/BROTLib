@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_CommandAcceptance" Id="{60242b49-df53-41c4-b9bd-05b02f9f7adb}" SpecialFunc="None">
+    <Declaration><![CDATA[// #83/#87: decides what happens to a move or park command at the moment it arrives. Pure function of the
+// telescope state, the table is in specs/plans/2026-10-20-command-acceptance-83-87.md (section 2.2).
+// Rows are checked top to bottom, the first match wins. Only slew, goto, track, gohome and park are decided here;
+// power (Init) and stop/reset never pass through it.
+FUNCTION F_CommandAcceptance : E_CommandDecision
+VAR_INPUT
+	eCommand	: E_TCSCommand;
+	stState		: ST_CommandState;
+END_VAR
+VAR_OUTPUT
+	eReason		: E_CommandRejectReason;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[eReason := E_CommandRejectReason.none;
+F_CommandAcceptance := E_CommandDecision.accept;
+
+IF eCommand = E_TCSCommand.park THEN
+	// park is never rejected (the safe direction); it only changes how it is carried out
+	IF stState.bStop THEN
+		F_CommandAcceptance := E_CommandDecision.defer;			// the stop branch would clear it, run it at standstill
+	ELSIF stState.bPowering AND NOT stState.bError AND NOT stState.bEstop THEN
+		F_CommandAcceptance := E_CommandDecision.abort_power;	// #87: park wins over a running power-on
+	END_IF
+	RETURN;
+END_IF
+
+IF stState.bEstop THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.estop;
+ELSIF stState.bError THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.error;
+ELSIF NOT stState.bClockValid AND eCommand <> E_TCSCommand.gohome THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.clock_invalid;
+ELSIF stState.bStop THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.stopping;
+ELSIF stState.bPowering THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.powering_on;
+ELSIF stState.bParkPending THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.parking;
+ELSIF stState.bIsParked THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.parked;
+ELSIF NOT stState.bReady THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.not_ready;
+ELSIF stState.bGoHomeActive AND eCommand <> E_TCSCommand.gohome THEN
+	F_CommandAcceptance := E_CommandDecision.reject;
+	eReason := E_CommandRejectReason.gohome_active;
+ELSIF stState.bMoveActive THEN
+	F_CommandAcceptance := E_CommandDecision.replace;			// latest move wins
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

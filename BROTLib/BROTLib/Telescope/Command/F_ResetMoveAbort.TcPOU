@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_ResetMoveAbort" Id="{1be24a7d-6ca5-4319-96d4-5a487811607f}" SpecialFunc="None">
+    <Declaration><![CDATA[// Value of bMoveAbortPending after a reset (MONETcommon#56, #66 part 1). A reset drops the pending move commands; a move that
+// is still running must not run on to its old target, so the abort stop of #84 goes on: one MC_Stop per moving axis (#96),
+// no bStop (no operator stop), moving axes are not reset (0x4260, #84).
+// TRUE only if an enabled axis is moving (also homing). Not during an error (the drives are off) and not while a park runs
+// (its motion is wanted; bPark is kept by the reset). An axis stuck in Stopping without motion does not count: a reset must
+// still get out of a hung abort stop.
+FUNCTION F_ResetMoveAbort : BOOL
+VAR_INPUT
+	bError			: BOOL;
+	bParkRunning	: BOOL;		// TCS_command = park
+	bAnyAxisMoving	: BOOL;		// an enabled axis is moving: enabled AND (InMotion OR InRamp OR Homing), OR-ed over the axes
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_ResetMoveAbort := NOT bError AND NOT bParkRunning AND bAnyAxisMoving;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="E_CommandRejectReason" Id="{3e8d0ef8-4405-4709-be4f-fced965fe872}">
+    <Declaration><![CDATA[// #83: why F_CommandAcceptance rejected a command.
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_CommandRejectReason :
+(
+	none := 0,
+	estop,
+	error,
+	clock_invalid,
+	stopping,
+	powering_on,
+	parking,
+	parked,
+	not_ready,
+	gohome_active
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

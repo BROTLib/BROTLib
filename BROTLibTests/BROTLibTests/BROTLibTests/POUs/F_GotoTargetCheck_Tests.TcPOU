@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_GotoTargetCheck_Tests" Id="{1a6df0bf-3db0-44e4-ae18-b502902d878a}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_GotoTargetCheck, the elevation window of a goto/track target (#109).
+FUNCTION_BLOCK F_GotoTargetCheck_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Inside_Window_Is_Ok();
+Limits_Are_Inside();
+Just_Outside_Is_Refused();
+Below_Floor_Is_15();
+Above_Guard_Is_16();
+Other_Limits();
+Warning_Implies_Refusal_With_Default_Horizon();
+Warn_Only_Exists_When_Horizon_Above_Floor();
+]]></ST>
+    </Implementation>
+    <Method Name="Inside_Window_Is_Ok" Id="{119151ac-3271-4ca2-a029-ef203f47f617}">
+      <Declaration><![CDATA[METHOD PRIVATE Inside_Window_Is_Ok
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Inside_Window_Is_Ok');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(45.0, 2.0, 89.5), Message := 'el 45');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(10.0, 2.0, 89.5), Message := 'el 10');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(80.0, 2.0, 89.5), Message := 'el 80');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Limits_Are_Inside" Id="{60b8b028-1fbf-457d-aa83-dfb8d632d099}">
+      <Declaration><![CDATA[// The limits themselves are accepted (the original code used strict < and >).
+METHOD PRIVATE Limits_Are_Inside
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Limits_Are_Inside');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(2.0, 2.0, 89.5), Message := 'exactly the floor');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(89.5, 2.0, 89.5), Message := 'exactly the zenith guard');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Just_Outside_Is_Refused" Id="{d99c94c3-1826-4e56-8c66-ca11407defd8}">
+      <Declaration><![CDATA[METHOD PRIVATE Just_Outside_Is_Refused
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Just_Outside_Is_Refused');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(1.999, 2.0, 89.5), Message := 'just below the floor');
+AssertEquals_UINT(Expected := 16#16, Actual := BROTLib.F_GotoTargetCheck(89.501, 2.0, 89.5), Message := 'just above the zenith guard');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Below_Floor_Is_15" Id="{3d707686-82ae-4251-8a3d-a26f93fd64dc}">
+      <Declaration><![CDATA[// The two targets of MONETcommon#109 (el -3.0 and el +0.23).
+METHOD PRIVATE Below_Floor_Is_15
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Below_Floor_Is_15');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(-3.0, 2.0, 89.5), Message := '#109 idle target');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(0.23, 2.0, 89.5), Message := '#109 tracking target');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(-90.0, 2.0, 89.5), Message := 'far below');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Above_Guard_Is_16" Id="{ac4236ff-b2d6-49de-90d2-0ec16eb565f2}">
+      <Declaration><![CDATA[METHOD PRIVATE Above_Guard_Is_16
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Above_Guard_Is_16');
+AssertEquals_UINT(Expected := 16#16, Actual := BROTLib.F_GotoTargetCheck(95.0, 2.0, 89.5), Message := 'el 95');
+AssertEquals_UINT(Expected := 16#16, Actual := BROTLib.F_GotoTargetCheck(90.0, 2.0, 89.5), Message := 'zenith');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Other_Limits" Id="{4b7ca5d0-8ab4-46ed-a55a-d017e926b249}">
+      <Declaration><![CDATA[// The limits are inputs.
+METHOD PRIVATE Other_Limits
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Other_Limits');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(5.0, 5.0, 80.0), Message := 'custom floor');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(4.9, 5.0, 80.0), Message := 'below custom floor');
+AssertEquals_UINT(Expected := 16#16, Actual := BROTLib.F_GotoTargetCheck(80.1, 5.0, 80.0), Message := 'above custom ceiling');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Warning_Implies_Refusal_With_Default_Horizon" Id="{cd160e13-f424-498e-8816-b18243d94af5}">
+      <Declaration><![CDATA[// With fHorizon 1 deg (BROTLib default) and the floor at 2 deg, a goto/track target that makes the 'Target below safe horizon'
+// warning (F_TargetBelowHorizonWarning) is always refused with 16#15 too: the warning is never seen alone (#109).
+// Targets between fHorizon and the floor are refused without a warning.
+METHOD PRIVATE Warning_Implies_Refusal_With_Default_Horizon
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Warning_Implies_Refusal_With_Default_Horizon');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, -20.0, 1.0), Message := 'warns at -20.0');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(-20.0, 2.0, 89.5), Message := 'refused at -20.0');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, -3.0, 1.0), Message := 'warns at -3.0');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(-3.0, 2.0, 89.5), Message := 'refused at -3.0');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 0.5, 1.0), Message := 'warns at 0.5');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(0.5, 2.0, 89.5), Message := 'refused at 0.5');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 0.99, 1.0), Message := 'warns at 0.99');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(0.99, 2.0, 89.5), Message := 'refused at 0.99');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 1.5, 1.0), Message := 'no warning at 1.5');
+AssertEquals_UINT(Expected := 16#15, Actual := BROTLib.F_GotoTargetCheck(1.5, 2.0, 89.5), Message := 'refused at 1.5');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Warn_Only_Exists_When_Horizon_Above_Floor" Id="{0bcd188a-9b8e-41c5-b5f0-4d15e981c0c7}">
+      <Declaration><![CDATA[// A raised horizon (5 deg) above the 2 deg floor is the only way to get a warning without a refusal.
+METHOD PRIVATE Warn_Only_Exists_When_Horizon_Above_Floor
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Warn_Only_Exists_When_Horizon_Above_Floor');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 4.0, 5.0), Message := 'warns at 4 with horizon 5');
+AssertEquals_UINT(Expected := 0, Actual := BROTLib.F_GotoTargetCheck(4.0, 2.0, 89.5), Message := 'not refused at 4');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_CommandAcceptance_Tests" Id="{e22724bd-eeba-455f-a83f-e5264e02b7a3}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_CommandAcceptance and F_CommandRejectText (#83, #87): one test per row of the
+// acceptance table (specs/plans/2026-10-20-command-acceptance-83-87.md, section 2.2).
+FUNCTION_BLOCK F_CommandAcceptance_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	eLastReason	: BROTLib.E_CommandRejectReason;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Ready_Idle_Accepts_All();
+Estop_Rejects_Moves_Accepts_Park();
+Error_Rejects_Moves_Accepts_Park();
+Clock_Invalid_Rejects_All_Moves_Except_GoHome();
+Stopping_Rejects_Moves_Defers_Park();
+Powering_Rejects_Moves_Park_Aborts_Power();
+Parking_Rejects_Moves();
+Parked_Rejects_Moves_With_Reason_Parked();
+Parked_Park_Is_Accepted();
+NotReady_Rejects_Moves_Accepts_Park();
+GoHome_Active_Rejects_Slew_Goto_Track();
+Moving_Replaces();
+Reject_Texts();
+]]></ST>
+    </Implementation>
+    <Method Name="Ready_State" Id="{385b46ff-e808-462f-8609-defe1b35b5c7}">
+      <Declaration><![CDATA[// A powered-on, idle telescope: nothing pending, nothing wrong.
+METHOD PRIVATE Ready_State : BROTLib.ST_CommandState
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Ready_State.bClockValid := TRUE;
+Ready_State.bReady := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Decide" Id="{0b0105fb-a574-4998-91a0-06c452291fb0}">
+      <Declaration><![CDATA[METHOD PRIVATE Decide : BROTLib.E_CommandDecision
+VAR_INPUT
+	eCommand	: BROTLib.E_TCSCommand;
+	stState		: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Decide := BROTLib.F_CommandAcceptance(eCommand := eCommand, stState := stState, eReason => eLastReason);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Ready_Idle_Accepts_All" Id="{751c4f27-83de-48da-b8a2-e1f1c605ad2e}">
+      <Declaration><![CDATA[METHOD PRIVATE Ready_Idle_Accepts_All
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Ready_Idle_Accepts_All');
+stState := Ready_State();
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.accept, Message := 'slew');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.accept, Message := 'goto');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.track, stState) = BROTLib.E_CommandDecision.accept, Message := 'track');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.accept, Message := 'gohome');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.none, Message := 'no reason on accept');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Estop_Rejects_Moves_Accepts_Park" Id="{81eb9081-3153-4b79-9163-95ce0cce35a3}">
+      <Declaration><![CDATA[METHOD PRIVATE Estop_Rejects_Moves_Accepts_Park
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Estop_Rejects_Moves_Accepts_Park');
+stState := Ready_State();
+stState.bEstop := TRUE;
+stState.bError := TRUE;		// the E-stop also raises an error: the E-stop reason wins
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.estop, Message := 'reason estop');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.reject, Message := 'gohome rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Rejects_Moves_Accepts_Park" Id="{d8f4d57c-5abf-4051-a21f-bc0c7823fb40}">
+      <Declaration><![CDATA[// The emergency park (#86 is out of scope) must stay reachable: park is accepted with an error.
+METHOD PRIVATE Error_Rejects_Moves_Accepts_Park
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Rejects_Moves_Accepts_Park');
+stState := Ready_State();
+stState.bError := TRUE;
+stState.bReady := FALSE;
+stState.bIsParked := TRUE;		// error beats parked
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.reject, Message := 'goto rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.error, Message := 'reason error');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted');
+stState.bPowering := TRUE;		// an error during a power-on: no abort branch, the error path handles it
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted while powering with error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Clock_Invalid_Rejects_All_Moves_Except_GoHome" Id="{b23dc343-3d7f-40fe-80c4-fde3cb409174}">
+      <Declaration><![CDATA[METHOD PRIVATE Clock_Invalid_Rejects_All_Moves_Except_GoHome
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Clock_Invalid_Rejects_All_Moves_Except_GoHome');
+stState := Ready_State();
+stState.bClockValid := FALSE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.clock_invalid, Message := 'reason clock');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.reject, Message := 'goto rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.track, stState) = BROTLib.E_CommandDecision.reject, Message := 'track rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.accept, Message := 'gohome needs no time');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stopping_Rejects_Moves_Defers_Park" Id="{0b1a5dc6-9dd8-4139-ade7-01326a62348b}">
+      <Declaration><![CDATA[METHOD PRIVATE Stopping_Rejects_Moves_Defers_Park
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stopping_Rejects_Moves_Defers_Park');
+stState := Ready_State();
+stState.bStop := TRUE;
+stState.bPowering := TRUE;		// a stop beats a power-on
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.stopping, Message := 'reason stopping');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.reject, Message := 'gohome rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.defer, Message := 'park deferred to standstill');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Powering_Rejects_Moves_Park_Aborts_Power" Id="{fd6a3480-0520-4e32-9680-aade6eefba87}">
+      <Declaration><![CDATA[METHOD PRIVATE Powering_Rejects_Moves_Park_Aborts_Power
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Powering_Rejects_Moves_Park_Aborts_Power');
+stState := Ready_State();
+stState.bPowering := TRUE;
+stState.bReady := FALSE;
+stState.bIsParked := TRUE;		// power-on starts from parked: "power-on in progress" wins over "parked"
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.reject, Message := 'goto rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.powering_on, Message := 'reason powering_on');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.track, stState) = BROTLib.E_CommandDecision.reject, Message := 'track rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.abort_power, Message := '#87 park aborts the power-on');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Parking_Rejects_Moves" Id="{39a24f09-aba5-4e20-939d-fa68a56aa11a}">
+      <Declaration><![CDATA[METHOD PRIVATE Parking_Rejects_Moves
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Parking_Rejects_Moves');
+stState := Ready_State();
+stState.bParkPending := TRUE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.parking, Message := 'reason parking');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.reject, Message := 'gohome rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park again is a no-op accept');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Parked_Rejects_Moves_With_Reason_Parked" Id="{0a9799ed-a2c5-46ea-bfaf-18825f0a4378}">
+      <Declaration><![CDATA[// #83: a slew sent to a parked telescope is rejected at once and never stays pending.
+METHOD PRIVATE Parked_Rejects_Moves_With_Reason_Parked
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Parked_Rejects_Moves_With_Reason_Parked');
+stState := Ready_State();
+stState.bIsParked := TRUE;
+stState.bReady := FALSE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.parked, Message := 'slew reason parked');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.reject, Message := 'goto rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.track, stState) = BROTLib.E_CommandDecision.reject, Message := 'track rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.reject, Message := 'gohome rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.parked, Message := 'gohome reason parked');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Parked_Park_Is_Accepted" Id="{75276e00-d0ac-462c-a5d4-e0f71e06f843}">
+      <Declaration><![CDATA[METHOD PRIVATE Parked_Park_Is_Accepted
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Parked_Park_Is_Accepted');
+stState := Ready_State();
+stState.bIsParked := TRUE;
+stState.bReady := FALSE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.none, Message := 'no reason');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NotReady_Rejects_Moves_Accepts_Park" Id="{c5cbd9cf-c7c5-482f-828f-4246a2705706}">
+      <Declaration><![CDATA[METHOD PRIVATE NotReady_Rejects_Moves_Accepts_Park
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('NotReady_Rejects_Moves_Accepts_Park');
+stState := Ready_State();
+stState.bReady := FALSE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.not_ready, Message := 'reason not_ready');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.reject, Message := 'gohome rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GoHome_Active_Rejects_Slew_Goto_Track" Id="{3f14b586-ccd5-4cc3-97c7-4b14cb6d3394}">
+      <Declaration><![CDATA[METHOD PRIVATE GoHome_Active_Rejects_Slew_Goto_Track
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('GoHome_Active_Rejects_Slew_Goto_Track');
+stState := Ready_State();
+stState.bGoHomeActive := TRUE;
+stState.bMoveActive := TRUE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.reject, Message := 'slew rejected');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.gohome_active, Message := 'reason gohome_active');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.reject, Message := 'goto rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.track, stState) = BROTLib.E_CommandDecision.reject, Message := 'track rejected');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.replace, Message := 'gohome over gohome replaces');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park accepted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Moving_Replaces" Id="{7cdc6d6d-174c-4afe-9b15-321c7f422ff7}">
+      <Declaration><![CDATA[// Latest move wins: slew over goto, goto over slew, goto over tracking, gohome over a move.
+METHOD PRIVATE Moving_Replaces
+VAR
+	stState	: BROTLib.ST_CommandState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_Replaces');
+stState := Ready_State();
+stState.bMoveActive := TRUE;
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.slew, stState) = BROTLib.E_CommandDecision.replace, Message := 'slew replaces');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.goto, stState) = BROTLib.E_CommandDecision.replace, Message := 'goto replaces');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.track, stState) = BROTLib.E_CommandDecision.replace, Message := 'track replaces');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.gohome, stState) = BROTLib.E_CommandDecision.replace, Message := 'gohome replaces');
+AssertTrue(Condition := eLastReason = BROTLib.E_CommandRejectReason.none, Message := 'no reason on replace');
+AssertTrue(Condition := Decide(BROTLib.E_TCSCommand.park, stState) = BROTLib.E_CommandDecision.accept, Message := 'park is not a replace');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reject_Texts" Id="{226a9260-cdb8-40a2-856b-683a48ed28d9}">
+      <Declaration><![CDATA[// every reason except none has a log text
+METHOD PRIVATE Reject_Texts
+VAR
+	eReason	: BROTLib.E_CommandRejectReason;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Reject_Texts');
+AssertEquals_STRING(Expected := '', Actual := BROTLib.F_CommandRejectText(BROTLib.E_CommandRejectReason.none), Message := 'none has no text');
+eReason := BROTLib.E_CommandRejectReason.estop;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'estop');
+eReason := BROTLib.E_CommandRejectReason.error;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'error');
+eReason := BROTLib.E_CommandRejectReason.clock_invalid;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'clock_invalid');
+eReason := BROTLib.E_CommandRejectReason.stopping;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'stopping');
+eReason := BROTLib.E_CommandRejectReason.powering_on;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'powering_on');
+eReason := BROTLib.E_CommandRejectReason.parking;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'parking');
+eReason := BROTLib.E_CommandRejectReason.parked;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'parked');
+eReason := BROTLib.E_CommandRejectReason.not_ready;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'not_ready');
+eReason := BROTLib.E_CommandRejectReason.gohome_active;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'gohome_active');
+AssertEquals_STRING(Expected := 'telescope parked, send power=1 first', Actual := BROTLib.F_CommandRejectText(BROTLib.E_CommandRejectReason.parked), Message := 'parked text (#83)');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -178,6 +178,15 @@ organised into four layers:
   `hor2eq` call relies on the AstroBROT refraction default, which is the
   wrong direction for a measured altitude (#10).
 
+- **Command units (`Telescope/Command/`)** — pure functions and types that any telescope state machine can use, moved
+  here from MONETcommon (plan `specs/plans/2026-10-21-telescope-state-machine-unification.md`, step 4.1; nobody
+  calls them from BROTLib yet): `F_CommandAcceptance` with `E_CommandDecision`, `E_CommandRejectReason` and
+  `ST_CommandState` (what happens to a move or park command when it arrives, with `F_CommandRejectText` and
+  `F_TCSCommandText` for the log line), `F_ErrorParkRequest` (a new axis error starts the emergency park),
+  `F_ResetMoveAbort` and `F_SuspendStop` (a reset or the switch to manual under motion stops the moving axes; the
+  inputs take `bAnyAxisMoving`, the caller ORs its axes), `F_GotoTargetCheck`, `F_TargetBelowHorizonWarning` and
+  `F_HomeBelowHorizon` (elevation windows). Their TcUnit suites are in BROTLibTests.
+
 ### Axes and pointing
 
 - **`FB_BaseAxis` / `FB_Axis`** — axis abstraction over a TwinCAT NC axis:

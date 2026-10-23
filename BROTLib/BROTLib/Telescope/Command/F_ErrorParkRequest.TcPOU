@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_ErrorParkRequest" Id="{dbe5d361-15ad-490a-9b2a-28bcbc029d6b}" SpecialFunc="None">
+    <Declaration><![CDATA[// TRUE in the scan where a new axis/focus error should start the emergency park (MONETcommon#86, #64 check 4).
+// Edge on the hardware error only: software errors are command-level (goto window, timeouts) and must not close the
+// covers. Nothing to do on a parked telescope or during an E-stop (people are on site, covers must not move on
+// release). The emergency park ends with bIsParked TRUE, so a still-present error cannot trigger it again.
+// bIsParked drops with the cover command of a power-on (#113), so the expected Wake&Shake error of the first
+// power-on after a PLC restart is exempted by the caller, see F_WakeShakeErrorExempt.
+FUNCTION F_ErrorParkRequest : BOOL
+VAR_INPUT
+	bHwError		: BOOL;		// elevation, azimuth, derotator or focus error
+	bHwErrorLast	: BOOL;		// bHwError of the previous call
+	bIsParked		: BOOL;
+	bEstop			: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_ErrorParkRequest := bHwError AND NOT bHwErrorLast AND NOT bIsParked AND NOT bEstop;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

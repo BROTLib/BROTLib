@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_GotoTargetCheck" Id="{a0ff6f5f-1861-4d7c-b478-aeb86c2a0e65}" SpecialFunc="None">
+    <Declaration><![CDATA[// Elevation window of a goto/track target (MONETcommon#109). Returns 0 if the target elevation is inside
+// [fMinElevation, fMaxElevation], 16#15 if it is below fMinElevation, 16#16 if it is above fMaxElevation.
+// The limits themselves are inside the window. _GotoTelescope latches the returned ID as a software error.
+// Note: with fHorizon below fMinElevation (BROTLib default 1 deg, fMinElevation 2 deg) every target that
+// triggers the 'Target below safe horizon' warning (F_TargetBelowHorizonWarning) also returns 16#15.
+FUNCTION F_GotoTargetCheck : UINT
+VAR_INPUT
+	fElevationCalc	: LREAL;	// elevation of the RA/Dec target, degrees
+	fMinElevation	: LREAL;	// lowest accepted elevation, degrees (2.0 in _GotoTelescope)
+	fMaxElevation	: LREAL;	// highest accepted elevation, degrees (89.5 in _GotoTelescope, the zenith guard of M7)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF fElevationCalc < fMinElevation THEN
+	F_GotoTargetCheck := 16#15;
+ELSIF fElevationCalc > fMaxElevation THEN
+	F_GotoTargetCheck := 16#16;
+ELSE
+	F_GotoTargetCheck := 0;
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
