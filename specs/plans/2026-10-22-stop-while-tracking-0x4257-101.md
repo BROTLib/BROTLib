@@ -7,6 +7,10 @@ request also drives `MC_ExtSetPointGenDisable` (a stop with Tracking still TRUE 
 error is not added to the axis `Error` (a disable on an unpowered axis may report one, spurious emergency parks); a failed disable
 lets the command through instead. Open: releases (MONETcommon 0.9.8, BROTLib 0.10.4 and the pin chain), step 4 test result
 (the retarget test passed, so the new target is tracked again), step 5 on the telescope.
+**Result of step 5 (MONET/S, 2026-10-23, BROTLib 0.10.4 / MONETcommon 0.9.9 / HalfBROT 0.7.2):** 18 `stop=1` while tracking (short and
+11 min) and 10 `track` over a track: no 0x4257, no emergency park (BROTLib#101 closed). Not done: the cabinet selector to manual while
+tracking (needs a person at the cabinet, BROTLib#125), the stop duration (PLC log resolution 1 s, every stop finished within the
+same second), MONET/N, IAG50cm.
 Original status: proposed. Plan only, no PLC code changed. Base: BROTLib `develop` (0.10.3), MONETcommon `develop`
 (0.9.7), HalfBROT `develop` (0.7.1). Related: MONETcommon#84 (stop during a slew, the change that introduced the
 same-scan stop), MONETcommon#96 (`FB_MonetStopTransaction`), BROTLib#93/#92 (stop idempotent, `FB_AxisCommand`),
