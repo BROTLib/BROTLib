@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_HomeBelowHorizon_Tests" Id="{d4ccb17e-356b-486e-9d1f-53e972d8e49a}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_HomeBelowHorizon, the home/park position check against the horizon guard (#34).
+FUNCTION_BLOCK F_HomeBelowHorizon_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Site_Configuration_Is_Valid();
+Home_Below_Horizon_Is_Refused();
+Park_Below_Horizon_Is_Refused();
+Margin_Boundary();
+]]></ST>
+    </Implementation>
+    <Method Name="Site_Configuration_Is_Valid" Id="{2e5d2153-f780-4d51-b092-01bbd06b3242}">
+      <Declaration><![CDATA[// MONETN and MONETS: home 40 deg, park 60 deg, default horizon 1 deg.
+METHOD PRIVATE Site_Configuration_Is_Valid
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Site_Configuration_Is_Valid');
+AssertFalse(Condition := BROTLib.F_HomeBelowHorizon(40.0, 60.0, 1.0, 0.2), Message := 'home 40, park 60');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Home_Below_Horizon_Is_Refused" Id="{2da8b1fc-134e-4049-9059-16a531ecf977}">
+      <Declaration><![CDATA[METHOD PRIVATE Home_Below_Horizon_Is_Refused
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Home_Below_Horizon_Is_Refused');
+AssertTrue(Condition := BROTLib.F_HomeBelowHorizon(1.0, 60.0, 1.0, 0.2), Message := 'home 1.0');
+AssertTrue(Condition := BROTLib.F_HomeBelowHorizon(30.0, 60.0, 35.0, 0.2), Message := 'horizon raised above home');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Below_Horizon_Is_Refused" Id="{7a14ad96-e0c3-4271-9389-ebabb3b3ddd7}">
+      <Declaration><![CDATA[METHOD PRIVATE Park_Below_Horizon_Is_Refused
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Below_Horizon_Is_Refused');
+AssertTrue(Condition := BROTLib.F_HomeBelowHorizon(40.0, 0.0, 1.0, 0.2), Message := 'park 0.0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Margin_Boundary" Id="{e50d51ed-2395-4cc8-96cb-ec2392a40300}">
+      <Declaration><![CDATA[// The horizon guard fires below fHorizon + fMargin, so exactly at that elevation is still allowed.
+METHOD PRIVATE Margin_Boundary
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Margin_Boundary');
+AssertTrue(Condition := BROTLib.F_HomeBelowHorizon(1.1, 60.0, 1.0, 0.2), Message := 'home inside the margin');
+AssertFalse(Condition := BROTLib.F_HomeBelowHorizon(1.5, 60.0, 1.0, 0.2), Message := 'home above the margin');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

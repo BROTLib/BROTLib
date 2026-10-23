@@ -18,6 +18,13 @@ VAR
 	fbInfoConnectionTests		: FB_InfoConnection_Tests;
 	fbSetpointEnableTests		: F_SetpointEnableExecute_Tests;
 	fbExtSetpointActiveTests	: F_ExtSetpointActive_Tests;
+	fbCommandAcceptanceTests	: F_CommandAcceptance_Tests;
+	fbErrorParkRequestTests	: F_ErrorParkRequest_Tests;
+	fbResetMoveAbortTests	: F_ResetMoveAbort_Tests;
+	fbSuspendStopTests	: F_SuspendStop_Tests;
+	fbGotoTargetCheckTests	: F_GotoTargetCheck_Tests;
+	fbTargetBelowHorizonWarningTests	: F_TargetBelowHorizonWarning_Tests;
+	fbHomeBelowHorizonTests	: F_HomeBelowHorizon_Tests;
 	fbAxisCommandTests		: FB_AxisCommand_Tests;
 	fbMoveFollowerTests		: FB_MoveFollower_Tests;
     fbStartupReadinessTests : FB_StartupReadiness_Tests;

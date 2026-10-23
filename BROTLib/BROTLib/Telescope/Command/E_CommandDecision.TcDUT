@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="E_CommandDecision" Id="{81ba001b-8098-4d84-8a3d-5cb437e27cf3}">
+    <Declaration><![CDATA[// #83/#87: what FB_MonetTelescopeControl does with a command at the moment it arrives (F_CommandAcceptance).
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_CommandDecision :
+(
+	accept := 0,	// runs now (or after its own bounded preparation)
+	reject,			// nothing is written, the reason is logged
+	replace,		// the running move is stopped, then this one runs
+	defer,			// park only: runs at standstill (park received during a stop)
+	abort_power		// park only: aborts the running power-on, then parks
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

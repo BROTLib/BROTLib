@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_HomeBelowHorizon" Id="{7c810029-4ccb-4f32-b0a3-d921ff095a6d}" SpecialFunc="None">
+    <Declaration><![CDATA[// TRUE if the home or park elevation (degrees) is below fHorizon + fMargin, where the telescope's horizon guard
+// stops the telescope and sends it home. With such a home position the guard would home it again after every
+// homing, forever (MONETcommon#34), so FB_MonetTelescopeControl refuses this configuration with an error.
+FUNCTION F_HomeBelowHorizon : BOOL
+VAR_INPUT
+	fElevationHome	: LREAL;	// home elevation, degrees
+	fElevationPark	: LREAL;	// park elevation, degrees
+	fHorizon		: LREAL;	// horizon, degrees
+	fMargin			: LREAL;	// margin above the horizon used by the horizon guard, degrees
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_HomeBelowHorizon := fElevationHome < fHorizon + fMargin OR fElevationPark < fHorizon + fMargin;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
