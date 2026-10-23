@@ -336,6 +336,8 @@ BROTLibTests unchanged in content (`F_CommandAcceptance_Tests`, `F_ErrorParkRequ
 `F_SuspendStop_Tests`, `F_GotoTargetCheck_Tests`, `F_TargetBelowHorizonWarning_Tests`, `F_HomeBelowHorizon_Tests`).
 Acceptance: BROTLibTests green with the moved suites; README telescope section. Release: BROTLib minor (additive,
 after 0.10.0; consumers stay on their pin until they bump).
+**Done 2026-10-23 (BROTLib#126, on develop, not released):** all twelve units and the seven suites moved, 241 cases green. `F_ResetMoveAbort`
+also takes `bAnyAxisMoving` now (same reason as `F_SuspendStop`); the per-axis cases of both suites collapse into that one input.
 
 **4.2 BROTLib generic stop transaction:** `FB_StopTransaction` for up to 4 axes, union of both: per-axis issue/done,
 latched-level write-low (M), `Restart` (M), `bForced`/`bStuck` (M), motion-lock input and homing abort (I), settle
