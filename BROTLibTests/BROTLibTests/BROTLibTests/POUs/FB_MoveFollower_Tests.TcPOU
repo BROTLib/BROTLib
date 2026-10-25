@@ -11,6 +11,10 @@ END_VAR
       <ST><![CDATA[Start_When_Off_Target();
 No_Start_Within_Tolerance();
 No_Start_When_Not_Ready_Requests_Enable();
+Pending_Move_Requests_Enable();
+Pending_Move_Ready_Again_No_Restart();
+Moving_And_Ready_No_Need_Enable();
+Stopped_Or_Error_No_Need_Enable();
 Retarget_While_Moving_Restarts();
 Retarget_Within_Tolerance_No_Restart();
 Hunting_Does_Not_Restart();
@@ -312,6 +316,80 @@ fbF(fTarget := fT, fActual := fA, fTolerance := 0.005, bActive := FALSE, bReady 
 AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
 AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'need enable');
 AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Pending_Move_Requests_Enable" Id="{1b5a0d36-a5aa-4eea-9c9d-8bd864cf2f38}">
+      <Declaration><![CDATA[// A started move whose axis is no longer ready (the drive was disabled, MoveTo() pending) asks for the enable (HalfBROT#108, #111).
+METHOD PRIVATE Pending_Move_Requests_Enable
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Pending_Move_Requests_Enable');
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start');
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := FALSE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bNeedEnable, Message := 'need enable');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'no second start');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'still moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Pending_Move_Ready_Again_No_Restart" Id="{35dd5958-a57e-45ae-b57b-b51b970c9041}">
+      <Declaration><![CDATA[// When the axis is ready again the enable request ends and the move is not started a second time.
+METHOD PRIVATE Pending_Move_Ready_Again_No_Restart
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Pending_Move_Ready_Again_No_Restart');
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := FALSE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'need enable');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bMoving, Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Moving_And_Ready_No_Need_Enable" Id="{649ee1d0-1ddf-40c5-89d6-362acd2e7229}">
+      <Declaration><![CDATA[// A running move on a ready axis needs nothing.
+METHOD PRIVATE Moving_And_Ready_No_Need_Enable
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_And_Ready_No_Need_Enable');
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.0, fActual := 80.0, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'need enable');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stopped_Or_Error_No_Need_Enable" Id="{9cec7a51-9cb6-460f-a4d7-f3ae5ef80ea9}">
+      <Declaration><![CDATA[// After Stop() and after an error nothing asks for the enable, although the axis is not ready.
+METHOD PRIVATE Stopped_Or_Error_No_Need_Enable
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stopped_Or_Error_No_Need_Enable');
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF.Stop();
+fbF(fTarget := 36.0, fActual := 91.99, fTolerance := 0.005, bReady := FALSE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'after stop');
+fbF(fTarget := 50.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 91.99, fTolerance := 0.005, bReady := FALSE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := TRUE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'after error');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

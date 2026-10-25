@@ -22,7 +22,7 @@ END_VAR
 VAR_OUTPUT
 	bStartMove	: BOOL;		// call fbAxis.MoveTo() in this cycle
 	bMoving		: BOOL;		// a move to fMoveTarget is running or pending
-	bNeedEnable	: BOOL;		// off target, but the axis is not ready: the caller enables it
+	bNeedEnable	: BOOL;		// a move is wanted (off target, or started and still waiting), but the axis is not ready: the caller enables it
 	fMoveTarget	: LREAL;	// target the running move was started with
 END_VAR
 VAR
@@ -55,6 +55,9 @@ ELSIF NOT bStopping AND NOT bError THEN
 			bRestarted := TRUE;
 			fMoveTarget := fTarget;
 		END_IF
+		// a started move waits for the drive (FB_Axis.MoveTo() stays pending while the axis is not Ready): ask for the enable
+		// (HalfBROT#108, #111)
+		bNeedEnable := NOT bReady;
 	ELSIF ABS(fTarget - fActual) > fTolerance THEN
 		IF bReady THEN
 			bStartMove := TRUE;
