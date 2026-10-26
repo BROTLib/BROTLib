@@ -25,6 +25,16 @@ Error_Ends_Move();
 Stop_Blocks_Restart_Until_New_Target();
 Stop_Without_Move_Returns_False();
 Inactive_Never_Starts();
+Settles_Inside_HoldBand_No_Restart();
+First_Cycle_Within_Tolerance_Settles();
+Drift_Inside_HoldBand_No_NeedEnable();
+Drift_Beyond_HoldBand_Moves_Again();
+New_Small_Target_Still_Moves();
+Miss_Beyond_HoldBand_Retries_Then_Gives_Up();
+Hunting_Limited_By_Retries();
+New_Target_Clears_Missed_And_Retries();
+Inactive_Clears_Settled();
+Legacy_Settings_Restart_After_Every_Miss();
 ]]></ST>
     </Implementation>
     <Method Name="Start_When_Off_Target" Id="{18c23736-7b2f-428e-83c0-4eaf8f8f397d}">
@@ -390,6 +400,206 @@ AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'afte
 fbF(fTarget := 50.0, fActual := 91.99, fTolerance := 0.005, bReady := TRUE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
 fbF(fTarget := 50.0, fActual := 91.99, fTolerance := 0.005, bReady := FALSE, bActive := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := TRUE, bStopDone := FALSE);
 AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'after error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Settles_Inside_HoldBand_No_Restart" Id="{6aa9c9ca-c6af-408b-86aa-efd5b52fa136}">
+      <Declaration><![CDATA[// A move that ends 6 um off (tolerance 5 um) has arrived: no restart, no enable request, nothing for the brake to wait for (HalfBROT#85).
+METHOD PRIVATE Settles_Inside_HoldBand_No_Restart
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Settles_Inside_HoldBand_No_Restart');
+fbF(fTarget := 50.0, fActual := 36.0, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 49.994, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bSettled, Message := 'settled');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'no restart');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bMoving, Message := 'moving');
+fbF(fTarget := 50.0, fActual := 49.994, fTolerance := 0.005, bActive := TRUE, bReady := FALSE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'still no start');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'no enable request');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="First_Cycle_Within_Tolerance_Settles" Id="{79db265f-48b7-477f-95f2-b316e13bb16b}">
+      <Declaration><![CDATA[// At the target from the start (target initialised to the actual position): settled at once, no move.
+METHOD PRIVATE First_Cycle_Within_Tolerance_Settles
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('First_Cycle_Within_Tolerance_Settles');
+fbF(fTarget := 36.0, fActual := 36.002, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bSettled, Message := 'settled');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Drift_Inside_HoldBand_No_NeedEnable" Id="{d2594c9e-99fd-4548-95c1-0b41b9154b62}">
+      <Declaration><![CDATA[// A locked (not ready) settled axis that drifts 13 um does not ask for the enable (HalfBROT#85, after the power-on).
+METHOD PRIVATE Drift_Inside_HoldBand_No_NeedEnable
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Drift_Inside_HoldBand_No_NeedEnable');
+fbF(fTarget := 36.0, fActual := 36.002, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.0, fActual := 36.013, fTolerance := 0.005, bActive := TRUE, bReady := FALSE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'need enable');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Drift_Beyond_HoldBand_Moves_Again" Id="{936aad07-18f0-4ce5-ab96-1b095d24a519}">
+      <Declaration><![CDATA[// A drift beyond the hold band asks for the enable, then moves back.
+METHOD PRIVATE Drift_Beyond_HoldBand_Moves_Again
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Drift_Beyond_HoldBand_Moves_Again');
+fbF(fTarget := 36.0, fActual := 36.002, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.0, fActual := 36.05, fTolerance := 0.005, bActive := TRUE, bReady := FALSE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bNeedEnable, Message := 'need enable');
+fbF(fTarget := 36.0, fActual := 36.05, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bSettled, Message := 'not settled while moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Small_Target_Still_Moves" Id="{e6300e5f-7fe4-450c-ad5a-6152cb4f8965}">
+      <Declaration><![CDATA[// A new target 0.01 mm away (more than the tolerance) moves although it is inside the hold band.
+METHOD PRIVATE New_Small_Target_Still_Moves
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Small_Target_Still_Moves');
+fbF(fTarget := 36.0, fActual := 36.002, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.01, fActual := 36.0, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Miss_Beyond_HoldBand_Retries_Then_Gives_Up" Id="{8219edbc-8f81-4069-a2b8-34518a710698}">
+      <Declaration><![CDATA[// A move that ends beyond the hold band is corrected nMaxRetries times, then it settles with bTargetMissed and nothing moves again.
+METHOD PRIVATE Miss_Beyond_HoldBand_Retries_Then_Gives_Up
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Miss_Beyond_HoldBand_Retries_Then_Gives_Up');
+fbF(fTarget := 50.0, fActual := 36.0, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'first correction');
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'second correction');
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'retries used up');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bTargetMissed, Message := 'target missed');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bSettled, Message := 'settled');
+AssertEquals_UINT(Expected := 2, Actual := fbF.nRetries, Message := 'retries');
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bStartMove, Message := 'no further start');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bNeedEnable, Message := 'no enable request');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Hunting_Limited_By_Retries" Id="{f6761c2f-a1cc-4554-b286-9062d5077b2f}">
+      <Declaration><![CDATA[// An axis that lands +-0.04 mm off every time is started nMaxRetries + 1 times in all, not forever.
+METHOD PRIVATE Hunting_Limited_By_Retries
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+	nStarts	: INT;
+	i		: INT;
+	fA		: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Hunting_Limited_By_Retries');
+nStarts := 0; fA := 36.5;
+fbF(fTarget := 36.0, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+IF fbF.bStartMove THEN nStarts := nStarts + 1; END_IF
+FOR i := 1 TO 20 DO
+	IF i MOD 2 = 0 THEN fA := 36.04; ELSE fA := 35.96; END_IF
+	fbF(fTarget := 36.0, fActual := fA, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+	IF fbF.bStartMove THEN nStarts := nStarts + 1; END_IF
+END_FOR
+AssertEquals_INT(Expected := 3, Actual := nStarts, Message := 'starts');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bTargetMissed, Message := 'target missed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Target_Clears_Missed_And_Retries" Id="{f8f3ebb2-b88d-4db4-abc6-74289ccc5b48}">
+      <Declaration><![CDATA[// After giving up a new target moves again and the retry count starts over.
+METHOD PRIVATE New_Target_Clears_Missed_And_Retries
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Target_Clears_Missed_And_Retries');
+fbF(fTarget := 50.0, fActual := 36.0, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 50.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 55.0, fActual := 49.9, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bTargetMissed, Message := 'target missed');
+AssertEquals_UINT(Expected := 0, Actual := fbF.nRetries, Message := 'retries');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Inactive_Clears_Settled" Id="{1f23b56c-6bbe-4344-a706-e2cf64c2487d}">
+      <Declaration><![CDATA[// Leaving automatic mode clears the arrival: the next activation judges the axis anew.
+METHOD PRIVATE Inactive_Clears_Settled
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Inactive_Clears_Settled');
+fbF(fTarget := 36.0, fActual := 36.002, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+fbF(fTarget := 36.0, fActual := 36.002, fTolerance := 0.005, bActive := FALSE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bSettled, Message := 'settled');
+fbF(fTarget := 36.0, fActual := 36.05, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'start');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Legacy_Settings_Restart_After_Every_Miss" Id="{787e5b7d-e7ee-4b6b-b3ce-c3628916b282}">
+      <Declaration><![CDATA[// fHoldBand 0 and nMaxRetries 0 give the old behaviour: a move that ends 6 um off starts again, without a limit.
+METHOD PRIVATE Legacy_Settings_Restart_After_Every_Miss
+VAR
+	fbF	: BROTLib.FB_MoveFollower;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Legacy_Settings_Restart_After_Every_Miss');
+fbF(fTarget := 50.0, fActual := 36.0, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := FALSE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE, fHoldBand := 0.0, nMaxRetries := 0);
+fbF(fTarget := 50.0, fActual := 49.994, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE, fHoldBand := 0.0, nMaxRetries := 0);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'first restart');
+fbF(fTarget := 50.0, fActual := 49.994, fTolerance := 0.005, bActive := TRUE, bReady := TRUE, bMoveDone := TRUE, bAborted := FALSE, bError := FALSE, bStopDone := FALSE, fHoldBand := 0.0, nMaxRetries := 0);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bStartMove, Message := 'second restart');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbF.bTargetMissed, Message := 'target missed');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

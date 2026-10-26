@@ -6,40 +6,77 @@
 // its rising Execute), and ends it on MoveDone, abort, error or stop. Nothing starts while bError is set. The caller does the NC calls: it calls
 // fbAxis.MoveTo() whenever bStartMove is TRUE. Comparing with the target the running move was started with
 // (fMoveTarget), not with the actual position, keeps a hunting axis (HalfBROT#85) from restarting its move.
+// After MoveDone the axis counts as arrived (bSettled) when it is within fHoldBand of the target: a spindle that lands a few um
+// off does not start a new move, nor ask for the enable, so the brake can lock. A new target (more than fTolerance from the
+// settled one) moves again. A miss beyond fHoldBand is retried up to nMaxRetries times, then it settles with bTargetMissed.
 // Pure logic, tested without an NC axis (FB_MoveFollower_Tests).
 FUNCTION_BLOCK FB_MoveFollower
 VAR_INPUT
 	fTarget		: LREAL;	// requested position
 	fActual		: LREAL;	// actual position
-	fTolerance	: LREAL;	// positioning tolerance
+	fTolerance	: LREAL;	// positioning tolerance (new target, retarget while moving, first move)
 	bActive		: BOOL;		// automatic positioning allowed (automatic mode, calibrated, not homing)
 	bReady		: BOOL;		// the axis can start a move (fbAxis.Ready)
 	bMoveDone	: BOOL;		// MoveDone of fbAxis from its last call
 	bAborted	: BOOL;		// the move was aborted (another command took over)
 	bError		: BOOL;		// axis error
 	bStopDone	: BOOL;		// StopDone of fbAxis from its last call
+	fHoldBand	: LREAL := 0.02;	// error after which a settled axis counts as arrived and is not moved again (at least fTolerance)
+	nMaxRetries	: UINT := 2;		// corrections after a move that ends beyond fHoldBand; 0 = no limit
 END_VAR
 VAR_OUTPUT
 	bStartMove	: BOOL;		// call fbAxis.MoveTo() in this cycle
 	bMoving		: BOOL;		// a move to fMoveTarget is running or pending
 	bNeedEnable	: BOOL;		// a move is wanted (off target, or started and still waiting), but the axis is not ready: the caller enables it
 	fMoveTarget	: LREAL;	// target the running move was started with
+	bSettled	: BOOL;		// arrived: no move until the target changes by more than fTolerance or the axis drifts beyond fHoldBand
+	nRetries	: UINT;		// corrections since the last arrival or new target
+	bTargetMissed	: BOOL;	// the retries are used up and the axis stays beyond fHoldBand; cleared by a new target
 END_VAR
 VAR
 	bStopping	: BOOL;		// Stop() was called: no start or restart until the target changes
 	fHeldTarget	: LREAL;	// target at the time of Stop()
 	bRestarted	: BOOL;		// the move was restarted in the last cycle, its abort of the old move is not the end
+	fSettledTarget	: LREAL;	// target the axis arrived at
+	fBand		: LREAL;	// MAX(fHoldBand, fTolerance)
+	bWasMoving	: BOOL;		// a move was running when the cycle began
+	bWantMove	: BOOL;		// off target in this cycle
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[bStartMove := FALSE;
 bNeedEnable := FALSE;
+fBand := MAX(fHoldBand, fTolerance);
+bWasMoving := bMoving;
 
 // the end of a move; the abort that a restart causes for the old move does not end the new one
 IF bMoveDone OR bError OR bStopDone OR (bAborted AND NOT bRestarted) THEN
 	bMoving := FALSE;
 END_IF
 bRestarted := FALSE;
+
+// MoveDone: arrived within the hold band, or a miss that is corrected (next cycle starts the move) until the retries are used up
+IF bWasMoving AND bMoveDone AND bActive AND NOT bError AND NOT bStopping THEN
+	IF ABS(fMoveTarget - fActual) <= fBand THEN
+		bSettled := TRUE;
+		fSettledTarget := fMoveTarget;
+		nRetries := 0;
+		bTargetMissed := FALSE;
+	ELSIF nMaxRetries = 0 OR nRetries < nMaxRetries THEN
+		nRetries := nRetries + 1;
+	ELSE
+		bSettled := TRUE;
+		fSettledTarget := fMoveTarget;
+		bTargetMissed := TRUE;
+	END_IF
+END_IF
+
+// a new target ends the arrival
+IF bSettled AND ABS(fTarget - fSettledTarget) > fTolerance THEN
+	bSettled := FALSE;
+	nRetries := 0;
+	bTargetMissed := FALSE;
+END_IF
 
 // after Stop() the old target stays blocked, a new one moves again
 IF bStopping AND ABS(fTarget - fHeldTarget) > fTolerance THEN
@@ -48,6 +85,9 @@ END_IF
 
 IF NOT bActive THEN
 	bMoving := FALSE;
+	bSettled := FALSE;
+	nRetries := 0;
+	bTargetMissed := FALSE;
 ELSIF NOT bStopping AND NOT bError THEN
 	IF bMoving THEN
 		IF ABS(fTarget - fMoveTarget) > fTolerance THEN
@@ -58,13 +98,29 @@ ELSIF NOT bStopping AND NOT bError THEN
 		// a started move waits for the drive (FB_Axis.MoveTo() stays pending while the axis is not Ready): ask for the enable
 		// (HalfBROT#108, #111)
 		bNeedEnable := NOT bReady;
-	ELSIF ABS(fTarget - fActual) > fTolerance THEN
-		IF bReady THEN
-			bStartMove := TRUE;
-			bMoving := TRUE;
-			fMoveTarget := fTarget;
+	ELSE
+		// settled: only a drift beyond the hold band moves again (not after the retries are used up); otherwise any error
+		// beyond the tolerance, and an axis within the tolerance has arrived
+		bWantMove := FALSE;
+		IF bSettled THEN
+			bWantMove := NOT bTargetMissed AND ABS(fTarget - fActual) > fBand;
+		ELSIF ABS(fTarget - fActual) > fTolerance THEN
+			bWantMove := TRUE;
 		ELSE
-			bNeedEnable := TRUE;
+			bSettled := TRUE;
+			fSettledTarget := fTarget;
+			nRetries := 0;
+			bTargetMissed := FALSE;
+		END_IF
+		IF bWantMove THEN
+			IF bReady THEN
+				bStartMove := TRUE;
+				bMoving := TRUE;
+				bSettled := FALSE;
+				fMoveTarget := fTarget;
+			ELSE
+				bNeedEnable := TRUE;
+			END_IF
 		END_IF
 	END_IF
 END_IF
@@ -79,6 +135,7 @@ METHOD Stop : BOOL
 bStopping := TRUE;
 fHeldTarget := fTarget;
 bMoving := FALSE;
+bSettled := FALSE;
 ]]></ST>
       </Implementation>
     </Method>
