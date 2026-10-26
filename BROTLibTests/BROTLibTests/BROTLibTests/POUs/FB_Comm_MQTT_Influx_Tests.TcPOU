@@ -41,6 +41,7 @@ VAR
 	bFocus_OutOfRange_Keeps_Old_Target	: BOOL;
 	bFocus_Range_Not_Checked_When_Not_Online	: BOOL;
 	bStop_Command_Does_Not_Stop_Focus_Directly	: BOOL;
+	bPublishLog_Too_Long_Is_Counted	: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -78,6 +79,7 @@ Focus_At_Limits_Applied();
 Focus_OutOfRange_Keeps_Old_Target();
 Focus_Range_Not_Checked_When_Not_Online();
 Stop_Command_Does_Not_Stop_Focus_Directly();
+PublishLog_Too_Long_Is_Counted();
 ]]></ST>
     </Implementation>
     <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
@@ -667,6 +669,29 @@ IF NOT bStop_Command_Does_Not_Stop_Focus_Directly THEN
 	ResetHandler();
 	fbComm._handleMQTTMessage(sPayloadRcv := 'command stop=1');
 	AssertEquals_INT(Expected := 0, Actual := focus.nStop, Message := 'focus stopped by the handler');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLog_Too_Long_Is_Counted" Id="{da4a3699-f755-4d22-8612-4f5df20a6ec0}">
+      <Declaration><![CDATA[// BROTLib#130: a log line that does not fit the buffer is not published, and it is counted instead of lost silently.
+// No MQTT call is made on this path, so no connection is needed.
+METHOD PRIVATE PublishLog_Too_Long_Is_Counted
+VAR
+	sLevel	: STRING(255) := 'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL';
+	bOk		: BOOL;
+	nBefore	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('PublishLog_Too_Long_Is_Counted');
+IF NOT bPublishLog_Too_Long_Is_Counted THEN
+	bPublishLog_Too_Long_Is_Counted := TRUE;
+	nBefore := fbComm.logDropped;
+	bOk := fbComm.PublishLog(level := sLevel, message := 'x');
+	AssertFalse(Condition := bOk, Message := 'published');
+	AssertEquals_INT(Expected := nBefore + 1, Actual := fbComm.logDropped, Message := 'logDropped');
 	TEST_FINISHED();
 END_IF
 ]]></ST>

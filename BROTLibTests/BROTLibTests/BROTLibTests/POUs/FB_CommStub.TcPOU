@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_CommStub" Id="{9b2e4f17-3c58-4a60-8d1e-6f7a0c5b2d83}" SpecialFunc="None">
+    <Declaration><![CDATA[// I_Comm stub for the FB_EventLog tests (BROTLib#130): PublishLog fails on request and records what it delivered.
+FUNCTION_BLOCK FB_CommStub IMPLEMENTS BROTLib.I_Comm
+VAR_INPUT
+	nFailNext		: INT;	// this many coming PublishLog calls return FALSE, then TRUE
+	bFailAlways		: BOOL;
+END_VAR
+VAR_OUTPUT
+	nPublishLogCalls	: INT;	// every call, delivered or not
+	nDelivered			: INT;
+	aLevel				: ARRAY[1..8] OF STRING(255);	// delivered events in order
+	aMessage			: ARRAY[1..8] OF STRING(255);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Publish" Id="{a17c5e92-0d46-4b38-8f2a-5c9e3b7d1f60}">
+      <Declaration><![CDATA[METHOD Publish : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Publish := TRUE;
+published := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLog" Id="{d3f60b84-5a1e-4c97-b0d2-8e4a7c1f9b35}">
+      <Declaration><![CDATA[METHOD PublishLog : BOOL
+VAR_INPUT
+	level		: STRING(255) := 'INFO';
+	message		: STRING(255);
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nPublishLogCalls := nPublishLogCalls + 1;
+IF bFailAlways THEN
+	PublishLog := FALSE;
+ELSIF nFailNext > 0 THEN
+	nFailNext := nFailNext - 1;
+	PublishLog := FALSE;
+ELSE
+	nDelivered := nDelivered + 1;
+	IF nDelivered <= 8 THEN
+		aLevel[nDelivered] := level;
+		aMessage[nDelivered] := message;
+	END_IF
+	PublishLog := TRUE;
+END_IF
+published := PublishLog;]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
