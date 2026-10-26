@@ -1,0 +1,348 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_EventLog_Tests" Id="{d026f18a-ea12-4d8c-bb29-4af3187b17c1}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_EventLog (BROTLib#130): a PublishLog that returns FALSE is retried, in order, and a
+// loss is counted. FB_CommStub fails the coming calls on request. Every test body runs once and has its own
+// FB_EventLog and stub as locals; it calls the FB several times to stand for PLC cycles, with RetryInterval
+// T#0S (retry on every call) except in Retry_Waits_For_Interval.
+FUNCTION_BLOCK FB_EventLog_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	bDelivered_First_Try_Is_Not_Retried	: BOOL;
+	bFailed_On_Is_Retried_Until_Delivered	: BOOL;
+	bRetry_Gives_Up_After_MaxRetries	: BOOL;
+	bZero_MaxRetries_Retries_Until_Delivered	: BOOL;
+	bTrigger_Falling_Does_Not_Cancel_Pending_On	: BOOL;
+	bOff_Does_Not_Overwrite_Pending_On	: BOOL;
+	bPending_Keeps_Level_Of_Its_Edge	: BOOL;
+	bNew_Edge_Replaces_Pending_And_Counts	: BOOL;
+	bRetry_Waits_For_Interval	: BOOL;
+	bNo_Comm_Nothing_Pending_No_Crash	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Delivered_First_Try_Is_Not_Retried();
+Failed_On_Is_Retried_Until_Delivered();
+Retry_Gives_Up_After_MaxRetries();
+Zero_MaxRetries_Retries_Until_Delivered();
+Trigger_Falling_Does_Not_Cancel_Pending_On();
+Off_Does_Not_Overwrite_Pending_On();
+Pending_Keeps_Level_Of_Its_Edge();
+New_Edge_Replaces_Pending_And_Counts();
+Retry_Waits_For_Interval();
+No_Comm_Nothing_Pending_No_Crash();
+]]></ST>
+    </Implementation>
+    <Method Name="Cycles" Id="{17059cf1-fa0b-4df7-aef4-3d8090d8da01}">
+      <Declaration><![CDATA[// Calls the FB n times, as n PLC cycles would.
+METHOD PRIVATE Cycles
+VAR_INPUT
+	n	: INT;
+END_VAR
+VAR_IN_OUT
+	fbLog	: BROTLib.FB_EventLog;
+END_VAR
+VAR
+	i	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO n DO
+	fbLog();
+END_FOR
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Delivered_First_Try_Is_Not_Retried" Id="{2449856c-5d5e-4110-8441-f86092bd2b2e}">
+      <Declaration><![CDATA[// A delivered event is published once, on the edge, and nothing stays pending.
+METHOD PRIVATE Delivered_First_Try_Is_Not_Retried
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Delivered_First_Try_Is_Not_Retried');
+IF NOT bDelivered_First_Try_Is_Not_Retried THEN
+	bDelivered_First_Try_Is_Not_Retried := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 4, fbLog := fbLog);
+	AssertEquals_INT(Expected := 1, Actual := comm.nPublishLogCalls, Message := 'PublishLog calls');
+	AssertEquals_INT(Expected := 1, Actual := comm.nDelivered, Message := 'delivered');
+	AssertEquals_STRING(Expected := 'on text', Actual := comm.aMessage[1], Message := 'message');
+	AssertEquals_STRING(Expected := 'INFO', Actual := comm.aLevel[1], Message := 'level');
+	AssertFalse(Condition := fbLog.Pending, Message := 'Pending');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Failed_On_Is_Retried_Until_Delivered" Id="{f62cda01-1cae-4166-83e9-190717fb0d79}">
+      <Declaration><![CDATA[// The edge is gone after one cycle; the event is still delivered once PublishLog accepts it.
+METHOD PRIVATE Failed_On_Is_Retried_Until_Delivered
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Failed_On_Is_Retried_Until_Delivered');
+IF NOT bFailed_On_Is_Retried_Until_Delivered THEN
+	bFailed_On_Is_Retried_Until_Delivered := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	comm.nFailNext := 3;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 1, fbLog := fbLog);
+	AssertTrue(Condition := fbLog.Pending, Message := 'Pending after the failed first attempt');
+	Cycles(n := 6, fbLog := fbLog);
+	AssertEquals_INT(Expected := 4, Actual := comm.nPublishLogCalls, Message := 'PublishLog calls: 3 failed + 1 delivered');
+	AssertEquals_INT(Expected := 1, Actual := comm.nDelivered, Message := 'delivered');
+	AssertEquals_STRING(Expected := 'on text', Actual := comm.aMessage[1], Message := 'message');
+	AssertFalse(Condition := fbLog.Pending, Message := 'Pending after delivery');
+	AssertEquals_UDINT(Expected := 0, Actual := fbLog.nNotDelivered, Message := 'nNotDelivered');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Retry_Gives_Up_After_MaxRetries" Id="{9245b2d2-f769-4ec3-a0b1-d25356625272}">
+      <Declaration><![CDATA[// Total attempts are 1 + nMaxRetries; then the event is dropped, counted, and nothing keeps retrying.
+METHOD PRIVATE Retry_Gives_Up_After_MaxRetries
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Retry_Gives_Up_After_MaxRetries');
+IF NOT bRetry_Gives_Up_After_MaxRetries THEN
+	bRetry_Gives_Up_After_MaxRetries := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	comm.bFailAlways := TRUE;
+	fbLog.nMaxRetries := 3;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 10, fbLog := fbLog);
+	AssertEquals_INT(Expected := 4, Actual := comm.nPublishLogCalls, Message := 'PublishLog calls: 1 + 3 retries');
+	AssertFalse(Condition := fbLog.Pending, Message := 'Pending after giving up');
+	AssertEquals_UDINT(Expected := 1, Actual := fbLog.nNotDelivered, Message := 'nNotDelivered');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Zero_MaxRetries_Retries_Until_Delivered" Id="{6005b843-efd8-4b9f-bd4c-5c7b24798fb0}">
+      <Declaration><![CDATA[// nMaxRetries 0 means no limit.
+METHOD PRIVATE Zero_MaxRetries_Retries_Until_Delivered
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Zero_MaxRetries_Retries_Until_Delivered');
+IF NOT bZero_MaxRetries_Retries_Until_Delivered THEN
+	bZero_MaxRetries_Retries_Until_Delivered := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	comm.nFailNext := 50;
+	fbLog.nMaxRetries := 0;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 60, fbLog := fbLog);
+	AssertEquals_INT(Expected := 1, Actual := comm.nDelivered, Message := 'delivered');
+	AssertEquals_UDINT(Expected := 0, Actual := fbLog.nNotDelivered, Message := 'nNotDelivered');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Trigger_Falling_Does_Not_Cancel_Pending_On" Id="{f745b813-4176-4325-a5a3-267ae62a04a5}">
+      <Declaration><![CDATA[// ON is still delivered after the trigger fell, and OFF follows it.
+METHOD PRIVATE Trigger_Falling_Does_Not_Cancel_Pending_On
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Trigger_Falling_Does_Not_Cancel_Pending_On');
+IF NOT bTrigger_Falling_Does_Not_Cancel_Pending_On THEN
+	bTrigger_Falling_Does_Not_Cancel_Pending_On := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	comm.nFailNext := 2;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 1, fbLog := fbLog);
+	fbLog.Trigger := FALSE;
+	Cycles(n := 6, fbLog := fbLog);
+	AssertEquals_INT(Expected := 2, Actual := comm.nDelivered, Message := 'delivered');
+	AssertEquals_STRING(Expected := 'on text', Actual := comm.aMessage[1], Message := 'first is ON');
+	AssertEquals_STRING(Expected := 'off text', Actual := comm.aMessage[2], Message := 'second is OFF');
+	AssertFalse(Condition := fbLog.Pending, Message := 'Pending');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Off_Does_Not_Overwrite_Pending_On" Id="{c850530c-c46a-464f-b998-deb85635f0c6}">
+      <Declaration><![CDATA[// ON and OFF keep their own text and level; the subscriber sees ON before OFF.
+METHOD PRIVATE Off_Does_Not_Overwrite_Pending_On
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Off_Does_Not_Overwrite_Pending_On');
+IF NOT bOff_Does_Not_Overwrite_Pending_On THEN
+	bOff_Does_Not_Overwrite_Pending_On := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	fbLog.Level := ADSLOG_MSGTYPE_ERROR;
+	fbLog.OffLevel := ADSLOG_MSGTYPE_HINT;
+	comm.bFailAlways := TRUE;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 1, fbLog := fbLog);
+	fbLog.Trigger := FALSE;
+	Cycles(n := 1, fbLog := fbLog);
+	comm.bFailAlways := FALSE;
+	Cycles(n := 4, fbLog := fbLog);
+	AssertEquals_INT(Expected := 2, Actual := comm.nDelivered, Message := 'delivered');
+	AssertEquals_STRING(Expected := 'on text', Actual := comm.aMessage[1], Message := 'first message');
+	AssertEquals_STRING(Expected := 'ERROR', Actual := comm.aLevel[1], Message := 'first level');
+	AssertEquals_STRING(Expected := 'off text', Actual := comm.aMessage[2], Message := 'second message');
+	AssertEquals_STRING(Expected := 'INFO', Actual := comm.aLevel[2], Message := 'second level');
+	AssertEquals_UDINT(Expected := 0, Actual := fbLog.nNotDelivered, Message := 'nNotDelivered');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Pending_Keeps_Level_Of_Its_Edge" Id="{46d4ada7-73ce-43a8-a3c5-9720c9019489}">
+      <Declaration><![CDATA[// Changing Level while the event waits does not change the level it is published with.
+METHOD PRIVATE Pending_Keeps_Level_Of_Its_Edge
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Pending_Keeps_Level_Of_Its_Edge');
+IF NOT bPending_Keeps_Level_Of_Its_Edge THEN
+	bPending_Keeps_Level_Of_Its_Edge := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	fbLog.Level := ADSLOG_MSGTYPE_WARN;
+	comm.nFailNext := 1;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 1, fbLog := fbLog);
+	fbLog.Level := ADSLOG_MSGTYPE_ERROR;
+	Cycles(n := 3, fbLog := fbLog);
+	AssertEquals_INT(Expected := 1, Actual := comm.nDelivered, Message := 'delivered');
+	AssertEquals_STRING(Expected := 'WARNING', Actual := comm.aLevel[1], Message := 'level');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Edge_Replaces_Pending_And_Counts" Id="{6b50574f-d215-4321-ace7-fc53db364da3}">
+      <Declaration><![CDATA[// A second ON while the first one is still pending replaces it, and the loss is counted.
+METHOD PRIVATE New_Edge_Replaces_Pending_And_Counts
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Edge_Replaces_Pending_And_Counts');
+IF NOT bNew_Edge_Replaces_Pending_And_Counts THEN
+	bNew_Edge_Replaces_Pending_And_Counts := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	comm.bFailAlways := TRUE;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 1, fbLog := fbLog);
+	fbLog.Trigger := FALSE;
+	Cycles(n := 1, fbLog := fbLog);
+	fbLog.Trigger := TRUE;
+	Cycles(n := 1, fbLog := fbLog);
+	AssertEquals_UDINT(Expected := 1, Actual := fbLog.nNotDelivered, Message := 'the first ON was replaced');
+	AssertTrue(Condition := fbLog.Pending, Message := 'Pending');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Retry_Waits_For_Interval" Id="{94fb2c81-822d-44d7-8821-74571270b75c}">
+      <Declaration><![CDATA[// With RetryInterval set, a retry is not made before the time has passed (all calls fall into one PLC cycle).
+METHOD PRIVATE Retry_Waits_For_Interval
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Retry_Waits_For_Interval');
+IF NOT bRetry_Waits_For_Interval THEN
+	bRetry_Waits_For_Interval := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	fbLog.RetryInterval := T#10S;
+	comm.bFailAlways := TRUE;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 20, fbLog := fbLog);
+	AssertEquals_INT(Expected := 1, Actual := comm.nPublishLogCalls, Message := 'only the attempt on the edge');
+	AssertTrue(Condition := fbLog.Pending, Message := 'Pending');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Comm_Nothing_Pending_No_Crash" Id="{dc80a1cf-1e00-4fe9-9bd6-28cc43287d0f}">
+      <Declaration><![CDATA[// Comm left unassigned: nothing is called through it and nothing waits (#7).
+METHOD PRIVATE No_Comm_Nothing_Pending_No_Crash
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+	comm	: FB_CommStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Comm_Nothing_Pending_No_Crash');
+IF NOT bNo_Comm_Nothing_Pending_No_Crash THEN
+	bNo_Comm_Nothing_Pending_No_Crash := TRUE;
+	fbLog.OnMessage := 'on text';
+	fbLog.OffMessage := 'off text';
+	fbLog.RetryInterval := T#0S;
+	fbLog.Comm := comm;
+	fbLog.Comm := 0;
+	fbLog.Trigger := TRUE;
+	Cycles(n := 3, fbLog := fbLog);
+	AssertFalse(Condition := fbLog.Pending, Message := 'Pending');
+	AssertEquals_INT(Expected := 0, Actual := comm.nPublishLogCalls, Message := 'PublishLog calls');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
