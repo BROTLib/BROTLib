@@ -208,7 +208,8 @@ organised into four layers:
 ### Communication and telemetry
 
 - **`I_Comm` / `FB_Comm_MQTT`** — abstract MQTT client built on
-  `Tc3_IotCommunicator`.
+  `Tc3_IotCommunicator`. `PublishLog` returns TRUE when the line was delivered or
+  queued, FALSE when it was not accepted; the caller may retry.
 - **`FB_Comm_MQTT_Influx`** — concrete MQTT + InfluxDB telemetry publisher.
   Publishes measurements in Influx line protocol; used by every BROT
   application (topics such as `MONETN/Telemetry`, `50cm/Telemetry`, ...).
@@ -226,7 +227,12 @@ organised into four layers:
 - **`F_EscapeInfluxString`** / **`F_IsNumericValue`** — Influx string escaping
   and strict numeric validation (incl. scientific notation).
 - **`FB_EventLog`** — structured event/error logging with severity and message
-  text, published to the log topic.
+  text, published to the log topic. The ADS log entry is written once, on the
+  edge; the MQTT publish is retried every `RetryInterval` (default 1 s) when
+  `I_Comm.PublishLog` returns FALSE, up to `nMaxRetries` (default 30, 0 = until
+  delivered). `Pending` shows a waiting event, `nNotDelivered` counts events
+  given up or replaced before delivery, each with an ADS warning (BROTLib#130).
+  `FB_Comm_MQTT_Influx` counts failed log publishes in `logFailed` / `logDropped`.
 
 The incoming command layer parses `command` measurements and dispatches the
 telescope/auxiliary commands (`power`, `park`, `gohome`, `track`, `slew`,

@@ -5,6 +5,8 @@
 VAR_INPUT
 END_VAR
 VAR_OUTPUT
+	logFailed	: INT := 0;	// PublishLog: fbMqttClient.Publish() returned FALSE; counts attempts, FB_EventLog retries a failed one (#130)
+	logDropped	: INT := 0;	// PublishLog: line too long for the 255 character buffer, not published (never retried by FB_EventLog)
 END_VAR
 VAR
 	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
@@ -467,6 +469,7 @@ VAR
 	sHost			: STRING(255);
 	sLevel			: STRING(255);
 	nMaxMessage		: INT;
+	sInfo			: STRING(255);
 END_VAR
 VAR_OUTPUT
 	published	: BOOL;
@@ -495,6 +498,13 @@ fbFormat(
 // still too long (very long host name or level): publish nothing rather than a broken line
 IF bError OR LEN(sPayloadPub) >= 255 THEN
 	published := FALSE;
+	IF logDropped < 32767 THEN
+		logDropped := logDropped + 1;
+	END_IF
+	IF logDropped = 1 OR (logDropped MOD 100) = 0 THEN
+		sInfo := CONCAT(CONCAT(level, ': '), message);
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT log line too long, not published: %s', sInfo);
+	END_IF
 	PublishLog := published;
 	RETURN;
 END_IF
@@ -509,6 +519,17 @@ published := fbMqttClient.Publish(
 	bRetain			:= FALSE,
 	bQueue			:= TRUE
 );
+
+// not retried here: FB_EventLog keeps the event and calls again, so one lost event can be counted several times
+IF NOT published THEN
+	IF logFailed < 32767 THEN
+		logFailed := logFailed + 1;
+	END_IF
+	IF logFailed = 1 OR (logFailed MOD 100) = 0 THEN
+		sInfo := CONCAT(CONCAT(level, ': '), message);
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT log publish failed (client busy/not connected): %s', sInfo);
+	END_IF
+END_IF
 
 PublishLog := published;
 ]]></ST>
