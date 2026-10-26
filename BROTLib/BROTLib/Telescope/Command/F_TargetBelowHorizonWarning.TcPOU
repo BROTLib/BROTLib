@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_TargetBelowHorizonWarning" Id="{293aa839-a6de-4962-94ed-5814292650c7}" SpecialFunc="None">
+    <Declaration><![CDATA[// TRUE if a goto or track is requested and its RA/Dec target is below fHorizon (MONETcommon#94). Without a requested
+// goto/track the RA/Dec target is stale (it follows the last set object) and drifts below the horizon by itself
+// as the sky turns, also on a parked telescope, so it must not warn. A slew is alt/az and does not use the RA/Dec
+// target, so it is not part of the check.
+FUNCTION F_TargetBelowHorizonWarning : BOOL
+VAR_INPUT
+	bGoto			: BOOL;		// goto requested or running
+	bTrack			: BOOL;		// track requested or running
+	fElevationCalc	: LREAL;	// elevation of the RA/Dec target, degrees
+	fHorizon		: LREAL;	// horizon, degrees
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_TargetBelowHorizonWarning := (bGoto OR bTrack) AND fElevationCalc < fHorizon;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

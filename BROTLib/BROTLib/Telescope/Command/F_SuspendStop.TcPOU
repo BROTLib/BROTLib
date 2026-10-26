@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_SuspendStop" Id="{ff94b96a-8ba9-41c9-9002-01f3ec4b1d82}" SpecialFunc="None">
+    <Declaration><![CDATA[// Does the switch to manual stop the axes (MONETcommon#118)? SuspendAutomatic takes the moves of the automatic mode out of the
+// cycle, so a move that is still running is stopped once (one MC_Stop per moving axis, FB_MonetStopTransaction) and then the
+// axes go to the pendant. TRUE if an enabled axis is moving (also homing), or if a stop was already running (it is braking:
+// the axes report Stopping, not motion). Not during an error (the drives are off).
+// Differs from F_ResetMoveAbort: a running park is stopped too, because nothing drives it in manual (bPark is kept).
+FUNCTION F_SuspendStop : BOOL
+VAR_INPUT
+	bError			: BOOL;
+	bStopRunning	: BOOL;		// a stop or abort stop was running in the last automatic scan
+	bAnyAxisMoving	: BOOL;		// an enabled axis is moving: enabled AND (InMotion OR InRamp OR Homing), OR-ed over the axes
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_SuspendStop := NOT bError AND (bStopRunning OR bAnyAxisMoving);
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

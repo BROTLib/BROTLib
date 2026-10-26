@@ -336,6 +336,8 @@ BROTLibTests unchanged in content (`F_CommandAcceptance_Tests`, `F_ErrorParkRequ
 `F_SuspendStop_Tests`, `F_GotoTargetCheck_Tests`, `F_TargetBelowHorizonWarning_Tests`, `F_HomeBelowHorizon_Tests`).
 Acceptance: BROTLibTests green with the moved suites; README telescope section. Release: BROTLib minor (additive,
 after 0.10.0; consumers stay on their pin until they bump).
+**Done 2026-10-23 (BROTLib#126, on develop, not released):** all twelve units and the seven suites moved, 241 cases green. `F_ResetMoveAbort`
+also takes `bAnyAxisMoving` now (same reason as `F_SuspendStop`); the per-axis cases of both suites collapse into that one input.
 
 **4.2 BROTLib generic stop transaction:** `FB_StopTransaction` for up to 4 axes, union of both: per-axis issue/done,
 latched-level write-low (M), `Restart` (M), `bForced`/`bStuck` (M), motion-lock input and homing abort (I), settle
@@ -354,6 +356,44 @@ smoke test.
 (b) `F_ResetMoveAbort`-style abort on reset, (c) `F_CommandAcceptance`, (d) `F_ErrorParkRequest` are **behaviour
 changes** for IAG: each only after Tim's decision on the matching finding, each its own commit that updates the
 step-2 assertions it flips. Release: IAG50cm minor per batch, on-site check on IAG50cm (stop, park, reset, power-on).
+
+#### Step 4 checklist: when tests are needed, and which
+
+Rule: a step needs an on-site check only when a telescope runs different code afterwards. The check happens before that
+release is rolled out to the next telescope, the same way as step 6.
+
+| Sub-step | Telescope runs new code? | On-site check |
+|---|---|---|
+| 4.1 pure units in BROTLib | no (additive, consumers stay on their pin) | none; BROTLibTests green with the moved suites |
+| 4.2 `FB_StopTransaction` in BROTLib | no (nobody has adopted it) | none; both existing suites re-expressed and green |
+| 4.3 MONETcommon adopts | yes: MONET/S and MONET/N | **list 4.3 below** |
+| 4.4 IAG50cm adopts (per unit) | yes: IAG50cm | **list 4.4 below** |
+
+**Before 4.3 is released** the open checks of step 6 for the refactor release (MONETcommon 0.9.6) should be done, because
+4.3 builds on it: A4 (park during power-on), A5 (reset under motion), A6 (switch to manual under motion, BROTLib#125),
+A7 (a night of goto and track, no false timeouts 16#10/16#30/16#40) and B (focus, MONETcommon#122: out-of-range target).
+Results so far: stop during a slew, stop and retarget while tracking (BROTLib#101), stop during a focus move passed on
+MONET/S on 2026-10-22/23; nothing yet for MONET/N and IAG50cm.
+
+**4.3, MONET/S then MONET/N** (compare with the same actions before the release; note the installed versions for the rollback):
+- [ ] 1. Power-on from parked: READY_STATE 1.0, no new warning or rejection in the log
+- [ ] 2. Slew and arrive, `bSlewing` TRUE then FALSE
+- [ ] 3. `stop=1` during the slew: one stop per moving axis, `bStopped` TRUE, no error
+- [ ] 4. Repeated `stop=1` (three times within a few seconds) during the slew and while idle: no second `MC_Stop` on a stopping axis, no stuck `bStop` (MONETcommon#96, BROTLib#93)
+- [ ] 5. `stop=1` during power-on while the axes move: it completes, READY_STATE returns to a defined value, `power=1` works again
+- [ ] 6. `stop=1` while tracking (at least 10 times, short and over 10 min) and `track` over a track: no 0x4257, no emergency park (BROTLib#101)
+- [ ] 7. Park during power-on (MONETcommon#87), reset under motion (no moving axis is reset, no 0x4260), switch to manual under motion (BROTLib#125)
+- [ ] 8. Emergency park by an injected axis error: only with Tim's agreement, otherwise "mock only"
+- [ ] 9. Rejections: a slew while parked is rejected with a reason in the log and not queued (MONETcommon#83)
+
+**4.4, IAG50cm** (per unit PR; the first one is neutral, the later ones flip a divergence and need Tim's decision first):
+- [ ] 1. Power-on, slew, `stop` during the slew, park, reset after an error (errored axes reset, second pass about 2.5 s later), normal use over a night
+- [ ] 2. (a) `FB_StopTransaction` from BROTLib: stop during a slew and during homing, repeated stop, stop with an axis in error; no hang of a gohome waiting for the stop (IAG50cm#108)
+- [ ] 3. (b), (c), (d) only after the decision, each with the one check that matches the flipped behaviour (reset without an error, park during power-on IAG50cm#109, axis error parks the telescope)
+
+Record per check: result (pass, fail, deviation), date and time, installed versions, log lines for anything unexpected.
+
+**Results:** (none yet)
 
 **Chain order and pins.** Today: HalfBROT pins `BROTLib, 0.9.0` (`HalfBROT.plcproj:102`); MONETcommon pins AstroBROT
 0.4.5, BROTLib 0.9.0, HalfBROT 0.5.7 (`MONETcommon.plcproj:121/125/129`); MONETS (`MONETSRuntime.plcproj:102/106/110/118`)
