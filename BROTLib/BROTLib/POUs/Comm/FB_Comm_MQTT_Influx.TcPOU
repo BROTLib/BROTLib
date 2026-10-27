@@ -344,16 +344,17 @@ END_IF
 ]]></ST>
       </Implementation>
     </Method>
-    <Method Name="Publish" Id="{0b9304dc-7cd5-4e61-ac34-34dd3afe6924}">
-      <Declaration><![CDATA[METHOD Publish : BOOL
+    <Method Name="_PublishField" Id="{5ce041dc-36d3-4a57-81ae-eb1cb355f463}">
+      <Declaration><![CDATA[// Builds the line for one field and sends it. sFieldVal is the field value as it is written in line protocol, typed
+// by the caller (F_InfluxFloatValue, F_InfluxIntValue, F_InfluxStringValue, a boolean, or F_InfluxFieldValue for the
+// deprecated string Publish); empty means "do not publish" (BROTLib#4).
+METHOD PRIVATE _PublishField : BOOL
 VAR_INPUT
-	domain			: STRING(255) := 'environment';
-	location		: STRING(255) := 'roof';
+	domain			: STRING(255);
+	location		: STRING(255);
 	parameter		: STRING(255);
-	value			: STRING(255);
-END_VAR
-VAR_OUTPUT
-	published	: BOOL;
+	sFieldVal		: STRING(255);
+	bRetain			: BOOL;
 END_VAR
 VAR
 	sPayloadPub		: STRING(255) := '';
@@ -361,30 +362,27 @@ VAR
 	bError			: BOOL;
 	nErrID			: UDINT;
 	retain_message	: BOOL := FALSE;
-	bIsBool			: BOOL;
+	published		: BOOL;
 	sDomain			: STRING(255);
 	sLocation		: STRING(255);
 	sHost			: STRING(255);
 	sKey			: STRING(255);
-	sFieldVal		: STRING(255);
 	sTopic			: STRING(255);
 	sTimestamp		: STRING(255);	// F_STRING takes a T_MaxString by reference
 	sFormat			: STRING(40);
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[//sPayloadPub := 'environment,location=roof,host=CX-4E6032 ';
-// tag values and the field key are escaped (a space or comma in the host name would break the line); the field
-// value is typed by F_InfluxFieldValue: integer 'i', float, boolean or quoted string
+// tag values and the field key are escaped (a space or comma in the host name would break the line); sFieldVal is
+// the field value already typed by the caller (BROTLib#4)
 sDomain := F_EscapeInfluxTag(domain, FALSE);
 sLocation := F_EscapeInfluxTag(location, TRUE);
 sHost := F_EscapeInfluxTag(HostName, TRUE);
 sKey := F_EscapeInfluxTag(parameter, TRUE);
-sFieldVal := F_InfluxFieldValue(value);
 
-// retain message if value is boolean: booleans are meant to be published on change only, so a subscriber that
-// connects later gets the current state from the broker
-bIsBool := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false');
-retain_message := bIsBool;
+// booleans are retained: they are meant to be published on change only, so a subscriber that connects later
+// gets the current state from the broker
+retain_message := bRetain;
 
 // a retained line carries the time it was published, so a replay after a Telegraf restart is stored at that time
 // and not at the time of the replay (#38). Consumers must accept the optional timestamp (pyBROT#40).
@@ -411,16 +409,17 @@ fbFormat(
 	nErrID 		=> nErrID
 );
 
-// a line that did not fit the buffer is cut off and would be invalid (or wrong): do not publish it
-IF bError OR LEN(sPayloadPub) >= 255 THEN
+// a line that did not fit the buffer is cut off and would be invalid (or wrong): do not publish it. An empty field
+// value (NaN or infinity from PublishLREAL) is no valid line either.
+IF sFieldVal = '' OR bError OR LEN(sPayloadPub) >= 255 THEN
 	published := FALSE;
 	IF dropped < 32767 THEN
 		dropped := dropped + 1;
 	END_IF
 	IF dropped = 1 OR (dropped MOD 100) = 0 THEN
-		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'Influx line too long, not published: %s', parameter);
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'Influx line too long or value not finite, not published: %s', parameter);
 	END_IF
-	Publish := published;
+	_PublishField := published;
 	RETURN;
 END_IF
 
@@ -451,7 +450,99 @@ IF NOT published THEN
 	END_IF
 END_IF
 
+_PublishField := published;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Publish" Id="{0b9304dc-7cd5-4e61-ac34-34dd3afe6924}">
+      <Declaration><![CDATA[{attribute 'deprecated' := 'use PublishLREAL, PublishINT, PublishBOOL or PublishString: the type is decided at the call site (BROTLib#4)'}
+METHOD Publish : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// The type is guessed from the text of the value (F_InfluxFieldValue), so the same field can flip between integer
+// and float. Kept for one release for the consumers that have not migrated yet (BROTLib#4).
+published := _PublishField(
+	domain := domain,
+	location := location,
+	parameter := parameter,
+	sFieldVal := F_InfluxFieldValue(value),
+	bRetain := (value = 'TRUE') OR (value = 'FALSE') OR (value = 'true') OR (value = 'false'));
 Publish := published;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLREAL" Id="{0f46ee5d-6000-4f35-a420-24de2e4745dc}">
+      <Declaration><![CDATA[// Float field, never an integer: a whole number is sent without the trailing i. NaN and infinity are not published (BROTLib#4).
+METHOD PublishLREAL : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: LREAL;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[published := _PublishField(domain := domain, location := location, parameter := parameter, sFieldVal := F_InfluxFloatValue(value), bRetain := FALSE);
+PublishLREAL := published;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishINT" Id="{b5bda2d2-835c-4a6d-9b97-ec35173a3231}">
+      <Declaration><![CDATA[// Integer field: <n>i (BROTLib#4).
+METHOD PublishINT : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: LINT;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[published := _PublishField(domain := domain, location := location, parameter := parameter, sFieldVal := F_InfluxIntValue(value), bRetain := FALSE);
+PublishINT := published;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishBOOL" Id="{3182a0f3-504a-4fcc-9cd3-e8fb082f9699}">
+      <Declaration><![CDATA[// Boolean field, retained and stamped like every boolean (BROTLib#4).
+METHOD PublishBOOL : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: BOOL;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[published := _PublishField(domain := domain, location := location, parameter := parameter, sFieldVal := SEL(value, 'FALSE', 'TRUE'), bRetain := TRUE);
+PublishBOOL := published;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishString" Id="{352156b0-2213-4230-bfbe-fb303f0b194e}">
+      <Declaration><![CDATA[// String field: always quoted, even if the text looks like a number or a boolean (BROTLib#4).
+METHOD PublishString : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[published := _PublishField(domain := domain, location := location, parameter := parameter, sFieldVal := F_InfluxStringValue(value), bRetain := FALSE);
+PublishString := published;]]></ST>
       </Implementation>
     </Method>
     <Method Name="PublishLog" Id="{dd46de85-b82a-4d9d-9238-d6c509f88651}">
@@ -567,16 +658,6 @@ PublishLog := published;
       <LineId Id="338" Count="3" />
       <LineId Id="326" Count="2" />
       <LineId Id="61" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_Comm_MQTT_Influx.Publish">
-      <LineId Id="19" Count="1" />
-      <LineId Id="40" Count="0" />
-      <LineId Id="21" Count="4" />
-      <LineId Id="27" Count="2" />
-      <LineId Id="41" Count="1" />
-      <LineId Id="30" Count="9" />
-      <LineId Id="43" Count="1" />
-      <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_Comm_MQTT_Influx.PublishLog">
       <LineId Id="20" Count="1" />

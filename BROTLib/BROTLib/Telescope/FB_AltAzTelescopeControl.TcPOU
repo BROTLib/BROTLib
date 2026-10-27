@@ -36,8 +36,8 @@ END_VAR
       <Implementation>
         <ST><![CDATA[SUPER^._PublishTelemetry();
 
-fbComm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.AZ.OFFSET', LREAL_TO_STRING(fAzimuthOffset));
-fbComm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.ALT.OFFSET', LREAL_TO_STRING(fElevationOffset));	
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.AZ.OFFSET', fAzimuthOffset);
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.ALT.OFFSET', fElevationOffset);	
 ]]></ST>
       </Implementation>
     </Method>

@@ -1,7 +1,14 @@
 # Typed Influx publishers (BROTLib#4)
 
-**Status: proposed.** Nothing of this plan is implemented. The smaller fix for #4 is on `develop` (`ce47d3b`); this plan
-is the full fix that issue asks for.
+**Status: step 3 implemented (BROTLib, not released).** `PublishLREAL` / `PublishINT` / `PublishBOOL` /
+`PublishString` are on `I_Comm`, `FB_Comm_MQTT` and `FB_Comm_MQTT_Influx`, the string `Publish` is marked deprecated,
+and the 41 internal call sites are migrated. Steps 1, 2, 4, 5 and 6 are open: nothing is migrated in the consumer repos,
+and the field types on the server are not known yet. The smaller fix for #4 is on `develop` (`ce47d3b`).
+
+Internal call sites keep the type the string `Publish` gave them for a non-whole value: `LREAL_TO_STRING(x)` became
+`PublishLREAL`, the status codes (`'0'`, `'1'`, `'2'`) and `CAPABILITIES` became `PublishINT`, `'0.0'` became
+`PublishLREAL(..., 0.0)`, text became `PublishString`. A field that was written as integer when its LREAL happened to be
+whole (the flip) is now always a float; whether the server holds it as float or integer is open question 1.
 
 ## Problem
 

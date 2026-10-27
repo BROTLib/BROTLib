@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_InfluxStringValue" Id="{1882ed10-ecfe-4473-b93d-d01dc0f2594e}" SpecialFunc="None">
+    <Declaration><![CDATA[// String field value of a typed publisher (PublishString), BROTLib#4: always quoted, with " and \ escaped, even
+// when the text looks like a number or a boolean.
+FUNCTION F_InfluxStringValue : STRING(255)
+VAR_INPUT
+	sValue		: STRING(255);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_InfluxStringValue := CONCAT('"', CONCAT(F_EscapeInfluxString(sValue), '"'));
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

@@ -4,7 +4,8 @@
     <Declaration><![CDATA[// Tests for the InfluxDB line protocol helpers behind FB_Comm_MQTT_Influx.Publish / PublishLog (BROTLib issue #4):
 // F_InfluxFieldValue (integer / float / boolean / quoted string), F_EscapeInfluxTag (tag values, field keys, measurement
 // names), F_TruncateInfluxEscaped (cut an escaped string without splitting an escape pair) and F_InfluxTimestamp
-// (FILETIME to unix ns, #38).
+// (FILETIME to unix ns, #38), and the field values of the typed publishers PublishLREAL / PublishINT / PublishString
+// (F_InfluxFloatValue, F_InfluxIntValue, F_InfluxStringValue).
 FUNCTION_BLOCK FB_InfluxLineProtocol_Tests EXTENDS TcUnit.FB_TestSuite
 ]]></Declaration>
     <Implementation>
@@ -24,6 +25,12 @@ Timestamp_Unix_Epoch_Is_Zero();
 Timestamp_Known_Date();
 Timestamp_Keeps_100ns_Resolution();
 Timestamp_Before_1970_Is_Empty();
+Typed_Float_Whole_Number_Stays_Float();
+Typed_Float_Fraction_Unchanged();
+Typed_Float_NaN_And_Infinity_Are_Empty();
+Typed_Int_Gets_Trailing_i();
+Typed_String_Is_Always_Quoted();
+Typed_String_Escapes_Quote_And_Backslash();
 ]]></ST>
     </Implementation>
     <Method Name="CheckValue" Id="{e7b124b1-8beb-4aa5-b737-6b188a6c52e4}">
@@ -312,6 +319,147 @@ END_VAR
 // an unset clock: no timestamp, the receiver stamps the line
 CheckTimestamp(nFileTime := 0, sExpected := '');
 CheckTimestamp(nFileTime := 116444735999999999, sExpected := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckFloat" Id="{81864497-66d3-40da-8868-cddc5ccca020}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckFloat
+VAR_INPUT
+	fInput		: LREAL;
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_InfluxFloatValue(fValue := fInput),
+	Message := CONCAT('F_InfluxFloatValue, expected: ', sExpected));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckInt" Id="{79543504-9d3b-4a70-b9cb-f887ae545e42}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckInt
+VAR_INPUT
+	nInput		: LINT;
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_InfluxIntValue(nValue := nInput),
+	Message := CONCAT('F_InfluxIntValue on input: ', LINT_TO_STRING(nInput)));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckString" Id="{646e013f-f714-4c51-b96d-5809456ce05f}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckString
+VAR_INPUT
+	sInput		: STRING(255);
+	sExpected	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[AssertEquals_STRING(
+	Expected := sExpected,
+	Actual := BROTLib.F_InfluxStringValue(sValue := sInput),
+	Message := CONCAT('F_InfluxStringValue on input: ', sInput));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Typed_Float_Whole_Number_Stays_Float" Id="{62401055-6a14-46a0-9773-3d234026a0ff}">
+      <Declaration><![CDATA[METHOD PRIVATE Typed_Float_Whole_Number_Stays_Float
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Typed_Float_Whole_Number_Stays_Float');
+// the flip of BROTLib#4: a whole LREAL must never get the integer 'i', whatever LREAL_TO_STRING prints for it
+CheckFloat(fInput := 15.0, sExpected := LREAL_TO_STRING(15.0));
+CheckFloat(fInput := 0.0, sExpected := LREAL_TO_STRING(0.0));
+CheckFloat(fInput := -3.0, sExpected := LREAL_TO_STRING(-3.0));
+AssertEquals_DINT(Expected := 0, Actual := FIND(BROTLib.F_InfluxFloatValue(fValue := 15.0), 'i'), Message := 'a whole LREAL has no i');
+AssertEquals_DINT(Expected := 0, Actual := FIND(BROTLib.F_InfluxFloatValue(fValue := 0.0), 'i'), Message := 'zero has no i');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Typed_Float_Fraction_Unchanged" Id="{d4b67edc-65dd-4dd5-b39c-a6144635ba46}">
+      <Declaration><![CDATA[METHOD PRIVATE Typed_Float_Fraction_Unchanged
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Typed_Float_Fraction_Unchanged');
+CheckFloat(fInput := 15.5, sExpected := '15.5');
+CheckFloat(fInput := -0.25, sExpected := LREAL_TO_STRING(-0.25));	// prints in exponent form (-2.5e-1), only the missing 'i' counts
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Typed_Float_NaN_And_Infinity_Are_Empty" Id="{fe5395a2-9b8a-4efc-a9f7-2f757d47c954}">
+      <Declaration><![CDATA[METHOD PRIVATE Typed_Float_NaN_And_Infinity_Are_Empty
+VAR
+	nBits	: ULINT;
+	fValue	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Typed_Float_NaN_And_Infinity_Are_Empty');
+// the bit patterns of +Inf, -Inf and a quiet NaN: line protocol has no such value, an empty string means "do not publish"
+nBits := 16#7FF0000000000000;
+MEMCPY(ADR(fValue), ADR(nBits), SIZEOF(fValue));
+CheckFloat(fInput := fValue, sExpected := '');
+nBits := 16#FFF0000000000000;
+MEMCPY(ADR(fValue), ADR(nBits), SIZEOF(fValue));
+CheckFloat(fInput := fValue, sExpected := '');
+nBits := 16#7FF8000000000000;
+MEMCPY(ADR(fValue), ADR(nBits), SIZEOF(fValue));
+CheckFloat(fInput := fValue, sExpected := '');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Typed_Int_Gets_Trailing_i" Id="{a6e9c132-b415-4bb0-bec4-7867c5196f9d}">
+      <Declaration><![CDATA[METHOD PRIVATE Typed_Int_Gets_Trailing_i
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Typed_Int_Gets_Trailing_i');
+CheckInt(nInput := 15, sExpected := '15i');
+CheckInt(nInput := 0, sExpected := '0i');
+CheckInt(nInput := -3, sExpected := '-3i');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Typed_String_Is_Always_Quoted" Id="{5384efb1-1a28-463f-be7b-808c57249d7e}">
+      <Declaration><![CDATA[METHOD PRIVATE Typed_String_Is_Always_Quoted
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Typed_String_Is_Always_Quoted');
+// text that looks like a number or a boolean stays a string field: the type is the caller's decision
+CheckString(sInput := 'abc', sExpected := '"abc"');
+CheckString(sInput := '15', sExpected := '"15"');
+CheckString(sInput := 'TRUE', sExpected := '"TRUE"');
+CheckString(sInput := '', sExpected := '""');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Typed_String_Escapes_Quote_And_Backslash" Id="{1fc4ee8f-0076-4679-8cfa-a39fb1c97e74}">
+      <Declaration><![CDATA[METHOD PRIVATE Typed_String_Escapes_Quote_And_Backslash
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Typed_String_Escapes_Quote_And_Backslash');
+CheckString(sInput := 'say "hi"', sExpected := '"say \"hi\""');
+CheckString(sInput := 'a\b', sExpected := '"a\\b"');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
