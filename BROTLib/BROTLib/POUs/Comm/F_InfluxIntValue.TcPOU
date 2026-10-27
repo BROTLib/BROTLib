@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_InfluxIntValue" Id="{132f3d79-4bf9-4f3d-bcf1-30bda9c04205}" SpecialFunc="None">
+    <Declaration><![CDATA[// Integer field value of a typed publisher (PublishINT), BROTLib#4: the number with the trailing 'i'.
+FUNCTION F_InfluxIntValue : STRING(255)
+VAR_INPUT
+	nValue		: LINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_InfluxIntValue := CONCAT(LINT_TO_STRING(nValue), 'i');
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

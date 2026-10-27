@@ -4,12 +4,61 @@
     <Declaration><![CDATA[INTERFACE I_Comm
 ]]></Declaration>
     <Method Name="Publish" Id="{5b2a42b4-e26b-405d-99ca-66788602b2d5}">
-      <Declaration><![CDATA[METHOD Publish : BOOL
+      <Declaration><![CDATA[{attribute 'deprecated' := 'use PublishLREAL, PublishINT, PublishBOOL or PublishString: the type is decided at the call site (BROTLib#4)'}
+METHOD Publish : BOOL
 VAR_INPUT
 	domain			: STRING(255) := 'environment';
 	location		: STRING(255) := 'roof';
 	parameter		: STRING(255);
 	value			: STRING(255);	
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="PublishLREAL" Id="{21e9040b-8a3d-4ce5-ae90-35ccf578cc81}">
+      <Declaration><![CDATA[METHOD PublishLREAL : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: LREAL;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="PublishINT" Id="{03a7e7cd-8617-460a-986f-0ac5c56790ff}">
+      <Declaration><![CDATA[METHOD PublishINT : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: LINT;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="PublishBOOL" Id="{85e410fa-4677-4f2b-bf87-986aad8ce09b}">
+      <Declaration><![CDATA[METHOD PublishBOOL : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: BOOL;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+    </Method>
+    <Method Name="PublishString" Id="{14658f74-c7ef-4f59-8fa2-57d131be3d8f}">
+      <Declaration><![CDATA[METHOD PublishString : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
 END_VAR
 VAR_OUTPUT
 	published	: BOOL;

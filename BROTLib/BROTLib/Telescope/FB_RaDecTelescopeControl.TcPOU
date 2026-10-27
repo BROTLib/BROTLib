@@ -84,8 +84,8 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[fbComm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.RA.OFFSET', LREAL_TO_STRING(fHourAngleOffset));
-fbComm.Publish('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.OFFSET', LREAL_TO_STRING(fDeclinationOffset));
+        <ST><![CDATA[fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.RA.OFFSET', fHourAngleOffset);
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.OFFSET', fDeclinationOffset);
 ]]></ST>
       </Implementation>
     </Method>
