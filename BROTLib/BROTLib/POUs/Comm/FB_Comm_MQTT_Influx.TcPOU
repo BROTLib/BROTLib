@@ -3,13 +3,19 @@
   <POU Name="FB_Comm_MQTT_Influx" Id="{48590b1c-8149-4a75-a4a7-086285ed3fbf}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Comm_MQTT_Influx EXTENDS FB_Comm_MQTT
 VAR_INPUT
+	nLogPerCycle	: UINT := 5;	// log lines sent per cycle while the broker is connected; 0 = none
 	tWeatherTimeout	: TIME := T#10M;	// a weather field without a new value for this long becomes invalid (the publisher sends every 60 s and drops readings older than 300 s)
 END_VAR
 VAR_OUTPUT
-	logFailed	: INT := 0;	// PublishLog: fbMqttClient.Publish() returned FALSE; counts attempts, FB_EventLog retries a failed one (#130)
-	logDropped	: INT := 0;	// PublishLog: line too long for the 255 character buffer, not published (never retried by FB_EventLog)
+	logFailed	: INT := 0;	// _DrainLog: fbMqttClient.Publish() returned FALSE; counts attempts, the line stays in the queue and is sent again (#130)
+	logDropped	: INT := 0;	// PublishLog: line too long for the 255 character buffer, not queued (never retried by FB_EventLog)
+	logQueued	: UINT := 0;	// log lines waiting for the broker (#138)
+	logQueuedMax	: UINT := 0;	// largest logQueued since the start
+	logLost		: UDINT := 0;	// log lines pushed out of a full queue; lines never sent = logLost + logDropped (#138)
 END_VAR
 VAR
+	fbLogQueue		: FB_LogQueue;
+	nLostSinceNotice	: UDINT;	// lost lines not yet announced on the log topic
 	RaDec		: ST_RaDecCoordinate := (RightAscension := GVL_Math.LREAL_MIN, Declination := GVL_Math.LREAL_MIN);
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
 	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
@@ -29,6 +35,7 @@ END_VAR
     <Implementation>
       <ST><![CDATA[SUPER^();
 
+_DrainLog();
 _UpdateWeather();]]></ST>
     </Implementation>
     <Method Name="_UpdateWeather" Id="{c6a1975e-6137-4d49-aa91-4de3d592ba14}">
@@ -483,7 +490,7 @@ sTopic := CONCAT(CONCAT(sTopicPublish, '/'), domain);
 // bQueue left FALSE on purpose: this is periodic telemetry (republished every 1-5s or on the
 // static-fields timer), so a dropped publish under load is self-healing next cycle -- queuing
 // would just build a backlog of stale values behind whatever caused the client to be busy.
-// One-time events (PublishLog) get bQueue := TRUE instead, see there. (#5)
+// One-time events (PublishLog) are queued in fbLogQueue instead, see there. (#5, #138)
 published := fbMqttClient.Publish(
 	sTopic			:= sTopic,
 	pPayload		:= ADR(sPayloadPub),
@@ -652,29 +659,96 @@ IF bError OR LEN(sPayloadPub) >= 255 THEN
 	RETURN;
 END_IF
 
-// bQueue TRUE: unlike Publish()'s periodic telemetry, a log/event message is one-time -- if the
-// client can't send it immediately, queue it for retry instead of losing it silently (#5)
-published := fbMqttClient.Publish(
+// The line is only queued here. _DrainLog sends it while the broker is connected, in the order the lines were
+// pushed, so it is kept while the broker is away or the client is busy and when the caller is a method-local
+// FB_EventLog that is gone after this call (#138, #139). A full queue loses its oldest line, counted in logLost.
+IF fbLogQueue.Push(sPayloadPub) THEN
+	nLostSinceNotice := nLostSinceNotice + 1;
+	logLost := fbLogQueue.nOverwritten;
+	IF logLost = 1 OR (logLost MOD 100) = 0 THEN
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT log queue full, oldest line lost: %s', fbLogQueue.sOverwritten);
+	END_IF
+END_IF
+logQueued := fbLogQueue.nCount;
+logQueuedMax := fbLogQueue.nHighWater;
+
+published := TRUE;
+PublishLog := published;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_LogLinkUp" Id="{6ac0cf11-70e1-4fcc-a4fe-b1ed6efa0089}">
+      <Declaration><![CDATA[// The broker is connected and the subscription is done: log lines are sent. Not private so that a test can override it.
+METHOD _LogLinkUp : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_LogLinkUp := bConnected AND fbMqttClient.bConnected;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_SendLogLine" Id="{d21ab84a-c99c-4b7b-9181-67731f8a8c47}">
+      <Declaration><![CDATA[// One MQTT publish of a finished log line; FALSE if the client did not take it. Not private so that a test can override it.
+METHOD _SendLogLine : BOOL
+VAR_INPUT
+	sLine	: STRING(255);
+END_VAR
+VAR
+	sPayloadPub	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[sPayloadPub := sLine;
+// bQueue FALSE: the queue of this FB is the only queue, so what is waiting is counted and readable (logQueued);
+// the client's own queue has an unknown size and no way to ask what it dropped (#138)
+_SendLogLine := fbMqttClient.Publish(
 	sTopic			:= sTopicLog,
 	pPayload		:= ADR(sPayloadPub),
 	nPayloadSize	:= LEN2(ADR(sPayloadPub)),
 	eQoS			:= TcIotMqttQos.AtMostOnceDelivery,
 	bRetain			:= FALSE,
-	bQueue			:= TRUE
+	bQueue			:= FALSE
 );
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DrainLog" Id="{392860a9-5a9f-4071-924b-c533e5c553ee}">
+      <Declaration><![CDATA[// Runs every cycle (body): sends up to nLogPerCycle queued lines, oldest first, while the broker is connected. A line
+// leaves the queue only after the client took it; a refused one stays at the head and is tried again next cycle, so
+// the order is never changed. After a queue overflow, one line tells the subscribers how many lines are missing.
+METHOD _DrainLog
+VAR
+	i		: UINT;
+	sLine	: STRING(255);
+	sInfo	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF _LogLinkUp() THEN
+	FOR i := 1 TO nLogPerCycle DO
+		IF fbLogQueue.nCount = 0 THEN
+			EXIT;
+		END_IF
+		sLine := fbLogQueue.Peek();
+		IF _SendLogLine(sLine) THEN
+			fbLogQueue.Pop();
+		ELSE
+			IF logFailed < 32767 THEN
+				logFailed := logFailed + 1;
+			END_IF
+			IF logFailed = 1 OR (logFailed MOD 100) = 0 THEN
+				ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT log publish failed (client busy/not connected), kept in the queue: %s', sLine);
+			END_IF
+			EXIT;
+		END_IF
+	END_FOR
 
-// not retried here: FB_EventLog keeps the event and calls again, so one lost event can be counted several times
-IF NOT published THEN
-	IF logFailed < 32767 THEN
-		logFailed := logFailed + 1;
-	END_IF
-	IF logFailed = 1 OR (logFailed MOD 100) = 0 THEN
-		sInfo := CONCAT(CONCAT(level, ': '), message);
-		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT log publish failed (client busy/not connected): %s', sInfo);
+	IF fbLogQueue.nCount = 0 AND nLostSinceNotice > 0 THEN
+		sInfo := CONCAT(CONCAT('MQTT log: ', UDINT_TO_STRING(nLostSinceNotice)), ' lines lost, the queue was full while the broker was away');
+		nLostSinceNotice := 0;
+		PublishLog(level := 'WARNING', message := sInfo);
 	END_IF
 END_IF
-
-PublishLog := published;
+logQueued := fbLogQueue.nCount;
 ]]></ST>
       </Implementation>
     </Method>

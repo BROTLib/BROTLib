@@ -31,6 +31,7 @@ VAR
     fbStartupControlTests : FB_StartupControl_Tests;
 	fbTimeoutTimerTests		: FB_TimeoutTimer_Tests;
 	fbEventLogTests			: FB_EventLog_Tests;
+	fbLogQueueTests			: FB_LogQueue_Tests;
 	fbRefractionWeatherTests	: F_RefractionWeather_Tests;
 END_VAR
 ]]></Declaration>

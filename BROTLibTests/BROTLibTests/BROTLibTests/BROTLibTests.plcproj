@@ -58,6 +58,12 @@
     <Compile Include="POUs\FB_CommStub.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_CommLogProbe.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_LogQueue_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_EventLog_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
