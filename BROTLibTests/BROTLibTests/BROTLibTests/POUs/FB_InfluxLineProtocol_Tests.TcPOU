@@ -334,7 +334,7 @@ END_VAR
         <ST><![CDATA[AssertEquals_STRING(
 	Expected := sExpected,
 	Actual := BROTLib.F_InfluxFloatValue(fValue := fInput),
-	Message := CONCAT('F_InfluxFloatValue on input: ', LREAL_TO_STRING(fInput)));
+	Message := CONCAT('F_InfluxFloatValue, expected: ', sExpected));
 ]]></ST>
       </Implementation>
     </Method>
