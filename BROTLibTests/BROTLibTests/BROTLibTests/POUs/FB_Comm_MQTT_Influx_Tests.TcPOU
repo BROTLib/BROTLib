@@ -43,9 +43,7 @@ VAR
 	bStop_Command_Does_Not_Stop_Focus_Directly	: BOOL;
 	bPublishLog_Too_Long_Is_Counted	: BOOL;
 	fbW		: BROTLib.FB_Comm_MQTT_Influx;	// own instance for the weather tests
-	tonWeather	: TON;
 	stW			: BROTLib.ST_Weather;	// a property of struct type cannot be accessed component-wise, copy it first
-	nWeatherStep	: INT;
 	bWeather_Initially_Invalid	: BOOL;
 	bWeather_Temperature_Accepted	: BOOL;
 	bWeather_Zero_Celsius_Is_Valid	: BOOL;
@@ -856,9 +854,10 @@ END_IF
 ]]></ST>
       </Implementation>
     </Method>
-    <Method Name="Weather_Stale_Per_Field" Id="{15eb3ce9-8a50-4be4-92c3-b2695a14ba5a}">
+    <Method Name="Weather_Stale_Per_Field" Id="{1e7d8eaf-d641-4361-8555-1eb4883cd378}">
       <Declaration><![CDATA[// BROTLib#33: staleness is per field; a fresh humidity must not keep a frozen temperature fresh (the old shared timer did).
-// Runs over several cycles: temperature once, humidity every cycle, timeout 200 ms.
+// tWeatherTimeout is 0, so a field that got no new value in a call of _UpdateWeather is stale at once: the test needs
+// no waiting and runs in one cycle.
 METHOD PRIVATE Weather_Stale_Per_Field
 VAR
 END_VAR
@@ -866,38 +865,26 @@ END_VAR
       <Implementation>
         <ST><![CDATA[TEST('Weather_Stale_Per_Field');
 IF NOT bWeather_Stale_Per_Field THEN
-	CASE nWeatherStep OF
-	0:
-		fbW.tWeatherTimeout := T#200MS;
-		fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10');
-		nWeatherStep := 1;
-	1:
-		fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=40');
-		fbW._UpdateWeather();
-		tonWeather(IN := TRUE, PT := T#600MS);
-		IF tonWeather.Q THEN
-			stW := fbW.Weather;
-			AssertFalse(Condition := stW.bTemperatureValid, Message := 'temperature is stale');
-			stW := fbW.Weather;
-			AssertTrue(Condition := stW.bHumidityValid, Message := 'humidity is still valid');
-			stW := fbW.Weather;
-			AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'stale value is kept');
-			nWeatherStep := 2;
-		END_IF
-	2:
-		// a field that went stale is valid again with its next accepted value
-		fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=-3.5');
-		fbW._UpdateWeather();
-		stW := fbW.Weather;
-		AssertTrue(Condition := stW.bTemperatureValid, Message := 'temperature valid again');
-		stW := fbW.Weather;
-		AssertEquals_LREAL(Expected := -3.5, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'new value');
-		bWeather_Stale_Per_Field := TRUE;
-		nWeatherStep := 0;
-		tonWeather(IN := FALSE);
-		TEST_FINISHED();
-	END_CASE
-	END_IF
+	bWeather_Stale_Per_Field := TRUE;
+	fbW.tWeatherTimeout := T#0S;
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10,humidity=40');
+	fbW._UpdateWeather();	// both were received since the last call: nothing is stale
+	stW := fbW.Weather;
+	AssertTrue(Condition := stW.bTemperatureValid AND stW.bHumidityValid, Message := 'received this cycle: valid');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=41');
+	fbW._UpdateWeather();	// only the humidity is new: the temperature is stale
+	stW := fbW.Weather;
+	AssertFalse(Condition := stW.bTemperatureValid, Message := 'temperature is stale');
+	AssertTrue(Condition := stW.bHumidityValid, Message := 'humidity is still valid');
+	AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'stale value is kept');
+	// a field that went stale is valid again with its next accepted value
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=-3.5,humidity=42');
+	fbW._UpdateWeather();
+	stW := fbW.Weather;
+	AssertTrue(Condition := stW.bTemperatureValid, Message := 'temperature valid again');
+	AssertEquals_LREAL(Expected := -3.5, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'new value');
+	TEST_FINISHED();
+END_IF
 ]]></ST>
       </Implementation>
     </Method>
