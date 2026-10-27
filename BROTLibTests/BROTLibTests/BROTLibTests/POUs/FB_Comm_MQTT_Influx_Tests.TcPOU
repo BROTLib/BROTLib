@@ -44,6 +44,7 @@ VAR
 	bPublishLog_Too_Long_Is_Counted	: BOOL;
 	fbW		: BROTLib.FB_Comm_MQTT_Influx;	// own instance for the weather tests
 	tonWeather	: TON;
+	stW			: BROTLib.ST_Weather;	// a property of struct type cannot be accessed component-wise, copy it first
 	nWeatherStep	: INT;
 	bWeather_Initially_Invalid	: BOOL;
 	bWeather_Temperature_Accepted	: BOOL;
@@ -724,9 +725,12 @@ END_VAR
         <ST><![CDATA[TEST('Weather_Initially_Invalid');
 IF NOT bWeather_Initially_Invalid THEN
 	bWeather_Initially_Invalid := TRUE;
-	AssertFalse(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature valid');
-	AssertFalse(Condition := fbW.Weather.bPressureValid, Message := 'pressure valid');
-	AssertFalse(Condition := fbW.Weather.bHumidityValid, Message := 'humidity valid');
+	stW := fbW.Weather;
+	AssertFalse(Condition := stW.bTemperatureValid, Message := 'temperature valid');
+	stW := fbW.Weather;
+	AssertFalse(Condition := stW.bPressureValid, Message := 'pressure valid');
+	stW := fbW.Weather;
+	AssertFalse(Condition := stW.bHumidityValid, Message := 'humidity valid');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -742,10 +746,14 @@ END_VAR
 IF NOT bWeather_Temperature_Accepted THEN
 	bWeather_Temperature_Accepted := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=12.5');
-	AssertEquals_LREAL(Expected := 12.5, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature');
-	AssertTrue(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature valid');
-	AssertFalse(Condition := fbW.Weather.bPressureValid, Message := 'pressure still invalid');
-	AssertFalse(Condition := fbW.Weather.bHumidityValid, Message := 'humidity still invalid');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 12.5, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature');
+	stW := fbW.Weather;
+	AssertTrue(Condition := stW.bTemperatureValid, Message := 'temperature valid');
+	stW := fbW.Weather;
+	AssertFalse(Condition := stW.bPressureValid, Message := 'pressure still invalid');
+	stW := fbW.Weather;
+	AssertFalse(Condition := stW.bHumidityValid, Message := 'humidity still invalid');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -762,8 +770,10 @@ END_VAR
 IF NOT bWeather_Zero_Celsius_Is_Valid THEN
 	bWeather_Zero_Celsius_Is_Valid := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=0');
-	AssertTrue(Condition := fbW.Weather.bTemperatureValid, Message := '0 deg C is a value, not no data');
-	AssertEquals_LREAL(Expected := 0.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature');
+	stW := fbW.Weather;
+	AssertTrue(Condition := stW.bTemperatureValid, Message := '0 deg C is a value, not no data');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 0.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -779,10 +789,14 @@ END_VAR
 IF NOT bWeather_Multi_Field_Message THEN
 	bWeather_Multi_Field_Message := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10,pressure=800,humidity=40');
-	AssertEquals_LREAL(Expected := 10.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature');
-	AssertEquals_LREAL(Expected := 800.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := 'pressure');
-	AssertEquals_LREAL(Expected := 40.0, Actual := fbW.Weather.fHumidity, Delta := 1.0E-9, Message := 'humidity');
-	AssertTrue(Condition := fbW.Weather.bTemperatureValid AND fbW.Weather.bPressureValid AND fbW.Weather.bHumidityValid, Message := 'all valid');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 800.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := 'pressure');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 40.0, Actual := stW.fHumidity, Delta := 1.0E-9, Message := 'humidity');
+	stW := fbW.Weather;
+	AssertTrue(Condition := stW.bTemperatureValid AND stW.bPressureValid AND stW.bHumidityValid, Message := 'all valid');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -803,10 +817,14 @@ IF NOT bWeather_Rejects_Garbage_Keeps_Previous THEN
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=101.3');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=29.9');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=150');
-	AssertEquals_LREAL(Expected := 10.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature kept (text and Kelvin rejected)');
-	AssertEquals_LREAL(Expected := 800.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := 'pressure kept (kPa and inHg rejected)');
-	AssertEquals_LREAL(Expected := 40.0, Actual := fbW.Weather.fHumidity, Delta := 1.0E-9, Message := 'humidity kept (150 % rejected)');
-	AssertTrue(Condition := fbW.Weather.bTemperatureValid AND fbW.Weather.bPressureValid AND fbW.Weather.bHumidityValid, Message := 'still valid');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature kept (text and Kelvin rejected)');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 800.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := 'pressure kept (kPa and inHg rejected)');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 40.0, Actual := stW.fHumidity, Delta := 1.0E-9, Message := 'humidity kept (150 % rejected)');
+	stW := fbW.Weather;
+	AssertTrue(Condition := stW.bTemperatureValid AND stW.bPressureValid AND stW.bHumidityValid, Message := 'still valid');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -822,13 +840,17 @@ END_VAR
 IF NOT bWeather_Pressure_Range THEN
 	bWeather_Pressure_Range := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=300');
-	AssertEquals_LREAL(Expected := 300.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := '300 hPa accepted');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 300.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := '300 hPa accepted');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=0');
-	AssertEquals_LREAL(Expected := 300.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := '0 is not a pressure any more');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 300.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := '0 is not a pressure any more');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=1100');
-	AssertEquals_LREAL(Expected := 1100.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := '1100 hPa accepted');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 1100.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := '1100 hPa accepted');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=1100.5');
-	AssertEquals_LREAL(Expected := 1100.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := 'above 1100 rejected');
+	stW := fbW.Weather;
+	AssertEquals_LREAL(Expected := 1100.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := 'above 1100 rejected');
 	TEST_FINISHED();
 END_IF
 ]]></ST>
@@ -854,17 +876,22 @@ IF NOT bWeather_Stale_Per_Field THEN
 		fbW._UpdateWeather();
 		tonWeather(IN := TRUE, PT := T#600MS);
 		IF tonWeather.Q THEN
-			AssertFalse(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature is stale');
-			AssertTrue(Condition := fbW.Weather.bHumidityValid, Message := 'humidity is still valid');
-			AssertEquals_LREAL(Expected := 10.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'stale value is kept');
+			stW := fbW.Weather;
+			AssertFalse(Condition := stW.bTemperatureValid, Message := 'temperature is stale');
+			stW := fbW.Weather;
+			AssertTrue(Condition := stW.bHumidityValid, Message := 'humidity is still valid');
+			stW := fbW.Weather;
+			AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'stale value is kept');
 			nWeatherStep := 2;
 		END_IF
 	2:
 		// a field that went stale is valid again with its next accepted value
 		fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=-3.5');
 		fbW._UpdateWeather();
-		AssertTrue(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature valid again');
-		AssertEquals_LREAL(Expected := -3.5, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'new value');
+		stW := fbW.Weather;
+		AssertTrue(Condition := stW.bTemperatureValid, Message := 'temperature valid again');
+		stW := fbW.Weather;
+		AssertEquals_LREAL(Expected := -3.5, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'new value');
 		bWeather_Stale_Per_Field := TRUE;
 		nWeatherStep := 0;
 		tonWeather(IN := FALSE);
