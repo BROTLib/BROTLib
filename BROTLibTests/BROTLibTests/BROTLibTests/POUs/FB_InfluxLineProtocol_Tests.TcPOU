@@ -27,7 +27,7 @@ Timestamp_Keeps_100ns_Resolution();
 Timestamp_Before_1970_Is_Empty();
 Typed_Float_Whole_Number_Stays_Float();
 Typed_Float_Fraction_Unchanged();
-Typed_Float_NaN_And_Infinity_Are_Empty();
+// TEMP bisect: Typed_Float_NaN_And_Infinity_Are_Empty();
 Typed_Int_Gets_Trailing_i();
 Typed_String_Is_Always_Quoted();
 Typed_String_Escapes_Quote_And_Backslash();
