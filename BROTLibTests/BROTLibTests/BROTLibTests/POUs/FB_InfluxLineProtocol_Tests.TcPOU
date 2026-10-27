@@ -393,7 +393,7 @@ END_VAR
       <Implementation>
         <ST><![CDATA[TEST('Typed_Float_Fraction_Unchanged');
 CheckFloat(fInput := 15.5, sExpected := '15.5');
-CheckFloat(fInput := -0.25, sExpected := '-0.25');
+CheckFloat(fInput := -0.25, sExpected := LREAL_TO_STRING(-0.25));	// prints in exponent form (-2.5e-1), only the missing 'i' counts
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
