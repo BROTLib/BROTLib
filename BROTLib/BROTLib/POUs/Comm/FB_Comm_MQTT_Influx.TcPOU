@@ -3,6 +3,7 @@
   <POU Name="FB_Comm_MQTT_Influx" Id="{48590b1c-8149-4a75-a4a7-086285ed3fbf}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_Comm_MQTT_Influx EXTENDS FB_Comm_MQTT
 VAR_INPUT
+	tWeatherTimeout	: TIME := T#10M;	// a weather field without a new value for this long becomes invalid (the publisher sends every 60 s and drops readings older than 300 s)
 END_VAR
 VAR_OUTPUT
 	logFailed	: INT := 0;	// PublishLog: fbMqttClient.Publish() returned FALSE; counts attempts, FB_EventLog retries a failed one (#130)
@@ -13,28 +14,74 @@ VAR
 	AltAz		: ST_AltAzCoordinate := (Altitude := GVL_Math.LREAL_MIN, Azimuth := GVL_Math.LREAL_MIN);
 	dropped		: INT := 0;	// lines too long for the 255 character buffer, not published
 	deliveryFailed	: INT := 0;	// fbMqttClient.Publish() returned FALSE (e.g. client busy/not connected); periodic telemetry, not retried on purpose (#5)
-	// 0.0 doubles as "no data received yet" and FB_CO_REFRACT's own "estimate from altitude"
-	// sentinel, so a consumer can pass these straight through with no guard needed.
-	Temperature	: LREAL := 0.0;	// last received ambient temperature (deg C), set via MQTT by an external weather-station bridge
-	Humidity	: LREAL := GVL_Math.LREAL_MIN;	// last received relative humidity (%); unconsumed anywhere today
-	Pressure	: LREAL := 0.0;	// last received atmospheric pressure (hPa)
-
-	// revert Temperature/Pressure to their safe defaults if nothing fresh arrives for a while,
-	// instead of serving an arbitrarily stale weather reading forever
-	bWeatherMessageReceived	: BOOL;
-	tonWeatherStale			: TON := (PT := T#10M);
+	// Live weather as sent by an external bridge (pybrotlib.weather) on {site}/Telescope/SET. Units are fixed: deg C,
+	// hPa (= mbar), % relative humidity. Each field has its own validity: it is valid from its first accepted value until
+	// no new value arrived for tWeatherTimeout. 0.0 deg C is a value, never "no data" (BROTLib#33).
+	stWeather				: ST_Weather;
+	bTemperatureReceived	: BOOL;
+	bPressureReceived		: BOOL;
+	bHumidityReceived		: BOOL;
+	tonTemperatureStale	: TON;
+	tonPressureStale		: TON;
+	tonHumidityStale		: TON;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[SUPER^();
 
-tonWeatherStale(IN := NOT bWeatherMessageReceived, PT := T#10M);
-bWeatherMessageReceived := FALSE;
-IF tonWeatherStale.Q THEN
-	Temperature := 0.0;
-	Pressure := 0.0;
-END_IF]]></ST>
+_UpdateWeather();]]></ST>
     </Implementation>
+    <Method Name="_UpdateWeather" Id="{c6a1975e-6137-4d49-aa91-4de3d592ba14}">
+      <Declaration><![CDATA[// Runs every cycle (body): ages the three weather fields and pushes the snapshot to the telescope. A field that got no
+// new value for tWeatherTimeout becomes invalid (the last value is kept in stWeather for display). Logs once per
+// transition valid -> stale.
+METHOD _UpdateWeather
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[tonTemperatureStale(IN := stWeather.bTemperatureValid AND NOT bTemperatureReceived, PT := tWeatherTimeout);
+IF tonTemperatureStale.Q THEN
+	stWeather.bTemperatureValid := FALSE;
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT weather: %s is stale, the estimate is used', 'temperature');
+END_IF
+bTemperatureReceived := FALSE;
+
+tonPressureStale(IN := stWeather.bPressureValid AND NOT bPressureReceived, PT := tWeatherTimeout);
+IF tonPressureStale.Q THEN
+	stWeather.bPressureValid := FALSE;
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT weather: %s is stale, the estimate is used', 'pressure');
+END_IF
+bPressureReceived := FALSE;
+
+tonHumidityStale(IN := stWeather.bHumidityValid AND NOT bHumidityReceived, PT := tWeatherTimeout);
+IF tonHumidityStale.Q THEN
+	stWeather.bHumidityValid := FALSE;
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT weather: %s is stale', 'humidity');
+END_IF
+bHumidityReceived := FALSE;
+
+// pushed every cycle (not on receipt) so the telescope sees a field become invalid; this body always runs, while the
+// body of FB_AltAzTelescopeControl does not in every application
+IF AltAzTelescope <> 0 THEN
+	AltAzTelescope.Weather := stWeather;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="Weather" Id="{f856a7d0-efd7-4e82-9b36-b4aa3a1645ef}">
+      <Declaration><![CDATA[// The current weather snapshot (read only), for applications without an I_AltAzTelescope (IAG50cm) and for tests.
+PROPERTY Weather : ST_Weather
+]]></Declaration>
+      <Get Name="Get" Id="{d2010ac9-e0b3-4f73-abaf-410054cbb0bc}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Weather := stWeather;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
     <Method Name="_handleMQTTMessage" Id="{6b8170c3-1db8-4027-aca0-99823e943d46}">
       <Declaration><![CDATA[METHOD _handleMQTTMessage : BOOL
 VAR_INPUT
@@ -132,21 +179,26 @@ ELSIF parameter = 'azimuth' THEN
 		AltAz.Azimuth := GVL_Math.LREAL_MIN;
 	END_IF
 ELSIF parameter = 'temperature' THEN
-	// deg C; 0.0 is also the "no data" sentinel, see the declaration
+	// deg C; the range only rejects garbage such as Kelvin (283) or Fahrenheit
 	IF _ParseLREAL(parameter := parameter, value := value, fMin := -60.0, fMax := 60.0, fValue => fValue) THEN
-		Temperature := fValue;
-		bWeatherMessageReceived := TRUE;
+		stWeather.fTemperature := fValue;
+		stWeather.bTemperatureValid := TRUE;
+		bTemperatureReceived := TRUE;
 	END_IF
 ELSIF parameter = 'humidity' THEN
+	// % relative humidity
 	IF _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 100.0, fValue => fValue) THEN
-		Humidity := fValue;
-		bWeatherMessageReceived := TRUE;
+		stWeather.fHumidity := fValue;
+		stWeather.bHumidityValid := TRUE;
+		bHumidityReceived := TRUE;
 	END_IF
 ELSIF parameter = 'pressure' THEN
-	// hPa; 0.0 is FB_CO_REFRACT's "estimate from altitude" sentinel and stays allowed
-	IF _ParseLREAL(parameter := parameter, value := value, fMin := 0.0, fMax := 1100.0, fValue => fValue) THEN
-		Pressure := fValue;
-		bWeatherMessageReceived := TRUE;
+	// hPa (= mbar), station pressure. 300 hPa is below any observatory site; this rejects kPa (101.3) and inHg (29.9)
+	// at the door. 0.0 is no longer a "no data" value (BROTLib#33). Whether a value fits the site is F_RefractionWeather's job.
+	IF _ParseLREAL(parameter := parameter, value := value, fMin := 300.0, fMax := 1100.0, fValue => fValue) THEN
+		stWeather.fPressure := fValue;
+		stWeather.bPressureValid := TRUE;
+		bPressureReceived := TRUE;
 	END_IF
 ELSIF parameter = 'dut1' AND AltAzTelescope <> 0 THEN
 	// seconds; |UT1-UTC| is kept below 0.9 s by definition

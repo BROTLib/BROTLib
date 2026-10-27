@@ -103,6 +103,9 @@
     <Compile Include="DUTs\ST_RaDecCoordinate.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DUTs\ST_Weather.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="GVLs\GVL_Math.TcGVL">
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
@@ -195,6 +198,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_TONTP.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\F_RefractionWeather.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\F_YREAL.TcPOU">
