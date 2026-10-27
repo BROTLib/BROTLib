@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_ErrorParkRequest_Tests" Id="{43070e2e-4c0a-481b-ab76-02409f3ae064}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_ErrorParkRequest, the request for the emergency park on a new axis error (#86).
+// Inputs in call order: bHwError, bHwErrorLast, bIsParked, bEstop.
+FUNCTION_BLOCK F_ErrorParkRequest_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Rising_Edge_Not_Parked_Requests();
+Error_Persisting_Does_Not_Retrigger();
+Parked_Does_Nothing();
+No_Error_And_Falling_Edge();
+Cleared_And_Reraised();
+After_Emergency_Park_No_Loop();
+Estop_Suppresses();
+]]></ST>
+    </Implementation>
+    <Method Name="Rising_Edge_Not_Parked_Requests" Id="{a1baefc8-6d2d-4213-9b9c-9a4e486a69ed}">
+      <Declaration><![CDATA[// Hardware error appears on a telescope that is not parked.
+METHOD PRIVATE Rising_Edge_Not_Parked_Requests
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Rising_Edge_Not_Parked_Requests');
+AssertTrue(Condition := BROTLib.F_ErrorParkRequest(TRUE, FALSE, FALSE, FALSE), Message := 'new error, not parked');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Persisting_Does_Not_Retrigger" Id="{97fafffd-2f79-45d9-ae89-ef8fd9addaab}">
+      <Declaration><![CDATA[// Error still present (also a second error while the first is active).
+METHOD PRIVATE Error_Persisting_Does_Not_Retrigger
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Persisting_Does_Not_Retrigger');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(TRUE, TRUE, FALSE, FALSE), Message := 'error persists');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Parked_Does_Nothing" Id="{f9851a26-da1f-468d-b520-79d39cad9f58}">
+      <Declaration><![CDATA[// Bare error on a parked telescope.
+METHOD PRIVATE Parked_Does_Nothing
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Parked_Does_Nothing');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(TRUE, FALSE, TRUE, FALSE), Message := 'parked');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Error_And_Falling_Edge" Id="{318b90eb-d16f-4cc3-b281-3f1b24b46be4}">
+      <Declaration><![CDATA[// No error, and an error that just cleared.
+METHOD PRIVATE No_Error_And_Falling_Edge
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Error_And_Falling_Edge');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(FALSE, FALSE, FALSE, FALSE), Message := 'no error');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(FALSE, TRUE, FALSE, FALSE), Message := 'falling edge');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="After_Emergency_Park_No_Loop" Id="{1fec678e-c559-4017-9275-beaa7f5e0f37}">
+      <Declaration><![CDATA[// The emergency park ended with bIsParked TRUE and the error still present.
+METHOD PRIVATE After_Emergency_Park_No_Loop
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('After_Emergency_Park_No_Loop');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(TRUE, TRUE, TRUE, FALSE), Message := 'error kept, parked');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(TRUE, FALSE, TRUE, FALSE), Message := 'error new, parked');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Estop_Suppresses" Id="{bacf9cef-d892-41ec-bfe6-8fe5fe0b41db}">
+      <Declaration><![CDATA[// No automatic park during an E-stop.
+METHOD PRIVATE Estop_Suppresses
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Estop_Suppresses');
+AssertFalse(Condition := BROTLib.F_ErrorParkRequest(TRUE, FALSE, FALSE, TRUE), Message := 'e-stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cleared_And_Reraised" Id="{1cc2c475-a173-4514-8393-5e3381cd03cb}">
+      <Declaration><![CDATA[// Error, still there, cleared, new error: the request is made at the first and the last call only.
+METHOD PRIVATE Cleared_And_Reraised
+VAR
+	bLast	: BOOL;
+	arrErr	: ARRAY[1..4] OF BOOL := [TRUE, TRUE, FALSE, TRUE];
+	arrExp	: ARRAY[1..4] OF BOOL := [TRUE, FALSE, FALSE, TRUE];
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Cleared_And_Reraised');
+FOR i := 1 TO 4 DO
+	AssertEquals_BOOL(Expected := arrExp[i], Actual := BROTLib.F_ErrorParkRequest(arrErr[i], bLast, FALSE, FALSE), Message := 'call');
+	bLast := arrErr[i];
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

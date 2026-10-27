@@ -11,16 +11,36 @@ VAR_INPUT
 	OffMessage		: STRING(255) := '';
 	OffLevel		: UDINT := ADSLOG_MSGTYPE_HINT;
 	Comm			: I_Comm;
+	// a PublishLog that returns FALSE is retried every RetryInterval (T#0S = on every call) until it is
+	// delivered; without an interval, many instances would flood the ADS log while the broker is down (#130)
+	RetryInterval	: TIME := T#1S;
+	// total attempts are 1 + nMaxRetries, then the event is given up with an ADS warning; 0 = retry until delivered
+	nMaxRetries		: UINT := 30;
 END_VAR
 VAR_OUTPUT
+	// an ON or OFF event is still waiting for its MQTT publish
+	Pending			: BOOL;
+	// events given up after nMaxRetries, or replaced by a newer one before they were delivered
+	nNotDelivered	: UDINT;
 END_VAR
 VAR
 	LogonTrigger	: R_TRIG;
 	LogoffTrigger	: F_TRIG; // R_Trig or F_Trig ?!
+	// last formatted message, kept for monitoring; the events wait in aPayload
 	PayloadMessage	: STRING(255);
 	fbFormat		: FB_FormatString;
 	// OffLevel is a VAR_INPUT; fall back to Level in a local instead of writing back into it
 	effectiveOffLevel	: UDINT;
+	// one slot per event (0 = ON, 1 = OFF): level and payload are stored at the edge, so a later change of Level
+	// or the next message cannot alter an event that is still waiting
+	aPending		: ARRAY[0..1] OF BOOL;
+	aLevel			: ARRAY[0..1] OF STRING(20);
+	aPayload		: ARRAY[0..1] OF STRING(255);
+	aAttempts		: ARRAY[0..1] OF UINT;
+	aSeq			: ARRAY[0..1] OF UDINT;	// edge order, the older event is published first
+	nSeq			: UDINT;
+	bAttemptNow		: BOOL;
+	tonRetry		: TON;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -43,14 +63,28 @@ END_IF
 // Comm <> 0: it's a plain VAR_INPUT, nothing stops a caller from leaving it unassigned, and
 // calling through it would crash the whole PLC task (#7) -- the ADS log above still happens
 // either way, only the MQTT publish is skipped
+bAttemptNow := FALSE;
 IF LogonTrigger.Q AND LEN(OnMessage)>0 AND Comm <> 0 THEN
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OnMessage), sOut => PayloadMessage);
-	Comm.PublishLog(_LevelToString(Level), PayloadMessage);
+	_Enqueue(0, _LevelToString(Level), PayloadMessage);
+	bAttemptNow := TRUE;
 END_IF
 
 IF LogoffTrigger.Q AND LEN(OffMessage)>0 AND Comm <> 0 THEN
 	fbFormat( sFormat := FormatString, arg1 := F_STRING(OffMessage), sOut => PayloadMessage);
-	Comm.PublishLog(_LevelToString(effectiveOffLevel), PayloadMessage);
+	_Enqueue(1, _LevelToString(effectiveOffLevel), PayloadMessage);
+	bAttemptNow := TRUE;
+END_IF
+
+// publish on the edge itself, so a delivered event behaves as before; a failed one is retried every
+// RetryInterval. The edge is gone after one cycle, so it is the stored slot that is retried (#130).
+// A pending event whose Comm has become 0 stays pending: nothing is called through it.
+Pending := aPending[0] OR aPending[1];
+tonRetry(IN := Pending, PT := RetryInterval);
+IF Pending AND Comm <> 0 AND (bAttemptNow OR tonRetry.Q) THEN
+	tonRetry(IN := FALSE, PT := RetryInterval);
+	_Attempt();
+	Pending := aPending[0] OR aPending[1];
 END_IF
 ]]></ST>
     </Implementation>
@@ -73,25 +107,86 @@ ELSE
 END_IF]]></ST>
       </Implementation>
     </Method>
-    <LineIds Name="FB_EventLog">
-      <LineId Id="27" Count="1" />
-      <LineId Id="54" Count="0" />
-      <LineId Id="51" Count="2" />
-      <LineId Id="29" Count="5" />
-      <LineId Id="9" Count="0" />
-      <LineId Id="113" Count="0" />
-      <LineId Id="73" Count="7" />
-      <LineId Id="115" Count="0" />
-      <LineId Id="81" Count="0" />
-      <LineId Id="89" Count="3" />
-      <LineId Id="146" Count="5" />
-      <LineId Id="99" Count="0" />
-      <LineId Id="101" Count="0" />
-      <LineId Id="109" Count="1" />
-      <LineId Id="71" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_EventLog._LevelToString">
-      <LineId Id="1" Count="6" />
-    </LineIds>
+    <Method Name="_Enqueue" Id="{5d0c7b3e-2a64-4c1f-8b97-1e3f6a2d9c48}">
+      <Declaration><![CDATA[// Stores an event in its slot. A slot that is still pending is replaced by the newer event of the same kind.
+METHOD PRIVATE _Enqueue
+VAR_INPUT
+	idx		: INT;
+	level	: STRING(20);
+	payload	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF aPending[idx] THEN
+	_GiveUp(idx, 'MQTT event log replaced before it was delivered: %s');
+END_IF
+nSeq := nSeq + 1;
+aSeq[idx] := nSeq;
+aLevel[idx] := level;
+aPayload[idx] := payload;
+aAttempts[idx] := 0;
+aPending[idx] := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_Attempt" Id="{c8e14a76-93bd-4f20-a5d1-7b6e0f3c2a19}">
+      <Declaration><![CDATA[// One publish attempt for the pending events, older first so a subscriber sees ON before OFF. Stops at the
+// first failure, the next attempt is due after RetryInterval.
+METHOD PRIVATE _Attempt
+VAR
+	i	: INT;
+	idx	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 2 DO
+	IF aPending[0] AND aPending[1] THEN
+		IF aSeq[0] < aSeq[1] THEN
+			idx := 0;
+		ELSE
+			idx := 1;
+		END_IF
+	ELSIF aPending[0] THEN
+		idx := 0;
+	ELSIF aPending[1] THEN
+		idx := 1;
+	ELSE
+		EXIT;
+	END_IF
+
+	IF aAttempts[idx] < 65535 THEN
+		aAttempts[idx] := aAttempts[idx] + 1;
+	END_IF
+	IF Comm.PublishLog(aLevel[idx], aPayload[idx]) THEN
+		aPending[idx] := FALSE;
+	ELSE
+		IF nMaxRetries > 0 AND aAttempts[idx] > nMaxRetries THEN
+			_GiveUp(idx, 'MQTT event log not delivered after retries: %s');
+		END_IF
+		EXIT;
+	END_IF
+END_FOR
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_GiveUp" Id="{1f7a9e52-6c38-4d05-b2a4-8e0d5c7b3f61}">
+      <Declaration><![CDATA[// Drops a pending event for good and leaves a trace: counted in nNotDelivered and warned in the ADS log.
+METHOD PRIVATE _GiveUp
+VAR_INPUT
+	idx		: INT;
+	sFormat	: STRING(255);	// one %s, filled with 'LEVEL: message'
+END_VAR
+VAR
+	sInfo	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[sInfo := CONCAT(CONCAT(aLevel[idx], ': '), aPayload[idx]);
+aPending[idx] := FALSE;
+nNotDelivered := nNotDelivered + 1;
+ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, sFormat, sInfo);
+]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>

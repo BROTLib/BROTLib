@@ -16,7 +16,9 @@ VAR_OUTPUT
 END_VAR]]></Declaration>
     </Method>
     <Method Name="PublishLog" Id="{bb17fd3c-9433-4b30-9d10-3bf6aa5dc9fe}">
-      <Declaration><![CDATA[METHOD PublishLog : BOOL
+      <Declaration><![CDATA[// TRUE = delivered or queued. FALSE = not accepted (client busy or not connected, or the line cannot be
+// formed); the caller may retry, as FB_EventLog does (#130).
+METHOD PublishLog : BOOL
 VAR_INPUT
 	level		: STRING(255) := 'INFO';
 	message		: STRING(255);	

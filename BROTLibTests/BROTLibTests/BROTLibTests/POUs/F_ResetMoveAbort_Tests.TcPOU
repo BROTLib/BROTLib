@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_ResetMoveAbort_Tests" Id="{a16d4530-1812-4575-a2fd-0e9be9c377c2}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_ResetMoveAbort, the abort stop after a reset under motion (#56, #66 part 1).
+// Inputs in call order: bError, bParkRunning, bAnyAxisMoving (the three axes of the old suite are one input now, the per-axis cases stay as they were).
+FUNCTION_BLOCK F_ResetMoveAbort_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Moving_Azimuth_Keeps_Abort();
+Moving_Elevation_Keeps_Abort();
+Moving_Derotator_Keeps_Abort();
+All_At_Rest_Clears();
+Error_Clears();
+Park_Running_Clears();
+Several_Axes_Moving();
+]]></ST>
+    </Implementation>
+    <Method Name="Moving_Azimuth_Keeps_Abort" Id="{3ff1b4fa-5f1b-4986-97cf-3fd6cdeb1a90}">
+      <Declaration><![CDATA[// An azimuth move is running.
+METHOD PRIVATE Moving_Azimuth_Keeps_Abort
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_Azimuth_Keeps_Abort');
+AssertTrue(Condition := BROTLib.F_ResetMoveAbort(FALSE, FALSE, TRUE), Message := 'moving: stop it');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Moving_Elevation_Keeps_Abort" Id="{2748f1b9-0467-4dc4-8392-256e491408ed}">
+      <Declaration><![CDATA[// An elevation move is running.
+METHOD PRIVATE Moving_Elevation_Keeps_Abort
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_Elevation_Keeps_Abort');
+AssertTrue(Condition := BROTLib.F_ResetMoveAbort(FALSE, FALSE, TRUE), Message := 'moving: stop it');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Moving_Derotator_Keeps_Abort" Id="{5aad18fc-7316-432f-b315-06016cf314a0}">
+      <Declaration><![CDATA[// The derotator is moving or homing.
+METHOD PRIVATE Moving_Derotator_Keeps_Abort
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_Derotator_Keeps_Abort');
+AssertTrue(Condition := BROTLib.F_ResetMoveAbort(FALSE, FALSE, TRUE), Message := 'moving: stop it');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="All_At_Rest_Clears" Id="{6bcfde98-3e86-4736-99ac-ac44bac834ab}">
+      <Declaration><![CDATA[// Nothing moves (also an axis stuck in Stopping without motion): the reset clears the abort.
+METHOD PRIVATE All_At_Rest_Clears
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('All_At_Rest_Clears');
+AssertFalse(Condition := BROTLib.F_ResetMoveAbort(FALSE, FALSE, FALSE), Message := 'at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Clears" Id="{5e4d79f0-b560-4c98-bf6e-a037b89f0808}">
+      <Declaration><![CDATA[// An error: the drives are off, nothing to wait for.
+METHOD PRIVATE Error_Clears
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Clears');
+AssertFalse(Condition := BROTLib.F_ResetMoveAbort(TRUE, FALSE, TRUE), Message := 'error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Running_Clears" Id="{61a11b60-2e0d-4525-aa4b-6aac19021a1b}">
+      <Declaration><![CDATA[// A park is running: its motion is wanted.
+METHOD PRIVATE Park_Running_Clears
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Running_Clears');
+AssertFalse(Condition := BROTLib.F_ResetMoveAbort(FALSE, TRUE, TRUE), Message := 'park running');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Several_Axes_Moving" Id="{a2d2d04b-13a0-4ca3-acc7-d731c99fa89b}">
+      <Declaration><![CDATA[// All axes moving.
+METHOD PRIVATE Several_Axes_Moving
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Several_Axes_Moving');
+AssertTrue(Condition := BROTLib.F_ResetMoveAbort(FALSE, FALSE, TRUE), Message := 'moving');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

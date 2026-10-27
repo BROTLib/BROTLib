@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_SuspendStop_Tests" Id="{bfd7d4ed-f25f-480f-80dd-3131ab98f42c}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_SuspendStop, the stop at the switch to manual under motion (#118).
+// Inputs in call order: bError, bStopRunning, bAzMoving, bElMoving, bDrMoving.
+FUNCTION_BLOCK F_SuspendStop_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Moving_Axis_Stops();
+Homing_Axis_Stops();
+Park_Is_Stopped();
+Running_Stop_Continues();
+At_Rest_No_Stop();
+Error_No_Stop();
+Error_Running_Stop_No_Stop();
+]]></ST>
+    </Implementation>
+    <Method Name="Moving_Axis_Stops" Id="{ec8993ef-970b-477e-b372-a366bf35eb06}">
+      <Declaration><![CDATA[// The derotator is moving.
+METHOD PRIVATE Moving_Axis_Stops
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_Axis_Stops');
+AssertTrue(Condition := BROTLib.F_SuspendStop(FALSE, FALSE, TRUE), Message := 'moving: stop it');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Homing_Axis_Stops" Id="{709ca56c-3803-4a58-af0a-06badba7d9af}">
+      <Declaration><![CDATA[// The elevation is homing (power-on stage 10, counted as moving by the caller).
+METHOD PRIVATE Homing_Axis_Stops
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Homing_Axis_Stops');
+AssertTrue(Condition := BROTLib.F_SuspendStop(FALSE, FALSE, TRUE), Message := 'homing: stop it');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Is_Stopped" Id="{6f8b3e10-b745-42e7-b77b-a048fa0bb0e3}">
+      <Declaration><![CDATA[// A park moves the azimuth: stopped too, nothing drives it in manual (differs from F_ResetMoveAbort).
+METHOD PRIVATE Park_Is_Stopped
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Is_Stopped');
+AssertTrue(Condition := BROTLib.F_SuspendStop(FALSE, FALSE, TRUE), Message := 'park is stopped');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Running_Stop_Continues" Id="{9c9e0a1a-c222-4293-a8b2-4e79122991df}">
+      <Declaration><![CDATA[// No axis reports motion but a stop is running (the axes brake in Stopping).
+METHOD PRIVATE Running_Stop_Continues
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Running_Stop_Continues');
+AssertTrue(Condition := BROTLib.F_SuspendStop(FALSE, TRUE, FALSE), Message := 'running stop goes on');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="At_Rest_No_Stop" Id="{491bb6cf-9b78-46f7-833c-8703dc494540}">
+      <Declaration><![CDATA[// Nothing moves, no stop running.
+METHOD PRIVATE At_Rest_No_Stop
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('At_Rest_No_Stop');
+AssertFalse(Condition := BROTLib.F_SuspendStop(FALSE, FALSE, FALSE), Message := 'at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_No_Stop" Id="{626dfc82-d9d0-4202-9923-ada57685e3a5}">
+      <Declaration><![CDATA[// An error: the drives are off, nothing to wait for.
+METHOD PRIVATE Error_No_Stop
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_No_Stop');
+AssertFalse(Condition := BROTLib.F_SuspendStop(TRUE, FALSE, TRUE), Message := 'error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Running_Stop_No_Stop" Id="{85254076-a5c2-4f2c-bac0-036c48fdf9a5}">
+      <Declaration><![CDATA[// An error while a stop was running: the drives are off.
+METHOD PRIVATE Error_Running_Stop_No_Stop
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Running_Stop_No_Stop');
+AssertFalse(Condition := BROTLib.F_SuspendStop(TRUE, TRUE, FALSE), Message := 'error with stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

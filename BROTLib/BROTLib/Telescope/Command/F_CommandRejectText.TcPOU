@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_CommandRejectText" Id="{48700eeb-cdbb-4e13-ac5e-9176bacdf94c}" SpecialFunc="None">
+    <Declaration><![CDATA[// #83: log text of a rejection reason ("<command> rejected: <text>").
+FUNCTION F_CommandRejectText : STRING(80)
+VAR_INPUT
+	eReason		: E_CommandRejectReason;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE eReason OF
+	E_CommandRejectReason.estop:			F_CommandRejectText := 'E-stop active';
+	E_CommandRejectReason.error:			F_CommandRejectText := 'error, send reset';
+	E_CommandRejectReason.clock_invalid:	F_CommandRejectText := 'clock not valid';
+	E_CommandRejectReason.stopping:			F_CommandRejectText := 'stop in progress';
+	E_CommandRejectReason.powering_on:		F_CommandRejectText := 'power-on in progress';
+	E_CommandRejectReason.parking:			F_CommandRejectText := 'park in progress';
+	E_CommandRejectReason.parked:			F_CommandRejectText := 'telescope parked, send power=1 first';
+	E_CommandRejectReason.not_ready:		F_CommandRejectText := 'not ready';
+	E_CommandRejectReason.gohome_active:	F_CommandRejectText := 'gohome in progress';
+ELSE
+	F_CommandRejectText := '';
+END_CASE
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

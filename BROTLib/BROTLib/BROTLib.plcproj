@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.10.3</ProjectVersion>
+    <ProjectVersion>0.12.0</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
@@ -149,6 +149,9 @@
     <Compile Include="POUs\FB_AstroClockSync.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_ExtSetpointActive.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_SetpointEnableExecute.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -218,6 +221,42 @@
     <Compile Include="Telescope\FB_RaDecTelescopeControl.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Telescope\Command\E_CommandDecision.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\E_CommandRejectReason.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\ST_CommandState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_CommandAcceptance.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_CommandRejectText.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_TCSCommandText.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_ErrorParkRequest.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_ResetMoveAbort.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_SuspendStop.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_GotoTargetCheck.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_TargetBelowHorizonWarning.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\Command\F_HomeBelowHorizon.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\ST_TelescopeConfig.TcDUT">
       <SubType>Code</SubType>
     </Compile>
@@ -231,6 +270,7 @@
     <Folder Include="DUTs" />
     <Folder Include="GVLs" />
     <Folder Include="Telescope" />
+    <Folder Include="Telescope\Command" />
     <Folder Include="POUs\Comm" />
     <Folder Include="POUs\Debug" />
     <Folder Include="POUs\Tracking" />

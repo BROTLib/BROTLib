@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_TCSCommandText" Id="{2e13d1b3-c16e-4e84-a119-dded8f41829c}" SpecialFunc="None">
+    <Declaration><![CDATA[// #83: name of a command for the rejection log line.
+FUNCTION F_TCSCommandText : STRING(16)
+VAR_INPUT
+	eCommand	: E_TCSCommand;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE eCommand OF
+	E_TCSCommand.gohome:	F_TCSCommandText := 'gohome';
+	E_TCSCommand.park:		F_TCSCommandText := 'park';
+	E_TCSCommand.track:		F_TCSCommandText := 'track';
+	E_TCSCommand.goto:		F_TCSCommandText := 'goto';
+	E_TCSCommand.stop:		F_TCSCommandText := 'stop';
+	E_TCSCommand.slew:		F_TCSCommandText := 'slew';
+	E_TCSCommand.poweron:	F_TCSCommandText := 'power';
+ELSE
+	F_TCSCommandText := 'command';
+END_CASE
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

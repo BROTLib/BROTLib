@@ -66,3 +66,9 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   MONETS/MONETN. **implemented** and released 2026-10-21 (BROTLib 0.10.0, HalfBROT 0.6.0, MONETcommon 0.9.4, MONETS
   1.4.3, MONETN 0.4.3, IAG50cm 0.4.1); on-site re-test open (MONETcommon#122)
 - [2026-10-22-focus-manual-home.md](2026-10-22-focus-manual-home.md) — manual re-home of a calibrated MONET focus through a `bManualHome` variable (XAE/ADS/program, not MQTT): cam homing, pure `FB_FocusManualHome` in HalfBROT tested in MONETcommonTests, `HomePending` guard, restore of the target, stop handling. **implemented** and released 2026-10-22 (HalfBROT 0.7.1, MONETcommon 0.9.7, MONETS 1.4.4, MONETN 1.4.4); on-site test on MONET/S open
+- [2026-10-22-stop-while-tracking-0x4257-101.md](2026-10-22-stop-while-tracking-0x4257-101.md) —
+  `stop=1` or a retarget `track` while tracking sends `MC_Stop` in the same cycle as `MC_ExtSetPointGenDisable`
+  (since MONETcommon 0.8.5), the NC rejects it with 0x4257 on all three axes (3 of 4 tries on MONET/S): `FB_Axis`
+  gates stop, move and jog on the generator being off (`F_MotionAllowed`, BROTLib 0.10.4), `_StopTelescope` restores
+  the one scan gap (MONETcommon 0.9.8), mock extended with an external setpoint model. **proposed**, nothing
+  implemented; open: gate source, same release for the dropped retarget track (BROTLib#101)

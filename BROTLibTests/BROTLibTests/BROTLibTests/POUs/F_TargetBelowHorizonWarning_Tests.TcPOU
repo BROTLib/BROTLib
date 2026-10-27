@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_TargetBelowHorizonWarning_Tests" Id="{c64ef8dc-602f-4b6d-96c7-711780fa9c07}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_TargetBelowHorizonWarning, the 'Target below safe horizon' condition (#94).
+FUNCTION_BLOCK F_TargetBelowHorizonWarning_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Idle_Stale_Target_Does_Not_Warn();
+Goto_Below_Horizon_Warns();
+Track_Below_Horizon_Warns();
+Target_Above_Horizon_Does_Not_Warn();
+Slew_Alone_Does_Not_Warn();
+Horizon_Boundary();
+]]></ST>
+    </Implementation>
+    <Method Name="Idle_Stale_Target_Does_Not_Warn" Id="{d5e00bc7-6c72-4684-bf15-9e2745721535}">
+      <Declaration><![CDATA[// Parked or idle telescope, stale RA/Dec target below the horizon: the case of #94.
+METHOD PRIVATE Idle_Stale_Target_Does_Not_Warn
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Idle_Stale_Target_Does_Not_Warn');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(FALSE, FALSE, -20.0, 1.0), Message := 'idle, target -20');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(FALSE, FALSE, 0.5, 1.0), Message := 'idle, target 0.5');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Goto_Below_Horizon_Warns" Id="{fe68277a-7a91-48b6-be93-807b4f232d66}">
+      <Declaration><![CDATA[METHOD PRIVATE Goto_Below_Horizon_Warns
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Goto_Below_Horizon_Warns');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, -20.0, 1.0), Message := 'goto, target -20');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 0.5, 1.0), Message := 'goto, target 0.5');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Track_Below_Horizon_Warns" Id="{0db86f49-ba7e-4afc-a078-99e64b60739f}">
+      <Declaration><![CDATA[METHOD PRIVATE Track_Below_Horizon_Warns
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Track_Below_Horizon_Warns');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(FALSE, TRUE, -20.0, 1.0), Message := 'track, target -20');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Target_Above_Horizon_Does_Not_Warn" Id="{3b276d68-e1a4-4129-a67a-b6c71be2dc9d}">
+      <Declaration><![CDATA[METHOD PRIVATE Target_Above_Horizon_Does_Not_Warn
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Target_Above_Horizon_Does_Not_Warn');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 45.0, 1.0), Message := 'goto, target 45');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(FALSE, TRUE, 45.0, 1.0), Message := 'track, target 45');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Slew_Alone_Does_Not_Warn" Id="{a1244cd3-cd9a-4aca-ad76-4e164b6a404a}">
+      <Declaration><![CDATA[// A slew is alt/az: a stale RA/Dec target below the horizon is irrelevant (bGoto and bTrack are FALSE).
+METHOD PRIVATE Slew_Alone_Does_Not_Warn
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Slew_Alone_Does_Not_Warn');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(FALSE, FALSE, -20.0, 1.0), Message := 'slew with stale target');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Horizon_Boundary" Id="{7cc9fe2f-eb27-4632-8b77-3a965188ddb2}">
+      <Declaration><![CDATA[// The comparison is strict: a target exactly at fHorizon does not warn.
+METHOD PRIVATE Horizon_Boundary
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Horizon_Boundary');
+AssertFalse(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 1.0, 1.0), Message := 'exactly at the horizon');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 0.99, 1.0), Message := 'just below the horizon');
+AssertTrue(Condition := BROTLib.F_TargetBelowHorizonWarning(TRUE, FALSE, 4.9, 5.0), Message := 'raised horizon 5');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
