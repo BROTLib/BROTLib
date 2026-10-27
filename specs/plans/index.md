@@ -72,3 +72,7 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   gates stop, move and jog on the generator being off (`F_MotionAllowed`, BROTLib 0.10.4), `_StopTelescope` restores
   the one scan gap (MONETcommon 0.9.8), mock extended with an external setpoint model. **proposed**, nothing
   implemented; open: gate source, same release for the dropped retarget track (BROTLib#101)
+- [2026-10-27-log-queue-138-139.md](2026-10-27-log-queue-138-139.md) —
+  log lines lost / late / out of order after a broker outage (T44): method-local `FB_EventLog` instances lose a refused
+  publish, per-instance retries do not keep the order. One shared log queue in `FB_Comm_MQTT_Influx` (`FB_LogQueue`),
+  drained only while connected. **implemented**, offline tests only, hardware check T44

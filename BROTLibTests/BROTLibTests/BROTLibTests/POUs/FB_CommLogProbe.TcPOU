@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_CommLogProbe" Id="{6d5dd9a9-1163-41d0-b320-9f8cc9438546}" SpecialFunc="None">
+    <Declaration><![CDATA[// FB_Comm_MQTT_Influx without a broker (BROTLib#138, #139): the link state is an input and every line that would go
+// to MQTT is recorded. A test calls PublishLog and _DrainLog directly; the body is not called, so there is no
+// host name lookup and no client.
+FUNCTION_BLOCK FB_CommLogProbe EXTENDS BROTLib.FB_Comm_MQTT_Influx
+VAR_INPUT
+	bLinkUp			: BOOL;
+	nFailNext		: INT;	// this many coming sends are refused, then accepted
+END_VAR
+VAR_OUTPUT
+	nSendCalls		: INT;	// every send, accepted or not
+	nSent			: INT;	// accepted
+	aSent			: ARRAY[1..16] OF STRING(255);	// the first accepted lines, in order
+	sLastSent		: STRING(255);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="_LogLinkUp" Id="{5a01d6b9-7c05-4044-a69d-a5f67c2a0cac}">
+      <Declaration><![CDATA[METHOD _LogLinkUp : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_LogLinkUp := bLinkUp;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_SendLogLine" Id="{6bb73c01-287a-4b4b-a2f0-c53e759beb3d}">
+      <Declaration><![CDATA[METHOD _SendLogLine : BOOL
+VAR_INPUT
+	sLine	: STRING(255);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSendCalls := nSendCalls + 1;
+IF nFailNext > 0 THEN
+	nFailNext := nFailNext - 1;
+	_SendLogLine := FALSE;
+	RETURN;
+END_IF
+nSent := nSent + 1;
+IF nSent <= 16 THEN
+	aSent[nSent] := sLine;
+END_IF
+sLastSent := sLine;
+_SendLogLine := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
