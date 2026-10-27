@@ -161,11 +161,11 @@ END_IF
 
 // STATUS
 IF bEstopTriggered THEN
-	fbComm.Publish('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', '1');
+	fbComm.PublishINT('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', 1);
 ELSIF bError THEN
-	fbComm.Publish('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', '2');
+	fbComm.PublishINT('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', 2);
 ELSE
-	fbComm.Publish('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', '0');
+	fbComm.PublishINT('telescope', 'dome', 'TELESCOPE.STATUS.GLOBAL', 0);
 END_IF
 (* ERROR LIST: TO BE IMPLEMENTED!!!*)
 
@@ -173,43 +173,43 @@ END_IF
 
 // INSTRUMENTAL
 // Set Coords from outside | GoTo:RA DEC | Slew:Alt Az
-fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.RA', LREAL_TO_STRING(fRightAscension));
-fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.DEC', LREAL_TO_STRING(fDeclination));
-fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.ALT', LREAL_TO_STRING(fElevation));
-fbComm.Publish('telescope', 'dome', 'OBJECT.INSTRUMENTAL.AZ', LREAL_TO_STRING(fAzimuth));
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.INSTRUMENTAL.RA', fRightAscension);
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.INSTRUMENTAL.DEC', fDeclination);
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.INSTRUMENTAL.ALT', fElevation);
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.INSTRUMENTAL.AZ', fAzimuth);
 
 // HORIZONTAL
 IF bSlew THEN
-	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.ALT', LREAL_TO_STRING(fElevation));
-	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.AZ', LREAL_TO_STRING(fAzimuth));
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.HORIZONTAL.ALT', fElevation);
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.HORIZONTAL.AZ', fAzimuth);
 ELSE
-	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.ALT', LREAL_TO_STRING(fElevationCalc));
-	fbComm.Publish('telescope', 'dome', 'OBJECT.HORIZONTAL.AZ', LREAL_TO_STRING(fAzimuthCalc));
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.HORIZONTAL.ALT', fElevationCalc);
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.HORIZONTAL.AZ', fAzimuthCalc);
 END_IF
 
 //EQUATORIAL
-fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.EPOCH', 'J2000.0');
-fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.EQUINOX', 'J2000.0');
-fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA_PM', '0.0');
-fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC_PM', '0.0');
-fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA_RATE', '0.0');
-fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC_RATE', '0.0');
+fbComm.PublishString('telescope', 'dome', 'OBJECT.EQUATORIAL.EPOCH', 'J2000.0');
+fbComm.PublishString('telescope', 'dome', 'OBJECT.EQUATORIAL.EQUINOX', 'J2000.0');
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.RA_PM', 0.0);
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC_PM', 0.0);
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.RA_RATE', 0.0);
+fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC_RATE', 0.0);
 // all angles in the telemetry are degrees, RA included, like the rightascension command (#37)
 IF bSlew THEN
-	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA', LREAL_TO_STRING(fRightAscensionCalc));
-	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC', LREAL_TO_STRING(fDeclinationCalc));
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.RA', fRightAscensionCalc);
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC', fDeclinationCalc);
 ELSE
-	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.RA', LREAL_TO_STRING(fRightAscension));
-	fbComm.Publish('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC', LREAL_TO_STRING(fDeclination));
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.RA', fRightAscension);
+	fbComm.PublishLREAL('telescope', 'dome', 'OBJECT.EQUATORIAL.DEC', fDeclination);
 END_IF
 
 (*POSITION*)
 //LOCAL
-fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.SIDEREAL_TIME', LREAL_TO_STRING(fLst));
-fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.JD', LREAL_TO_STRING(fJd));
-fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.LATITUDE', LREAL_TO_STRING(telescopeConfig.latitude));
-fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.LONGITUDE', LREAL_TO_STRING(telescopeConfig.longitude));
-fbComm.Publish('telescope', 'dome', 'POSITION.LOCAL.HEIGHT', LREAL_TO_STRING(telescopeConfig.altitude));
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.LOCAL.SIDEREAL_TIME', fLst);
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.LOCAL.JD', fJd);
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.LOCAL.LATITUDE', telescopeConfig.latitude);
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.LOCAL.LONGITUDE', telescopeConfig.longitude);
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.LOCAL.HEIGHT', telescopeConfig.altitude);
 ]]></ST>
       </Implementation>
     </Method>
@@ -228,15 +228,15 @@ END_IF
 // body), not on _PublishTelemetry's fast 1-5s cadence (#22)
 
 // INFO
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.NAME',	telescopeConfig.name);
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER',	LREAL_TO_STRING(telescopeConfig.diameter));
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.CABINET',	telescopeConfig.cabinet);
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', telescopeConfig.manufacturer);
+fbComm.PublishString('telescope', 'dome', 'TELESCOPE.INFO.NAME', telescopeConfig.name);
+fbComm.PublishLREAL('telescope', 'dome', 'TELESCOPE.INFO.DIAMETER', telescopeConfig.diameter);
+fbComm.PublishString('telescope', 'dome', 'TELESCOPE.INFO.CABINET', telescopeConfig.cabinet);
+fbComm.PublishString('telescope', 'dome', 'TELESCOPE.INFO.MANUFACTURER', telescopeConfig.manufacturer);
 
 // CONFIG
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', '0'); // no ST_TelescopeConfig field for this yet
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', telescopeConfig.mountOptions);
-fbComm.Publish('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', telescopeConfig.mount);
+fbComm.PublishINT('telescope', 'dome', 'TELESCOPE.CONFIG.CAPABILITIES', 0); // no ST_TelescopeConfig field for this yet
+fbComm.PublishString('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNTOPTIONS', telescopeConfig.mountOptions);
+fbComm.PublishString('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', telescopeConfig.mount);
 ]]></ST>
       </Implementation>
     </Method>

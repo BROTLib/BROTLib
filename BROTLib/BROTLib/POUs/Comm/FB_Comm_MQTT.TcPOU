@@ -152,7 +152,68 @@ END_VAR
       </Implementation>
     </Method>
     <Method Name="Publish" Id="{8c84bc73-5131-48d3-9d98-8c3aca716aef}">
-      <Declaration><![CDATA[METHOD Publish : BOOL
+      <Declaration><![CDATA[{attribute 'deprecated' := 'use PublishLREAL, PublishINT, PublishBOOL or PublishString: the type is decided at the call site (BROTLib#4)'}
+METHOD Publish : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: STRING(255);
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLREAL" Id="{f0f1224b-4581-4d37-ac41-649c5b0d442b}">
+      <Declaration><![CDATA[METHOD PublishLREAL : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: LREAL;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishINT" Id="{13552e64-1019-4d57-aa9f-69c42ed2495c}">
+      <Declaration><![CDATA[METHOD PublishINT : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: LINT;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishBOOL" Id="{79b241cd-a642-4c2f-a0b5-70950cfb49a3}">
+      <Declaration><![CDATA[METHOD PublishBOOL : BOOL
+VAR_INPUT
+	domain			: STRING(255) := 'environment';
+	location		: STRING(255) := 'roof';
+	parameter		: STRING(255);
+	value			: BOOL;
+END_VAR
+VAR_OUTPUT
+	published	: BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishString" Id="{2c6c4e4d-e7a3-4aed-8d33-2edd89b1e6c6}">
+      <Declaration><![CDATA[METHOD PublishString : BOOL
 VAR_INPUT
 	domain			: STRING(255) := 'environment';
 	location		: STRING(255) := 'roof';

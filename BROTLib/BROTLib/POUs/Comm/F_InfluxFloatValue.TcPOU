@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_InfluxFloatValue" Id="{65e837f0-c051-429a-90a9-2430d071b0b9}" SpecialFunc="None">
+    <Declaration><![CDATA[// Float field value of a typed publisher (PublishLREAL), BROTLib#4: LREAL_TO_STRING with no 'i', so a whole number
+// (15.0 prints '15') stays a float. Empty for NaN and infinity: line protocol has no such value, the caller does not
+// publish the point.
+FUNCTION F_InfluxFloatValue : STRING(255)
+VAR_INPUT
+	fValue		: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// written this way round so that NaN, which fails every comparison, is rejected too
+IF fValue >= -1.7976931348623157E308 AND fValue <= 1.7976931348623157E308 THEN
+	F_InfluxFloatValue := LREAL_TO_STRING(fValue);
+ELSE
+	F_InfluxFloatValue := '';
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

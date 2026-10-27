@@ -122,6 +122,15 @@
     <Compile Include="POUs\Comm\F_InfluxFieldValue.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Comm\F_InfluxFloatValue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_InfluxIntValue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Comm\F_InfluxStringValue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Comm\F_InfluxTimestamp.TcPOU">
       <SubType>Code</SubType>
     </Compile>
