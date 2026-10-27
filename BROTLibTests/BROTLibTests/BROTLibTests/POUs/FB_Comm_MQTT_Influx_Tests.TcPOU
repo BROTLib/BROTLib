@@ -724,10 +724,13 @@ END_VAR
 IF NOT bWeather_Initially_Invalid THEN
 	bWeather_Initially_Invalid := TRUE;
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Initially_Invalid tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertFalse(Condition := stW.bTemperatureValid, Message := 'temperature valid');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Initially_Invalid tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertFalse(Condition := stW.bPressureValid, Message := 'pressure valid');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Initially_Invalid tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertFalse(Condition := stW.bHumidityValid, Message := 'humidity valid');
 	TEST_FINISHED();
 END_IF
@@ -745,12 +748,16 @@ IF NOT bWeather_Temperature_Accepted THEN
 	bWeather_Temperature_Accepted := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=12.5');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Temperature_Accepted tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 12.5, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Temperature_Accepted tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertTrue(Condition := stW.bTemperatureValid, Message := 'temperature valid');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Temperature_Accepted tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertFalse(Condition := stW.bPressureValid, Message := 'pressure still invalid');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Temperature_Accepted tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertFalse(Condition := stW.bHumidityValid, Message := 'humidity still invalid');
 	TEST_FINISHED();
 END_IF
@@ -769,8 +776,10 @@ IF NOT bWeather_Zero_Celsius_Is_Valid THEN
 	bWeather_Zero_Celsius_Is_Valid := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=0');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Zero_Celsius_Is_Valid tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertTrue(Condition := stW.bTemperatureValid, Message := '0 deg C is a value, not no data');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Zero_Celsius_Is_Valid tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 0.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature');
 	TEST_FINISHED();
 END_IF
@@ -788,12 +797,16 @@ IF NOT bWeather_Multi_Field_Message THEN
 	bWeather_Multi_Field_Message := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10,pressure=800,humidity=40');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Multi_Field_Message tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Multi_Field_Message tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 800.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := 'pressure');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Multi_Field_Message tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 40.0, Actual := stW.fHumidity, Delta := 1.0E-9, Message := 'humidity');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Multi_Field_Message tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertTrue(Condition := stW.bTemperatureValid AND stW.bPressureValid AND stW.bHumidityValid, Message := 'all valid');
 	TEST_FINISHED();
 END_IF
@@ -816,12 +829,16 @@ IF NOT bWeather_Rejects_Garbage_Keeps_Previous THEN
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=29.9');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=150');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Rejects_Garbage_Keeps_Previous tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'temperature kept (text and Kelvin rejected)');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Rejects_Garbage_Keeps_Previous tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 800.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := 'pressure kept (kPa and inHg rejected)');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Rejects_Garbage_Keeps_Previous tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 40.0, Actual := stW.fHumidity, Delta := 1.0E-9, Message := 'humidity kept (150 % rejected)');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Rejects_Garbage_Keeps_Previous tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertTrue(Condition := stW.bTemperatureValid AND stW.bPressureValid AND stW.bHumidityValid, Message := 'still valid');
 	TEST_FINISHED();
 END_IF
@@ -839,15 +856,19 @@ IF NOT bWeather_Pressure_Range THEN
 	bWeather_Pressure_Range := TRUE;
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=300');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Pressure_Range tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 300.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := '300 hPa accepted');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=0');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Pressure_Range tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 300.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := '0 is not a pressure any more');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=1100');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Pressure_Range tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 1100.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := '1100 hPa accepted');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=1100.5');
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Pressure_Range tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertEquals_LREAL(Expected := 1100.0, Actual := stW.fPressure, Delta := 1.0E-9, Message := 'above 1100 rejected');
 	TEST_FINISHED();
 END_IF
@@ -870,10 +891,12 @@ IF NOT bWeather_Stale_Per_Field THEN
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10,humidity=40');
 	fbW._UpdateWeather();	// both were received since the last call: nothing is stale
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Stale_Per_Field tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertTrue(Condition := stW.bTemperatureValid AND stW.bHumidityValid, Message := 'received this cycle: valid');
 	fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=41');
 	fbW._UpdateWeather();	// only the humidity is new: the temperature is stale
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Stale_Per_Field tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertFalse(Condition := stW.bTemperatureValid, Message := 'temperature is stale');
 	AssertTrue(Condition := stW.bHumidityValid, Message := 'humidity is still valid');
 	AssertEquals_LREAL(Expected := 10.0, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'stale value is kept');
@@ -881,6 +904,7 @@ IF NOT bWeather_Stale_Per_Field THEN
 	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=-3.5,humidity=42');
 	fbW._UpdateWeather();
 	stW := fbW.Weather;
+	ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'DIAGC %s', CONCAT(CONCAT(CONCAT(CONCAT('Weather_Stale_Per_Field tv=', BOOL_TO_STRING(stW.bTemperatureValid)), CONCAT(' t=', LREAL_TO_STRING(stW.fTemperature))), CONCAT(CONCAT(' pv=', BOOL_TO_STRING(stW.bPressureValid)), CONCAT(' p=', LREAL_TO_STRING(stW.fPressure)))), CONCAT(CONCAT(' hv=', BOOL_TO_STRING(stW.bHumidityValid)), CONCAT(' h=', LREAL_TO_STRING(stW.fHumidity)))));
 	AssertTrue(Condition := stW.bTemperatureValid, Message := 'temperature valid again');
 	AssertEquals_LREAL(Expected := -3.5, Actual := stW.fTemperature, Delta := 1.0E-9, Message := 'new value');
 	TEST_FINISHED();
