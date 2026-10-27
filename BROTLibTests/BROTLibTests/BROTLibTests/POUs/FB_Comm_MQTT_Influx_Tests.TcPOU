@@ -42,6 +42,16 @@ VAR
 	bFocus_Range_Not_Checked_When_Not_Online	: BOOL;
 	bStop_Command_Does_Not_Stop_Focus_Directly	: BOOL;
 	bPublishLog_Too_Long_Is_Counted	: BOOL;
+	fbW		: BROTLib.FB_Comm_MQTT_Influx;	// own instance for the weather tests
+	tonWeather	: TON;
+	nWeatherStep	: INT;
+	bWeather_Initially_Invalid	: BOOL;
+	bWeather_Temperature_Accepted	: BOOL;
+	bWeather_Zero_Celsius_Is_Valid	: BOOL;
+	bWeather_Multi_Field_Message	: BOOL;
+	bWeather_Rejects_Garbage_Keeps_Previous	: BOOL;
+	bWeather_Pressure_Range	: BOOL;
+	bWeather_Stale_Per_Field	: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -80,6 +90,13 @@ Focus_OutOfRange_Keeps_Old_Target();
 Focus_Range_Not_Checked_When_Not_Online();
 Stop_Command_Does_Not_Stop_Focus_Directly();
 PublishLog_Too_Long_Is_Counted();
+Weather_Initially_Invalid();
+Weather_Temperature_Accepted();
+Weather_Zero_Celsius_Is_Valid();
+Weather_Multi_Field_Message();
+Weather_Rejects_Garbage_Keeps_Previous();
+Weather_Pressure_Range();
+Weather_Stale_Per_Field();
 ]]></ST>
     </Implementation>
     <Method Name="ResetHandler" Id="{e4163f5e-60d4-4240-b519-3bcc1b5eb9d9}">
@@ -694,6 +711,166 @@ IF NOT bPublishLog_Too_Long_Is_Counted THEN
 	AssertEquals_INT(Expected := nBefore + 1, Actual := fbComm.logDropped, Message := 'logDropped');
 	TEST_FINISHED();
 END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Initially_Invalid" Id="{df32cd46-99fa-4877-b0ca-975ba6fc03f9}">
+      <Declaration><![CDATA[// BROTLib#33: a fresh handler has no weather; nothing is valid.
+METHOD PRIVATE Weather_Initially_Invalid
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Initially_Invalid');
+IF NOT bWeather_Initially_Invalid THEN
+	bWeather_Initially_Invalid := TRUE;
+	AssertFalse(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature valid');
+	AssertFalse(Condition := fbW.Weather.bPressureValid, Message := 'pressure valid');
+	AssertFalse(Condition := fbW.Weather.bHumidityValid, Message := 'humidity valid');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Temperature_Accepted" Id="{81588745-c0dd-42c1-a4ba-a8b79b44cd88}">
+      <Declaration><![CDATA[METHOD PRIVATE Weather_Temperature_Accepted
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Temperature_Accepted');
+IF NOT bWeather_Temperature_Accepted THEN
+	bWeather_Temperature_Accepted := TRUE;
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=12.5');
+	AssertEquals_LREAL(Expected := 12.5, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature');
+	AssertTrue(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature valid');
+	AssertFalse(Condition := fbW.Weather.bPressureValid, Message := 'pressure still invalid');
+	AssertFalse(Condition := fbW.Weather.bHumidityValid, Message := 'humidity still invalid');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Zero_Celsius_Is_Valid" Id="{326882fa-20b9-4721-961d-fa8d9ba9346b}">
+      <Declaration><![CDATA[// The old 0.0 sentinel made 0 deg C indistinguishable from "nothing received" (AstroBROT#4 made 0 deg C a valid temperature).
+METHOD PRIVATE Weather_Zero_Celsius_Is_Valid
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Zero_Celsius_Is_Valid');
+IF NOT bWeather_Zero_Celsius_Is_Valid THEN
+	bWeather_Zero_Celsius_Is_Valid := TRUE;
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=0');
+	AssertTrue(Condition := fbW.Weather.bTemperatureValid, Message := '0 deg C is a value, not no data');
+	AssertEquals_LREAL(Expected := 0.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Multi_Field_Message" Id="{60c2be9c-220a-4c6e-9818-fd0b8f84243a}">
+      <Declaration><![CDATA[METHOD PRIVATE Weather_Multi_Field_Message
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Multi_Field_Message');
+IF NOT bWeather_Multi_Field_Message THEN
+	bWeather_Multi_Field_Message := TRUE;
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10,pressure=800,humidity=40');
+	AssertEquals_LREAL(Expected := 10.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature');
+	AssertEquals_LREAL(Expected := 800.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := 'pressure');
+	AssertEquals_LREAL(Expected := 40.0, Actual := fbW.Weather.fHumidity, Delta := 1.0E-9, Message := 'humidity');
+	AssertTrue(Condition := fbW.Weather.bTemperatureValid AND fbW.Weather.bPressureValid AND fbW.Weather.bHumidityValid, Message := 'all valid');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Rejects_Garbage_Keeps_Previous" Id="{061b162e-60b1-4d99-b8c6-e154b515583c}">
+      <Declaration><![CDATA[METHOD PRIVATE Weather_Rejects_Garbage_Keeps_Previous
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Rejects_Garbage_Keeps_Previous');
+IF NOT bWeather_Rejects_Garbage_Keeps_Previous THEN
+	bWeather_Rejects_Garbage_Keeps_Previous := TRUE;
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10,pressure=800,humidity=40');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=abc');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=283');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=101.3');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=29.9');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=150');
+	AssertEquals_LREAL(Expected := 10.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'temperature kept (text and Kelvin rejected)');
+	AssertEquals_LREAL(Expected := 800.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := 'pressure kept (kPa and inHg rejected)');
+	AssertEquals_LREAL(Expected := 40.0, Actual := fbW.Weather.fHumidity, Delta := 1.0E-9, Message := 'humidity kept (150 % rejected)');
+	AssertTrue(Condition := fbW.Weather.bTemperatureValid AND fbW.Weather.bPressureValid AND fbW.Weather.bHumidityValid, Message := 'still valid');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Pressure_Range" Id="{6a6716c4-11ed-46b7-9270-f12709ba6020}">
+      <Declaration><![CDATA[METHOD PRIVATE Weather_Pressure_Range
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Pressure_Range');
+IF NOT bWeather_Pressure_Range THEN
+	bWeather_Pressure_Range := TRUE;
+	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=300');
+	AssertEquals_LREAL(Expected := 300.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := '300 hPa accepted');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=0');
+	AssertEquals_LREAL(Expected := 300.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := '0 is not a pressure any more');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=1100');
+	AssertEquals_LREAL(Expected := 1100.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := '1100 hPa accepted');
+	fbW._handleMQTTMessage(sPayloadRcv := 'command pressure=1100.5');
+	AssertEquals_LREAL(Expected := 1100.0, Actual := fbW.Weather.fPressure, Delta := 1.0E-9, Message := 'above 1100 rejected');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Weather_Stale_Per_Field" Id="{15eb3ce9-8a50-4be4-92c3-b2695a14ba5a}">
+      <Declaration><![CDATA[// BROTLib#33: staleness is per field; a fresh humidity must not keep a frozen temperature fresh (the old shared timer did).
+// Runs over several cycles: temperature once, humidity every cycle, timeout 200 ms.
+METHOD PRIVATE Weather_Stale_Per_Field
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Weather_Stale_Per_Field');
+IF NOT bWeather_Stale_Per_Field THEN
+	CASE nWeatherStep OF
+	0:
+		fbW.tWeatherTimeout := T#200MS;
+		fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=10');
+		nWeatherStep := 1;
+	1:
+		fbW._handleMQTTMessage(sPayloadRcv := 'command humidity=40');
+		fbW._UpdateWeather();
+		tonWeather(IN := TRUE, PT := T#600MS);
+		IF tonWeather.Q THEN
+			AssertFalse(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature is stale');
+			AssertTrue(Condition := fbW.Weather.bHumidityValid, Message := 'humidity is still valid');
+			AssertEquals_LREAL(Expected := 10.0, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'stale value is kept');
+			nWeatherStep := 2;
+		END_IF
+	2:
+		// a field that went stale is valid again with its next accepted value
+		fbW._handleMQTTMessage(sPayloadRcv := 'command temperature=-3.5');
+		fbW._UpdateWeather();
+		AssertTrue(Condition := fbW.Weather.bTemperatureValid, Message := 'temperature valid again');
+		AssertEquals_LREAL(Expected := -3.5, Actual := fbW.Weather.fTemperature, Delta := 1.0E-9, Message := 'new value');
+		bWeather_Stale_Per_Field := TRUE;
+		nWeatherStep := 0;
+		tonWeather(IN := FALSE);
+		TEST_FINISHED();
+	END_CASE
+	END_IF
 ]]></ST>
       </Implementation>
     </Method>
