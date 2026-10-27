@@ -23,6 +23,7 @@ Home_Call_Is_Accepted_While_Idle();
 Stop_Twice_In_One_Scan();
 Stop_Repeated_Next_Scan();
 Ignored_Stop_Still_Cancels_Move();
+Stop_On_Axis_Not_Allowed_Stays_Pending_Until_Reset();
 ]]></ST>
     </Implementation>
     <Method Name="SetActPos" Id="{2b7e4c91-8d35-4f06-a1c8-9e3d5b70f214}">
@@ -300,6 +301,35 @@ fbAxis.Stop();
 fbAxis.MoveTo();
 fbAxis.Stop();
 AssertFalse(Condition := fbAxis.MovePending, Message := 'the ignored Stop() cancelled the pending move');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_On_Axis_Not_Allowed_Stays_Pending_Until_Reset" Id="{0ab53c8f-1969-49e4-91b4-c44e91261ea9}">
+      <Declaration><![CDATA[// MONETcommon#150, characterisation of today's behaviour: the AXIS_REF has no NC behind it, so no axis state is set and
+// StopAllowed is FALSE, like an axis that is not enabled yet. A Stop() on such an axis is latched in StopCommand and
+// waits for Allowed with no timeout; it is not dropped by time or by the stop being "done". It starts as soon as the axis
+// reaches StandStill (the next power-on), which the NC refuses with 0x42EF. Only Reset drops it. If a fix drops the
+// request on a disabled axis, this test is the one to change.
+METHOD PRIVATE Stop_On_Axis_Not_Allowed_Stays_Pending_Until_Reset
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+	n		: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_On_Axis_Not_Allowed_Stays_Pending_Until_Reset');
+fbAxis(AxisRef := axisRef);
+fbAxis.Stop();
+FOR n := 1 TO 50 DO
+	fbAxis(AxisRef := axisRef);
+END_FOR
+AssertTrue(Condition := fbAxis.StopCommand.Pending, Message := 'the stop request is still pending after 50 scans');
+AssertFalse(Condition := fbAxis.StopCommand.Execute, Message := 'MC_Stop is not started on an axis that is not allowed');
+fbAxis(AxisRef := axisRef, Reset := TRUE);
+fbAxis(AxisRef := axisRef, Reset := FALSE);
+AssertFalse(Condition := fbAxis.StopCommand.Pending, Message := 'Reset drops the request');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
