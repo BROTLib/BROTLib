@@ -108,6 +108,8 @@ METHOD PRIVATE Queue_Wraparound_Keeps_Order
 VAR
 	i : INT;
 	bOrder : BOOL := TRUE;
+	sExpected : STRING(255);
+	sActual : STRING(255);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -125,7 +127,9 @@ IF NOT bQueue_Wraparound_Keeps_Order THEN
 	END_FOR
 	AssertEquals_UINT(Expected := 20, Actual := q2.nCount, Message := 'count');
 	FOR i := 1 TO 20 DO
-		IF q2.Peek() <> CONCAT('M', INT_TO_STRING(i)) THEN
+		sExpected := CONCAT('M', INT_TO_STRING(i));
+		sActual := q2.Peek();
+		IF sActual <> sExpected THEN
 			bOrder := FALSE;
 		END_IF
 		q2.Pop();
