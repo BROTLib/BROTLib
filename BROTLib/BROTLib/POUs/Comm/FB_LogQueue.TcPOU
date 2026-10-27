@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_LogQueue" Id="{dc606e55-5a77-46d6-b375-5e304adde565}" SpecialFunc="None">
+    <Declaration><![CDATA[// Ring buffer of finished log lines, oldest first (BROTLib#138, #139). FB_Comm_MQTT_Influx.PublishLog pushes every
+// line here and sends from the queue while the broker is connected, so a line is kept while the broker is away
+// and all event logs share one order. Plain data structure, no MQTT in here.
+FUNCTION_BLOCK FB_LogQueue
+VAR_OUTPUT
+	nCount			: UINT;		// lines waiting
+	nHighWater		: UINT;		// largest nCount seen
+	nOverwritten	: UDINT;	// lines pushed out because the queue was full
+	sOverwritten	: STRING(255);	// the line pushed out last
+END_VAR
+VAR CONSTANT
+	LOG_QUEUE_SIZE	: UINT := 128;
+END_VAR
+VAR
+	aLine			: ARRAY[0..LOG_QUEUE_SIZE - 1] OF STRING(255);
+	nHead			: UINT;		// index of the oldest line
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Push" Id="{c824ffad-f096-46b8-9941-05c47d8a3fce}">
+      <Declaration><![CDATA[// Appends a line. A full queue loses its oldest line first: TRUE = a line was pushed out (kept in sOverwritten).
+METHOD Push : BOOL
+VAR_INPUT
+	sLine	: STRING(255);
+END_VAR
+VAR
+	nTail	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Push := FALSE;
+IF nCount >= LOG_QUEUE_SIZE THEN
+	sOverwritten := aLine[nHead];
+	nHead := (nHead + 1) MOD LOG_QUEUE_SIZE;
+	nCount := nCount - 1;
+	IF nOverwritten < 4294967295 THEN
+		nOverwritten := nOverwritten + 1;
+	END_IF
+	Push := TRUE;
+END_IF
+
+nTail := (nHead + nCount) MOD LOG_QUEUE_SIZE;
+aLine[nTail] := sLine;
+nCount := nCount + 1;
+IF nCount > nHighWater THEN
+	nHighWater := nCount;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Peek" Id="{7d53c0da-a954-494a-a897-8d5c19b194c2}">
+      <Declaration><![CDATA[// The oldest line, left in the queue; '' if the queue is empty.
+METHOD Peek : STRING(255)
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF nCount > 0 THEN
+	Peek := aLine[nHead];
+ELSE
+	Peek := '';
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Pop" Id="{54a9a887-f4dc-4d81-bbb6-efebfb0261ff}">
+      <Declaration><![CDATA[// Removes the oldest line; nothing to do on an empty queue.
+METHOD Pop
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF nCount > 0 THEN
+	aLine[nHead] := '';
+	nHead := (nHead + 1) MOD LOG_QUEUE_SIZE;
+	nCount := nCount - 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

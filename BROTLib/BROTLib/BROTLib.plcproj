@@ -143,6 +143,9 @@
     <Compile Include="POUs\Comm\F_TruncateInfluxEscaped.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Comm\FB_LogQueue.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Comm\I_Comm.TcIO">
       <SubType>Code</SubType>
     </Compile>

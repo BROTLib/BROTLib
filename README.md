@@ -208,8 +208,9 @@ organised into four layers:
 ### Communication and telemetry
 
 - **`I_Comm` / `FB_Comm_MQTT`** — abstract MQTT client built on
-  `Tc3_IotCommunicator`. `PublishLog` returns TRUE when the line was delivered or
-  queued, FALSE when it was not accepted; the caller may retry.
+  `Tc3_IotCommunicator`. `PublishLog` returns TRUE when the line was accepted (sent, or kept
+  in the log queue of `FB_Comm_MQTT_Influx` until the broker is connected), FALSE when it was
+  not (the line cannot be formed); the caller may retry.
 - **`FB_Comm_MQTT_Influx`** — concrete MQTT + InfluxDB telemetry publisher.
   Publishes measurements in Influx line protocol; used by every BROT
   application (topics such as `MONETN/Telemetry`, `50cm/Telemetry`, ...).
@@ -232,7 +233,14 @@ organised into four layers:
   `I_Comm.PublishLog` returns FALSE, up to `nMaxRetries` (default 30, 0 = until
   delivered). `Pending` shows a waiting event, `nNotDelivered` counts events
   given up or replaced before delivery, each with an ADS warning (BROTLib#130).
-  `FB_Comm_MQTT_Influx` counts failed log publishes in `logFailed` / `logDropped`.
+  `FB_Comm_MQTT_Influx` keeps every log line in one shared queue (`FB_LogQueue`, 128 lines) and
+  sends it, in the order it was logged, only while the broker is connected (BROTLib#138, #139).
+  A full queue loses its oldest line: `logLost` counts it, an ADS warning is written, and one
+  `WARNING` line on the log topic tells the subscribers how many lines are missing. `logQueued` /
+  `logQueuedMax` show the fill level, `logFailed` the refused sends (the line is kept),
+  `logDropped` lines that are too long. Lines never sent = `logLost` + `logDropped`. Because the
+  comm keeps the line, an `FB_EventLog` in a method `VAR` is safe. The queue is not task-safe:
+  call `PublishLog` only from the task that runs the comm.
 
 The incoming command layer parses `command` measurements and dispatches the
 telescope/auxiliary commands (`power`, `park`, `gohome`, `track`, `slew`,

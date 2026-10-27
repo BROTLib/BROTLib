@@ -1,0 +1,502 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_LogQueue_Tests" Id="{6977c336-aa04-4725-8169-63a1125356f7}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for the shared MQTT log queue (BROTLib#138, #139): FB_LogQueue itself, the draining of FB_Comm_MQTT_Influx
+// (seen through FB_CommLogProbe, which has no broker) and FB_EventLog on top of it. The queues and probes are
+// members, not method locals: each holds 128 lines of 255 characters. Every test body runs once.
+FUNCTION_BLOCK FB_LogQueue_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	q1	: BROTLib.FB_LogQueue;
+	q2	: BROTLib.FB_LogQueue;
+	q3	: BROTLib.FB_LogQueue;
+	q4	: BROTLib.FB_LogQueue;
+	q5	: BROTLib.FB_LogQueue;
+	pr1	: FB_CommLogProbe;
+	pr2	: FB_CommLogProbe;
+	pr3	: FB_CommLogProbe;
+	pr4	: FB_CommLogProbe;
+	pr5	: FB_CommLogProbe;
+	pr6	: FB_CommLogProbe;
+	pr7	: FB_CommLogProbe;
+	pr8	: FB_CommLogProbe;
+	pr9	: FB_CommLogProbe;
+	pr10	: FB_CommLogProbe;
+	bQueue_Fifo_Order	: BOOL;
+	bQueue_Wraparound_Keeps_Order	: BOOL;
+	bQueue_Full_Overwrites_Oldest	: BOOL;
+	bQueue_HighWater_Tracks_Max	: BOOL;
+	bQueue_Pop_On_Empty_Is_Safe	: BOOL;
+	bPublishLog_Link_Down_Queues_And_Returns_TRUE	: BOOL;
+	bDrain_Sends_In_Order_After_Link_Up	: BOOL;
+	bDrain_Respects_Per_Cycle_Limit	: BOOL;
+	bSend_Failure_Keeps_Head_And_Order	: BOOL;
+	bLink_Down_Mid_Burst_Stops_Sending	: BOOL;
+	bOverflow_Counts_Lost_And_Announces_Once	: BOOL;
+	bToo_Long_Line_Is_Not_Queued	: BOOL;
+	bEventLog_Is_Not_Pending_While_Broker_Is_Away	: BOOL;
+	bMethod_Local_Event_Logs_Are_Delivered	: BOOL;
+	bTwo_Event_Logs_Keep_Edge_Order	: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Queue_Fifo_Order();
+Queue_Wraparound_Keeps_Order();
+Queue_Full_Overwrites_Oldest();
+Queue_HighWater_Tracks_Max();
+Queue_Pop_On_Empty_Is_Safe();
+PublishLog_Link_Down_Queues_And_Returns_TRUE();
+Drain_Sends_In_Order_After_Link_Up();
+Drain_Respects_Per_Cycle_Limit();
+Send_Failure_Keeps_Head_And_Order();
+Link_Down_Mid_Burst_Stops_Sending();
+Overflow_Counts_Lost_And_Announces_Once();
+Too_Long_Line_Is_Not_Queued();
+EventLog_Is_Not_Pending_While_Broker_Is_Away();
+Method_Local_Event_Logs_Are_Delivered();
+Two_Event_Logs_Keep_Edge_Order();
+]]></ST>
+    </Implementation>
+    <Method Name="FireOnce" Id="{4f1e3075-a790-469c-b6e3-7bc263c90ab4}">
+      <Declaration><![CDATA[// Stands for a method of the PLC program with an FB_EventLog in its VAR: the instance is new on every call and gone
+// after it, so nothing it kept in its own slots survives (the progress events of IAG50cm).
+METHOD PRIVATE FireOnce
+VAR_INPUT
+	comm		: BROTLib.I_Comm;
+	sMessage	: STRING(255);
+END_VAR
+VAR
+	fbLog	: BROTLib.FB_EventLog;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbLog.Comm := comm;
+fbLog.OnMessage := sMessage;
+fbLog.Trigger := TRUE;
+fbLog();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Queue_Fifo_Order" Id="{7f400a3f-5895-4184-9ab8-f0c8b5917d7c}">
+      <Declaration><![CDATA[// Lines leave the queue in the order they were pushed.
+METHOD PRIVATE Queue_Fifo_Order
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Queue_Fifo_Order');
+IF NOT bQueue_Fifo_Order THEN
+	bQueue_Fifo_Order := TRUE;
+	AssertFalse(Condition := q1.Push('a'), Message := 'push overwrote');
+	q1.Push('b');
+	q1.Push('c');
+	AssertEquals_UINT(Expected := 3, Actual := q1.nCount, Message := 'count');
+	AssertEquals_STRING(Expected := 'a', Actual := q1.Peek(), Message := 'first');
+	q1.Pop();
+	AssertEquals_STRING(Expected := 'b', Actual := q1.Peek(), Message := 'second');
+	q1.Pop();
+	AssertEquals_STRING(Expected := 'c', Actual := q1.Peek(), Message := 'third');
+	q1.Pop();
+	AssertEquals_UINT(Expected := 0, Actual := q1.nCount, Message := 'empty');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Queue_Wraparound_Keeps_Order" Id="{a3d689de-3c4a-4691-9e64-759eff3dfc44}">
+      <Declaration><![CDATA[// The ring buffer wraps around its end and still gives the lines in order.
+METHOD PRIVATE Queue_Wraparound_Keeps_Order
+VAR
+	i : INT;
+	bOrder : BOOL := TRUE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Queue_Wraparound_Keeps_Order');
+IF NOT bQueue_Wraparound_Keeps_Order THEN
+	bQueue_Wraparound_Keeps_Order := TRUE;
+	FOR i := 1 TO 120 DO
+		q2.Push(CONCAT('L', INT_TO_STRING(i)));
+	END_FOR
+	FOR i := 1 TO 120 DO
+		q2.Pop();
+	END_FOR
+	FOR i := 1 TO 20 DO
+		q2.Push(CONCAT('M', INT_TO_STRING(i)));
+	END_FOR
+	AssertEquals_UINT(Expected := 20, Actual := q2.nCount, Message := 'count');
+	FOR i := 1 TO 20 DO
+		IF q2.Peek() <> CONCAT('M', INT_TO_STRING(i)) THEN
+			bOrder := FALSE;
+		END_IF
+		q2.Pop();
+	END_FOR
+	AssertTrue(Condition := bOrder, Message := 'order');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Queue_Full_Overwrites_Oldest" Id="{1f1b2a16-4aaf-4a7a-812b-6d1aef14d84e}">
+      <Declaration><![CDATA[// A full queue loses its oldest line, reports it and keeps the rest in order.
+METHOD PRIVATE Queue_Full_Overwrites_Oldest
+VAR
+	i : INT;
+	bOverwrote : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Queue_Full_Overwrites_Oldest');
+IF NOT bQueue_Full_Overwrites_Oldest THEN
+	bQueue_Full_Overwrites_Oldest := TRUE;
+	FOR i := 1 TO 128 DO
+		q3.Push(CONCAT('L', INT_TO_STRING(i)));
+	END_FOR
+	AssertEquals_UINT(Expected := 128, Actual := q3.nCount, Message := 'count when full');
+	AssertEquals_UDINT(Expected := 0, Actual := q3.nOverwritten, Message := 'nOverwritten when full');
+	bOverwrote := q3.Push('L129');
+	AssertTrue(Condition := bOverwrote, Message := 'push on a full queue reports it');
+	q3.Push('L130');
+	AssertEquals_UINT(Expected := 128, Actual := q3.nCount, Message := 'count after overflow');
+	AssertEquals_UDINT(Expected := 2, Actual := q3.nOverwritten, Message := 'nOverwritten');
+	AssertEquals_STRING(Expected := 'L2', Actual := q3.sOverwritten, Message := 'last line pushed out');
+	AssertEquals_STRING(Expected := 'L3', Actual := q3.Peek(), Message := 'oldest line left');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Queue_HighWater_Tracks_Max" Id="{dc797cdd-c62b-400a-9eff-514e70b39086}">
+      <Declaration><![CDATA[// nHighWater keeps the largest fill level.
+METHOD PRIVATE Queue_HighWater_Tracks_Max
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Queue_HighWater_Tracks_Max');
+IF NOT bQueue_HighWater_Tracks_Max THEN
+	bQueue_HighWater_Tracks_Max := TRUE;
+	q4.Push('a');
+	q4.Push('b');
+	q4.Push('c');
+	q4.Push('d');
+	q4.Push('e');
+	q4.Pop();
+	q4.Pop();
+	q4.Pop();
+	q4.Push('f');
+	AssertEquals_UINT(Expected := 3, Actual := q4.nCount, Message := 'count');
+	AssertEquals_UINT(Expected := 5, Actual := q4.nHighWater, Message := 'high water');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Queue_Pop_On_Empty_Is_Safe" Id="{7db467f7-243d-4eaf-b116-34a895e48dd0}">
+      <Declaration><![CDATA[// Pop and Peek on an empty queue change nothing.
+METHOD PRIVATE Queue_Pop_On_Empty_Is_Safe
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Queue_Pop_On_Empty_Is_Safe');
+IF NOT bQueue_Pop_On_Empty_Is_Safe THEN
+	bQueue_Pop_On_Empty_Is_Safe := TRUE;
+	q5.Pop();
+	AssertEquals_UINT(Expected := 0, Actual := q5.nCount, Message := 'count');
+	AssertEquals_STRING(Expected := '', Actual := q5.Peek(), Message := 'peek');
+	q5.Push('a');
+	AssertEquals_STRING(Expected := 'a', Actual := q5.Peek(), Message := 'first line after');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PublishLog_Link_Down_Queues_And_Returns_TRUE" Id="{ff384ea8-5b96-49ca-8c1e-a4ea1959d970}">
+      <Declaration><![CDATA[// BROTLib#138: while the broker is away PublishLog accepts the line and keeps it, nothing is sent.
+METHOD PRIVATE PublishLog_Link_Down_Queues_And_Returns_TRUE
+VAR
+	bOk : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('PublishLog_Link_Down_Queues_And_Returns_TRUE');
+IF NOT bPublishLog_Link_Down_Queues_And_Returns_TRUE THEN
+	bPublishLog_Link_Down_Queues_And_Returns_TRUE := TRUE;
+	pr1.bLinkUp := FALSE;
+	bOk := pr1.PublishLog(level := 'INFO', message := 'one');
+	pr1._DrainLog();
+	AssertTrue(Condition := bOk, Message := 'accepted');
+	AssertEquals_UINT(Expected := 1, Actual := pr1.logQueued, Message := 'logQueued');
+	AssertEquals_INT(Expected := 0, Actual := pr1.nSendCalls, Message := 'send calls while the link is down');
+	AssertEquals_INT(Expected := 0, Actual := pr1.logFailed, Message := 'logFailed');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Drain_Sends_In_Order_After_Link_Up" Id="{e8834525-5333-451e-9baa-855d511d0ca8}">
+      <Declaration><![CDATA[// The queued lines go out in the order they were logged once the broker is back.
+METHOD PRIVATE Drain_Sends_In_Order_After_Link_Up
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Drain_Sends_In_Order_After_Link_Up');
+IF NOT bDrain_Sends_In_Order_After_Link_Up THEN
+	bDrain_Sends_In_Order_After_Link_Up := TRUE;
+	pr2.bLinkUp := FALSE;
+	pr2.PublishLog(level := 'INFO', message := 'first');
+	pr2.PublishLog(level := 'WARNING', message := 'second');
+	pr2.PublishLog(level := 'INFO', message := 'third');
+	pr2._DrainLog();
+	AssertEquals_INT(Expected := 0, Actual := pr2.nSent, Message := 'sent while down');
+	pr2.bLinkUp := TRUE;
+	pr2._DrainLog();
+	AssertEquals_INT(Expected := 3, Actual := pr2.nSent, Message := 'sent');
+	AssertTrue(Condition := FIND(pr2.aSent[1], 'first') > 0, Message := 'line 1');
+	AssertTrue(Condition := FIND(pr2.aSent[2], 'second') > 0, Message := 'line 2');
+	AssertTrue(Condition := FIND(pr2.aSent[2], 'level=WARNING') > 0, Message := 'level of line 2');
+	AssertTrue(Condition := FIND(pr2.aSent[3], 'third') > 0, Message := 'line 3');
+	AssertEquals_UINT(Expected := 0, Actual := pr2.logQueued, Message := 'logQueued after');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Drain_Respects_Per_Cycle_Limit" Id="{baedef24-b57f-4d82-ada0-02134c16faed}">
+      <Declaration><![CDATA[// At most nLogPerCycle lines are sent per cycle, so a burst does not flood one cycle.
+METHOD PRIVATE Drain_Respects_Per_Cycle_Limit
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Drain_Respects_Per_Cycle_Limit');
+IF NOT bDrain_Respects_Per_Cycle_Limit THEN
+	bDrain_Respects_Per_Cycle_Limit := TRUE;
+	pr3.nLogPerCycle := 2;
+	pr3.bLinkUp := TRUE;
+	pr3.PublishLog(level := 'INFO', message := 'a');
+	pr3.PublishLog(level := 'INFO', message := 'b');
+	pr3.PublishLog(level := 'INFO', message := 'c');
+	pr3.PublishLog(level := 'INFO', message := 'd');
+	pr3.PublishLog(level := 'INFO', message := 'e');
+	pr3._DrainLog();
+	AssertEquals_INT(Expected := 2, Actual := pr3.nSent, Message := 'sent after cycle 1');
+	AssertEquals_UINT(Expected := 3, Actual := pr3.logQueued, Message := 'queued after cycle 1');
+	pr3._DrainLog();
+	AssertEquals_INT(Expected := 4, Actual := pr3.nSent, Message := 'sent after cycle 2');
+	pr3._DrainLog();
+	AssertEquals_INT(Expected := 5, Actual := pr3.nSent, Message := 'sent after cycle 3');
+	AssertEquals_UINT(Expected := 0, Actual := pr3.logQueued, Message := 'queued after cycle 3');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Send_Failure_Keeps_Head_And_Order" Id="{8f2e8636-5ec1-403f-b145-2eb5b858bef1}">
+      <Declaration><![CDATA[// A refused send leaves the line at the head of the queue and is counted; the order stays.
+METHOD PRIVATE Send_Failure_Keeps_Head_And_Order
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Send_Failure_Keeps_Head_And_Order');
+IF NOT bSend_Failure_Keeps_Head_And_Order THEN
+	bSend_Failure_Keeps_Head_And_Order := TRUE;
+	pr4.bLinkUp := TRUE;
+	pr4.nFailNext := 1;
+	pr4.PublishLog(level := 'INFO', message := 'one');
+	pr4.PublishLog(level := 'INFO', message := 'two');
+	pr4.PublishLog(level := 'INFO', message := 'three');
+	pr4._DrainLog();
+	AssertEquals_INT(Expected := 0, Actual := pr4.nSent, Message := 'sent after the refused cycle');
+	AssertEquals_INT(Expected := 1, Actual := pr4.logFailed, Message := 'logFailed');
+	AssertEquals_UINT(Expected := 3, Actual := pr4.logQueued, Message := 'logQueued');
+	pr4._DrainLog();
+	AssertEquals_INT(Expected := 3, Actual := pr4.nSent, Message := 'sent');
+	AssertTrue(Condition := FIND(pr4.aSent[1], 'one') > 0, Message := 'line 1');
+	AssertTrue(Condition := FIND(pr4.aSent[2], 'two') > 0, Message := 'line 2');
+	AssertTrue(Condition := FIND(pr4.aSent[3], 'three') > 0, Message := 'line 3');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Link_Down_Mid_Burst_Stops_Sending" Id="{7c533b37-a65a-409b-b461-2f981329b5c3}">
+      <Declaration><![CDATA[// When the link drops after some lines went out, the rest waits for the next connection.
+METHOD PRIVATE Link_Down_Mid_Burst_Stops_Sending
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Link_Down_Mid_Burst_Stops_Sending');
+IF NOT bLink_Down_Mid_Burst_Stops_Sending THEN
+	bLink_Down_Mid_Burst_Stops_Sending := TRUE;
+	pr5.bLinkUp := TRUE;
+	pr5.nLogPerCycle := 1;
+	pr5.PublishLog(level := 'INFO', message := 'a');
+	pr5.PublishLog(level := 'INFO', message := 'b');
+	pr5.PublishLog(level := 'INFO', message := 'c');
+	pr5._DrainLog();
+	pr5.bLinkUp := FALSE;
+	pr5._DrainLog();
+	pr5._DrainLog();
+	AssertEquals_INT(Expected := 1, Actual := pr5.nSent, Message := 'sent while the link was up');
+	AssertEquals_UINT(Expected := 2, Actual := pr5.logQueued, Message := 'still queued');
+	pr5.bLinkUp := TRUE;
+	pr5._DrainLog();
+	pr5._DrainLog();
+	AssertEquals_INT(Expected := 3, Actual := pr5.nSent, Message := 'sent after reconnect');
+	AssertTrue(Condition := FIND(pr5.aSent[2], 'message="b"') > 0, Message := 'line 2');
+	AssertTrue(Condition := FIND(pr5.sLastSent, 'message="c"') > 0, Message := 'line 3');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Overflow_Counts_Lost_And_Announces_Once" Id="{260f7a36-91ad-4bcc-85a6-bf01c06de487}">
+      <Declaration><![CDATA[// A queue overflow is counted in logLost and announced by one line after the queue is empty.
+METHOD PRIVATE Overflow_Counts_Lost_And_Announces_Once
+VAR
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Overflow_Counts_Lost_And_Announces_Once');
+IF NOT bOverflow_Counts_Lost_And_Announces_Once THEN
+	bOverflow_Counts_Lost_And_Announces_Once := TRUE;
+	pr6.bLinkUp := FALSE;
+	pr6.nLogPerCycle := 200;
+	FOR i := 1 TO 130 DO
+		pr6.PublishLog(level := 'INFO', message := CONCAT('L', INT_TO_STRING(i)));
+	END_FOR
+	AssertEquals_UDINT(Expected := 2, Actual := pr6.logLost, Message := 'logLost');
+	AssertEquals_UINT(Expected := 128, Actual := pr6.logQueued, Message := 'logQueued');
+	AssertEquals_UINT(Expected := 128, Actual := pr6.logQueuedMax, Message := 'logQueuedMax');
+	pr6.bLinkUp := TRUE;
+	pr6._DrainLog();
+	AssertEquals_INT(Expected := 128, Actual := pr6.nSent, Message := 'sent');
+	AssertTrue(Condition := FIND(pr6.aSent[1], 'message="L3"') > 0, Message := 'oldest line left');
+	AssertEquals_UINT(Expected := 1, Actual := pr6.logQueued, Message := 'the lost-lines notice is queued');
+	pr6._DrainLog();
+	AssertEquals_INT(Expected := 129, Actual := pr6.nSent, Message := 'sent with the notice');
+	AssertTrue(Condition := FIND(pr6.sLastSent, '2 lines lost') > 0, Message := 'notice text');
+	AssertTrue(Condition := FIND(pr6.sLastSent, 'level=WARNING') > 0, Message := 'notice level');
+	pr6._DrainLog();
+	AssertEquals_INT(Expected := 129, Actual := pr6.nSent, Message := 'announced only once');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Too_Long_Line_Is_Not_Queued" Id="{ebe78429-3f6b-44c8-b53f-9818063ba509}">
+      <Declaration><![CDATA[// A line that does not fit the buffer is refused and does not take a queue slot.
+METHOD PRIVATE Too_Long_Line_Is_Not_Queued
+VAR
+	sLevel : STRING(255) := 'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL';
+	bOk : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Too_Long_Line_Is_Not_Queued');
+IF NOT bToo_Long_Line_Is_Not_Queued THEN
+	bToo_Long_Line_Is_Not_Queued := TRUE;
+	bOk := pr7.PublishLog(level := sLevel, message := 'x');
+	AssertFalse(Condition := bOk, Message := 'accepted');
+	AssertEquals_UINT(Expected := 0, Actual := pr7.logQueued, Message := 'logQueued');
+	AssertEquals_INT(Expected := 1, Actual := pr7.logDropped, Message := 'logDropped');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EventLog_Is_Not_Pending_While_Broker_Is_Away" Id="{01b7c9d4-3573-4d99-aa1c-a90046c44315}">
+      <Declaration><![CDATA[// BROTLib#138: the comm keeps the line, so the event log has nothing to retry and nothing to lose.
+METHOD PRIVATE EventLog_Is_Not_Pending_While_Broker_Is_Away
+VAR
+	fbLog : BROTLib.FB_EventLog;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('EventLog_Is_Not_Pending_While_Broker_Is_Away');
+IF NOT bEventLog_Is_Not_Pending_While_Broker_Is_Away THEN
+	bEventLog_Is_Not_Pending_While_Broker_Is_Away := TRUE;
+	pr8.bLinkUp := FALSE;
+	fbLog.Comm := pr8;
+	fbLog.OnMessage := 'on text';
+	fbLog.Trigger := TRUE;
+	fbLog();
+	AssertFalse(Condition := fbLog.Pending, Message := 'Pending');
+	AssertEquals_UDINT(Expected := 0, Actual := fbLog.nNotDelivered, Message := 'nNotDelivered');
+	AssertEquals_INT(Expected := 0, Actual := pr8.nSent, Message := 'sent while down');
+	pr8.bLinkUp := TRUE;
+	pr8._DrainLog();
+	AssertEquals_INT(Expected := 1, Actual := pr8.nSent, Message := 'sent after reconnect');
+	AssertTrue(Condition := FIND(pr8.aSent[1], 'on text') > 0, Message := 'text');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Method_Local_Event_Logs_Are_Delivered" Id="{520452b3-9f17-4be1-ad18-90cb0efb23b2}">
+      <Declaration><![CDATA[// BROTLib#138: events of FB_EventLog instances that are local to a method (gone after the call) arrive after the broker is back, in order.
+METHOD PRIVATE Method_Local_Event_Logs_Are_Delivered
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Method_Local_Event_Logs_Are_Delivered');
+IF NOT bMethod_Local_Event_Logs_Are_Delivered THEN
+	bMethod_Local_Event_Logs_Are_Delivered := TRUE;
+	pr9.bLinkUp := FALSE;
+	FireOnce(comm := pr9, sMessage := 'PowerOn progress: 40');
+	FireOnce(comm := pr9, sMessage := 'PowerOn progress: 70');
+	FireOnce(comm := pr9, sMessage := 'PowerOn progress: 100');
+	pr9.bLinkUp := TRUE;
+	pr9._DrainLog();
+	AssertEquals_INT(Expected := 3, Actual := pr9.nSent, Message := 'sent');
+	AssertTrue(Condition := FIND(pr9.aSent[1], 'progress: 40') > 0, Message := 'line 1');
+	AssertTrue(Condition := FIND(pr9.aSent[2], 'progress: 70') > 0, Message := 'line 2');
+	AssertTrue(Condition := FIND(pr9.aSent[3], 'progress: 100') > 0, Message := 'line 3');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Two_Event_Logs_Keep_Edge_Order" Id="{3282026c-8d20-4819-baf9-2e72808779d7}">
+      <Declaration><![CDATA[// BROTLib#139: lines of different event logs arrive in the order they were logged, not per instance.
+METHOD PRIVATE Two_Event_Logs_Keep_Edge_Order
+VAR
+	fbA : BROTLib.FB_EventLog;
+	fbB : BROTLib.FB_EventLog;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Two_Event_Logs_Keep_Edge_Order');
+IF NOT bTwo_Event_Logs_Keep_Edge_Order THEN
+	bTwo_Event_Logs_Keep_Edge_Order := TRUE;
+	pr10.bLinkUp := FALSE;
+	fbA.Comm := pr10;
+	fbA.OnMessage := 'A on';
+	fbA.OffMessage := 'A off';
+	fbB.Comm := pr10;
+	fbB.OnMessage := 'B on';
+	fbA.Trigger := TRUE;
+	fbA();
+	fbB.Trigger := TRUE;
+	fbB();
+	fbA.Trigger := FALSE;
+	fbA();
+	pr10.bLinkUp := TRUE;
+	pr10._DrainLog();
+	AssertEquals_INT(Expected := 3, Actual := pr10.nSent, Message := 'sent');
+	AssertTrue(Condition := FIND(pr10.aSent[1], 'A on') > 0, Message := 'line 1');
+	AssertTrue(Condition := FIND(pr10.aSent[2], 'B on') > 0, Message := 'line 2');
+	AssertTrue(Condition := FIND(pr10.aSent[3], 'A off') > 0, Message := 'line 3');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

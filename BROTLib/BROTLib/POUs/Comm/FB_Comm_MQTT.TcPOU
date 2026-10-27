@@ -107,6 +107,7 @@ CASE state OF
 	// to the same target again; the other commands only set a state that is already set.
 	IF fbMqttClient.Subscribe(sTopic:=sTopicSub, eQoS:=TcIotMqttQos.AtLeastOnceDelivery) THEN
 		bConnected := TRUE;
+		ADSLOGSTR(ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, 'MQTT connected to %s', sHostName);
 		// birth message: overwrites the retained 'offline' left by an earlier unclean disconnect
 		sOnlinePayload := 'online';
 		fbMqttClient.Publish(sTopic := sStatusTopic, pPayload := ADR(sOnlinePayload), nPayloadSize := LEN2(ADR(sOnlinePayload)),
@@ -122,6 +123,7 @@ CASE state OF
 	IF NOT fbMqttClient.bConnected THEN
 		bConnected := FALSE;
 		state := 1;
+		ADSLOGSTR(ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT connection lost, log lines are queued: %s', sHostName);
 	END_IF
 	
 	// receive queued messages

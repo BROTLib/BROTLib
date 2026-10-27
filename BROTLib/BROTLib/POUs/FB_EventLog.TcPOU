@@ -12,7 +12,9 @@ VAR_INPUT
 	OffLevel		: UDINT := ADSLOG_MSGTYPE_HINT;
 	Comm			: I_Comm;
 	// a PublishLog that returns FALSE is retried every RetryInterval (T#0S = on every call) until it is
-	// delivered; without an interval, many instances would flood the ADS log while the broker is down (#130)
+	// delivered; without an interval, many instances would flood the ADS log while the broker is down (#130).
+	// FB_Comm_MQTT_Influx accepts every line that fits (it keeps it in its own queue while the broker is away, #138),
+	// so this retry only matters for a Comm that can refuse a line.
 	RetryInterval	: TIME := T#1S;
 	// total attempts are 1 + nMaxRetries, then the event is given up with an ADS warning; 0 = retry until delivered
 	nMaxRetries		: UINT := 30;
