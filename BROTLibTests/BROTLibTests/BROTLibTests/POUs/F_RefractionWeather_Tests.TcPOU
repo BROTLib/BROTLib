@@ -1,0 +1,221 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_RefractionWeather_Tests" Id="{51d30c02-6aef-44b1-b396-7ece89d2f6a7}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_RefractionWeather (BROTLib#33): a live weather snapshot to the refraction inputs, with the
+// estimate (pressure 0.0, temperature not set) as the fallback for missing, stale or implausible values.
+FUNCTION_BLOCK F_RefractionWeather_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Plausible_Values_Pass_Through();
+Nothing_Valid_Uses_The_Estimate();
+Stale_Value_Is_Not_Used();
+Sea_Level_Pressure_Is_Rejected();
+Zero_Celsius_Is_Used();
+Implausible_Temperature_Is_Rejected();
+Pressure_And_Temperature_Fall_Back_Independently();
+Window_Edges();
+]]></ST>
+    </Implementation>
+    <Method Name="Plausible_Values_Pass_Through" Id="{5166bd84-6c57-4636-b37a-5aa74936406c}">
+      <Declaration><![CDATA[// MONETS, 1798 m: the standard atmosphere gives about 812 hPa and -1.7 deg C.
+METHOD PRIVATE Plausible_Values_Pass_Through
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Plausible_Values_Pass_Through');
+w.fPressure := 812.0; w.bPressureValid := TRUE; w.fTemperature := 15.0; w.bTemperatureValid := TRUE;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 812.0, Actual := fPressure, Delta := 1.0E-9, Message := 'pressure');
+AssertEquals_LREAL(Expected := 15.0, Actual := fTemperature, Delta := 1.0E-9, Message := 'temperature');
+AssertTrue(Condition := bTempSet, Message := 'temperature set');
+AssertTrue(Condition := bAny, Message := 'live values used');
+AssertFalse(Condition := bPRej OR bTRej, Message := 'nothing rejected');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Nothing_Valid_Uses_The_Estimate" Id="{65927593-f82d-428d-b9fe-d00bcfbeab18}">
+      <Declaration><![CDATA[METHOD PRIVATE Nothing_Valid_Uses_The_Estimate
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Nothing_Valid_Uses_The_Estimate');
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 0.0, Actual := fPressure, Delta := 1.0E-9, Message := 'pressure estimate sentinel');
+AssertFalse(Condition := bTempSet, Message := 'temperature estimated');
+AssertFalse(Condition := bAny, Message := 'no live value');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stale_Value_Is_Not_Used" Id="{c7b7336f-0edc-46f8-93b2-bc54dccb3dfe}">
+      <Declaration><![CDATA[// The value is kept after it went stale, but the valid flag is FALSE.
+METHOD PRIVATE Stale_Value_Is_Not_Used
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stale_Value_Is_Not_Used');
+w.fPressure := 812.0; w.bPressureValid := FALSE; w.fTemperature := 15.0; w.bTemperatureValid := FALSE;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 0.0, Actual := fPressure, Delta := 1.0E-9, Message := 'stale pressure not used');
+AssertFalse(Condition := bTempSet, Message := 'stale temperature not used');
+AssertFalse(Condition := bPRej OR bTRej, Message := 'stale is not rejected, just missing');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sea_Level_Pressure_Is_Rejected" Id="{25ac4e9f-07a6-4c9e-aa50-895b2bd04259}">
+      <Declaration><![CDATA[// QNH (about 1013 hPa) at a 1798 m site is about 25 % too high.
+METHOD PRIVATE Sea_Level_Pressure_Is_Rejected
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sea_Level_Pressure_Is_Rejected');
+w.fPressure := 1013.0; w.bPressureValid := TRUE;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 0.0, Actual := fPressure, Delta := 1.0E-9, Message := 'estimate instead of QNH');
+AssertTrue(Condition := bPRej, Message := 'pressure rejected');
+AssertFalse(Condition := bAny, Message := 'no live value');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Zero_Celsius_Is_Used" Id="{257ba459-abc3-4c2b-824d-fbdb2a982168}">
+      <Declaration><![CDATA[// 0.0 deg C is a real temperature (estimate for this site is -1.7).
+METHOD PRIVATE Zero_Celsius_Is_Used
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Zero_Celsius_Is_Used');
+w.fTemperature := 0.0; w.bTemperatureValid := TRUE;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertTrue(Condition := bTempSet, Message := '0 deg C is set');
+AssertEquals_LREAL(Expected := 0.0, Actual := fTemperature, Delta := 1.0E-9, Message := 'temperature');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Implausible_Temperature_Is_Rejected" Id="{149b7fc8-3138-427f-9787-260da9e8a860}">
+      <Declaration><![CDATA[METHOD PRIVATE Implausible_Temperature_Is_Rejected
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Implausible_Temperature_Is_Rejected');
+w.fTemperature := 45.0; w.bTemperatureValid := TRUE;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertFalse(Condition := bTempSet, Message := '45 deg C is outside the model range');
+AssertTrue(Condition := bTRej, Message := 'temperature rejected');
+w.fTemperature := -35.0;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertTrue(Condition := bTRej, Message := '-35 deg C is 33 K below the estimate for this site');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Pressure_And_Temperature_Fall_Back_Independently" Id="{fdf62cf6-4768-4fda-8997-3261ad827dd7}">
+      <Declaration><![CDATA[METHOD PRIVATE Pressure_And_Temperature_Fall_Back_Independently
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Pressure_And_Temperature_Fall_Back_Independently');
+w.fPressure := 812.0; w.bPressureValid := TRUE; w.fTemperature := 15.0; w.bTemperatureValid := FALSE;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 812.0, Actual := fPressure, Delta := 1.0E-9, Message := 'pressure used');
+AssertFalse(Condition := bTempSet, Message := 'temperature estimated');
+AssertTrue(Condition := bAny, Message := 'one live value is enough');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Window_Edges" Id="{4f6d4ed9-badf-4588-90f5-acb91e342ed7}">
+      <Declaration><![CDATA[// +-8 % around the standard atmosphere of the site (812.3 hPa): 747.3 to 877.3.
+METHOD PRIVATE Window_Edges
+VAR
+	fPressure	: LREAL;
+	fTemperature	: LREAL;
+	bTempSet	: BOOL;
+	bPRej	: BOOL;
+	bTRej	: BOOL;
+	bAny	: BOOL;
+	w	: BROTLib.ST_Weather;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Window_Edges');
+w.bPressureValid := TRUE;
+w.fPressure := 750.0;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 750.0, Actual := fPressure, Delta := 1.0E-9, Message := '750 hPa inside');
+w.fPressure := 740.0;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertTrue(Condition := bPRej, Message := '740 hPa outside');
+w.fPressure := 875.0;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertEquals_LREAL(Expected := 875.0, Actual := fPressure, Delta := 1.0E-9, Message := '875 hPa inside');
+w.fPressure := 885.0;
+bAny := BROTLib.F_RefractionWeather(stWeather := w, fSiteAltitude := 1798.0, fPressure => fPressure, fTemperature => fTemperature, bTemperatureSet => bTempSet, bPressureRejected => bPRej, bTemperatureRejected => bTRej);
+AssertTrue(Condition := bPRej, Message := '885 hPa outside');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

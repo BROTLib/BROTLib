@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_RefractionWeather" Id="{8f4ff63b-7337-4e1f-ae39-f8a06bcd545a}" SpecialFunc="None">
+    <Declaration><![CDATA[// Maps a live weather snapshot to the pressure/temperature inputs of AstroBROT's FB_EQ2HOR / FB_HOR2EQ (BROTLib#33).
+// Each value is used only if it is valid (received and not stale) AND plausible for the site; otherwise the output
+// is the "estimate from altitude" value (fPressure 0.0, bTemperatureSet FALSE), which is what the refraction used
+// before live weather existed. Pressure and temperature fall back independently.
+// Plausibility catches a misconfigured source: sea-level pressure (QNH) at a 2000 m site is about 25 % too high,
+// and a bad unit gives values far from the site's standard atmosphere.
+// Returns TRUE if at least one live value is used.
+FUNCTION F_RefractionWeather : BOOL
+VAR_INPUT
+	stWeather				: ST_Weather;
+	fSiteAltitude			: LREAL;		// m above sea level
+END_VAR
+VAR_OUTPUT
+	fPressure				: LREAL;		// hPa (= mbar), 0.0 = estimate from altitude
+	fTemperature			: LREAL;		// deg C, only meaningful if bTemperatureSet
+	bTemperatureSet			: BOOL;			// TRUE: use fTemperature (0.0 deg C is valid), FALSE: estimate from altitude
+	bPressureRejected		: BOOL;			// valid but implausible for the site
+	bTemperatureRejected	: BOOL;
+END_VAR
+VAR
+	fPressureEstimate		: LREAL;
+	fTemperatureEstimate	: LREAL;
+END_VAR
+VAR CONSTANT
+	fPressureTolerance		: LREAL := 0.08;	// relative window around the standard atmosphere for the site altitude
+	fTemperatureTolerance	: LREAL := 30.0;	// K around the altitude estimate
+	fTemperatureMin			: LREAL := -40.0;	// the refraction model's own clamp range, so a live value is never silently clamped
+	fTemperatureMax			: LREAL := 40.0;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// the same estimates FB_CO_REFRACT uses when pressure is 0.0 / temperature_set is FALSE
+fPressureEstimate := 1010.0 * EXPT(1.0 - 6.5 / 288000.0 * fSiteAltitude, 5.255);
+IF fSiteAltitude > 11000.0 THEN
+	fTemperatureEstimate := 211.5 - 273.0;
+ELSE
+	fTemperatureEstimate := 283.0 - 273.0 - 0.0065 * fSiteAltitude;
+END_IF
+
+fPressure := 0.0;
+fTemperature := 0.0;
+bTemperatureSet := FALSE;
+bPressureRejected := FALSE;
+bTemperatureRejected := FALSE;
+
+IF stWeather.bPressureValid THEN
+	IF ABS(stWeather.fPressure - fPressureEstimate) <= fPressureTolerance * fPressureEstimate THEN
+		fPressure := stWeather.fPressure;
+	ELSE
+		bPressureRejected := TRUE;
+	END_IF
+END_IF
+
+IF stWeather.bTemperatureValid THEN
+	IF stWeather.fTemperature >= fTemperatureMin AND stWeather.fTemperature <= fTemperatureMax
+		AND ABS(stWeather.fTemperature - fTemperatureEstimate) <= fTemperatureTolerance THEN
+		fTemperature := stWeather.fTemperature;
+		bTemperatureSet := TRUE;
+	ELSE
+		bTemperatureRejected := TRUE;
+	END_IF
+END_IF
+
+F_RefractionWeather := fPressure <> 0.0 OR bTemperatureSet;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

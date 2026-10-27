@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.13.0</ProjectVersion>
+    <ProjectVersion>0.14.0</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
@@ -101,6 +101,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DUTs\ST_RaDecCoordinate.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\ST_Weather.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="GVLs\GVL_Math.TcGVL">
@@ -197,6 +200,9 @@
     <Compile Include="POUs\FB_TONTP.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_RefractionWeather.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_YREAL.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -289,7 +295,7 @@
   </ItemGroup>
   <ItemGroup>
     <PlaceholderReference Include="AstroBROT">
-      <DefaultResolution>AstroBROT, 0.4.5 (BROT)</DefaultResolution>
+      <DefaultResolution>AstroBROT, 0.5.0 (BROT)</DefaultResolution>
       <Namespace>AstroBROT</Namespace>
     </PlaceholderReference>
     <PlaceholderReference Include="Tc2_Math">

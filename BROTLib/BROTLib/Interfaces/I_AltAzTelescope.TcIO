@@ -39,5 +39,14 @@
         <Declaration><![CDATA[]]></Declaration>
       </Set>
     </Property>
+    <Property Name="Weather" Id="{5ff3178f-4a80-43f6-a457-a63d80d47c8a}">
+      <Declaration><![CDATA[PROPERTY Weather : ST_Weather]]></Declaration>
+      <Get Name="Get" Id="{892a3e3a-6867-4178-9bdb-5344f7168f98}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{f587638b-1453-4613-93b7-fb2a1395b0e4}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
   </Itf>
 </TcPlcObject>

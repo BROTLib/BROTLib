@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="ST_Weather" Id="{0defea67-2b8c-48c9-8671-82cd759628cb}">
+    <Declaration><![CDATA[// Live weather snapshot (BROTLib#33). Units are fixed by the MQTT protocol: deg C, hPa (= mbar), % relative humidity.
+// A value is only to be used while its own b...Valid flag is TRUE; the value itself is kept after it went stale.
+// 0.0 is a value (0 deg C is a real temperature), never "no data".
+TYPE ST_Weather :
+STRUCT
+	fTemperature		: LREAL;	// deg C, last accepted value
+	bTemperatureValid	: BOOL;		// accepted and not older than FB_Comm_MQTT_Influx.tWeatherTimeout
+	fPressure			: LREAL;	// hPa (= mbar), station pressure
+	bPressureValid		: BOOL;
+	fHumidity			: LREAL;	// % relative humidity (received, not used by the refraction model)
+	bHumidityValid		: BOOL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

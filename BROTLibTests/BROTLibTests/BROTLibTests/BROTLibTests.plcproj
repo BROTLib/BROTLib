@@ -94,6 +94,9 @@
     <Compile Include="POUs\F_SuspendStop_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_RefractionWeather_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_GotoTargetCheck_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -164,11 +167,11 @@
       <Parameters>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFTESTSUITES</Key>
-          <Value>32</Value>
+          <Value>64</Value>
         </Parameter>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFTESTSFOREACHTESTSUITE</Key>
-          <Value>32</Value>
+          <Value>64</Value>
         </Parameter>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFASSERTSFOREACHTESTSUITE</Key>

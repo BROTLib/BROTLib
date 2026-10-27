@@ -22,6 +22,8 @@ VAR
 
 	bDut1Received		: BOOL;
 	tonDut1Stale		: TON := (PT := T#10M);
+
+	stWeather			: ST_Weather;	// live weather, pushed every cycle by FB_Comm_MQTT_Influx (BROTLib#33)
 END_VAR
 // The pointing-model coefficients live in FB_PointingModelForward, set by the caller (#10).
 ]]></Declaration>
@@ -119,6 +121,26 @@ END_VAR
         <Implementation>
           <ST><![CDATA[THIS^.fDut1 := Dut1;
 THIS^.bDut1Received := TRUE;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Property Name="Weather" Id="{d1014d8a-ef52-4507-a821-8cf1aab53813}">
+      <Declaration><![CDATA[PROPERTY Weather : ST_Weather
+]]></Declaration>
+      <Get Name="Get" Id="{1b9867f3-8bf9-408c-a356-7df81e63c5bb}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Weather := THIS^.stWeather;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{8fb300fc-7a94-4a82-9377-eff91b6cea26}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[THIS^.stWeather := Weather;]]></ST>
         </Implementation>
       </Set>
     </Property>
