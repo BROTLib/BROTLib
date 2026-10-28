@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_HourAngleOffsetOnAxis_Tests" Id="{6a930173-82d7-400c-80b6-92ce22dd73a8}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.F_HourAngleOffsetOnAxis (moved from IAG50cm, IAG50cm#17).
+FUNCTION_BLOCK F_HourAngleOffsetOnAxis_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Equator_Is_Unchanged();
+Divided_By_Cos_Dec();
+Sign_Is_Kept_And_Symmetric();
+Pole_Is_Floored_And_Limited();
+]]></ST>
+    </Implementation>
+    <Method Name="Equator_Is_Unchanged" Id="{9800b303-4119-40d9-a808-31f054e25d3a}">
+      <Declaration><![CDATA[METHOD PRIVATE Equator_Is_Unchanged
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Equator_Is_Unchanged');
+AssertEquals_LREAL(Expected := 0.5, Actual := BROTLib.F_HourAngleOffsetOnAxis(0.5, 0.0), Delta := 1.0E-12, Message := 'dec 0');
+AssertEquals_LREAL(Expected := 0.0, Actual := BROTLib.F_HourAngleOffsetOnAxis(0.0, 60.0), Delta := 1.0E-12, Message := 'no offset');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Divided_By_Cos_Dec" Id="{75fcee42-36a4-465f-a289-b6ec979ea20a}">
+      <Declaration><![CDATA[METHOD PRIVATE Divided_By_Cos_Dec
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Divided_By_Cos_Dec');
+AssertEquals_LREAL(Expected := 1.0, Actual := BROTLib.F_HourAngleOffsetOnAxis(0.5, 60.0), Delta := 1.0E-9, Message := 'dec 60: 0.5 / 0.5');
+AssertEquals_LREAL(Expected := 0.5 / 0.7071067811865476, Actual := BROTLib.F_HourAngleOffsetOnAxis(0.5, 45.0), Delta := 1.0E-9, Message := 'dec 45');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sign_Is_Kept_And_Symmetric" Id="{97bd0ed0-ba06-46aa-be27-b59f853adbb4}">
+      <Declaration><![CDATA[METHOD PRIVATE Sign_Is_Kept_And_Symmetric
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sign_Is_Kept_And_Symmetric');
+AssertEquals_LREAL(Expected := -1.0, Actual := BROTLib.F_HourAngleOffsetOnAxis(-0.5, 60.0), Delta := 1.0E-9, Message := 'negative offset');
+AssertEquals_LREAL(Expected := BROTLib.F_HourAngleOffsetOnAxis(0.5, 60.0), Actual := BROTLib.F_HourAngleOffsetOnAxis(0.5, -60.0), Delta := 1.0E-12, Message := 'south = north');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Pole_Is_Floored_And_Limited" Id="{b88bbdef-7c73-4519-a73b-d0c0be7f4a21}">
+      <Declaration><![CDATA[// cos is floored at cos(89.5 deg), factor 114.6: 0.05 deg stays below the 10 deg limit, 1.0 deg is limited
+METHOD PRIVATE Pole_Is_Floored_And_Limited
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Pole_Is_Floored_And_Limited');
+AssertEquals_LREAL(Expected := 0.05 / 0.008726535498373935, Actual := BROTLib.F_HourAngleOffsetOnAxis(0.05, 90.0), Delta := 1.0E-9, Message := 'dec 90: floored, no division by zero');
+AssertEquals_LREAL(Expected := 10.0, Actual := BROTLib.F_HourAngleOffsetOnAxis(1.0, 90.0), Delta := 1.0E-12, Message := 'limited to +10');
+AssertEquals_LREAL(Expected := -10.0, Actual := BROTLib.F_HourAngleOffsetOnAxis(-1.0, -90.0), Delta := 1.0E-12, Message := 'limited to -10');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

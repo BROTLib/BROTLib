@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.15.1</ProjectVersion>
+    <ProjectVersion>0.16.0</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
@@ -206,6 +206,9 @@
     <Compile Include="POUs\FB_TONTP.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_HourAngleOffsetOnAxis.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_RefractionWeather.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -237,6 +240,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Telescope\FB_BaseTelescopeControl.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\FB_RaDecCoordinates.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Telescope\FB_RaDecTelescopeControl.TcPOU">

@@ -74,7 +74,8 @@ BROTLib/
 │   │       │                    # F_DerotatorPosition2, F_Derotatorvelocity
 │   │       ├── Telescope/       # FB_BaseTelescopeControl,
 │   │       │                    # FB_AltAzTelescopeControl,
-│   │       │                    # FB_RaDecTelescopeControl (unfinished)
+│   │       │                    # FB_RaDecTelescopeControl,
+│   │       │                    # FB_RaDecCoordinates
 │   │       └── ...              # FB_AstroClock, FB_Axis, FB_BaseAxis,
 │   │                            # FB_EventLog, FB_InfluxMessage, FB_Horn,
 │   │                            # FB_BLINK, FB_ButtonEnable, FB_LightTimer,
@@ -98,8 +99,8 @@ BROTLib/
 ## Library architecture
 
 BROTLib provides the reusable core for **Alt-Az** mounts. For **equatorial
-(HA/Dec)** mounts there is the `I_RaDecTelescope` interface and an unfinished
-`FB_RaDecTelescopeControl`, meant for IAG50cm eventually. The library is
+(HA/Dec)** mounts there is the `I_RaDecTelescope` interface and
+`FB_RaDecTelescopeControl` with `FB_RaDecCoordinates`, for IAG50cm (IAG50cm#17). The library is
 organised into four layers:
 
 1. **Interfaces** — abstract contracts for every observatory subsystem, so the
@@ -127,8 +128,8 @@ organised into four layers:
    - `FB_AltAzTelescopeControl` — Alt-Az extension: offset, derotator and DUT1
      inputs (`I_AltAzTelescope`) and their telemetry. The coordinate transforms
      and the pointing model are called by the derived block.
-   - `FB_RaDecTelescopeControl` — equatorial (HA/Dec) extension, **unfinished**
-     and not used yet; meant for IAG50cm once it moves off its standalone
+   - `FB_RaDecTelescopeControl` — equatorial (HA/Dec) extension (offsets,
+     coordinate transforms); IAG50cm moves onto it from its standalone
      `FB_TelescopeControl` (see Key components).
 
    **Command model** — the library defines the command enumeration
@@ -170,13 +171,18 @@ organised into four layers:
   derives from it and calls the pointing model
   (`FB_PointingModelForward`/`FB_PointingModelInversion`, Tpoint-style,
   9-term) and the derotator calculation itself.
-- **`FB_RaDecTelescopeControl`** — equatorial extension for HA/Dec mounts,
-  meant for IAG50cm (which today runs its own standalone
-  `FB_TelescopeControl`). **Unfinished, not used by any application:** `fJD`
-  is never set, `fRightAscensionCurrent`/`fDeclinationCurrent` are never
-  read in, the pointing and velocity code is commented out, and its
-  `hor2eq` call relies on the AstroBROT refraction default, which is the
-  wrong direction for a measured altitude (#10).
+- **`FB_RaDecTelescopeControl`** — equatorial extension for HA/Dec mounts
+  (IAG50cm#17). It holds the `I_RaDecTelescope` offsets and calls
+  `FB_RaDecCoordinates` (pure: apparent HA/Dec and Alt/Az of the target,
+  the slew target, the ICRS and Alt/Az position of the axes with the offsets
+  and the inverse pointing correction). Like MONETcommon's block, a subclass
+  that does not call `SUPER^()` from its body calls `_UpdateClock()` (in the
+  base block, sets `fJd`/`fLst`, gated on the clock being valid),
+  `_UpdateTarget()`, then runs its own pointing model, then
+  `_UpdateCurrent()`. The pointing model, the state machine and the axes stay
+  in the application. The slew altitude is read as an observed one
+  (`bSlewAltIsObserved`, default TRUE as in AstroBROT); IAG50cm passes FALSE
+  until IAG50cm#3 is decided.
 
 - **Command units (`Telescope/Command/`)** — pure functions and types that any telescope state machine can use, moved
   here from MONETcommon (plan `specs/plans/2026-10-21-telescope-state-machine-unification.md`, step 4.1; nobody
