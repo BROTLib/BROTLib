@@ -35,7 +35,6 @@ VAR
 	fbRefractionWeatherTests	: F_RefractionWeather_Tests;
 	fbHourAngleOffsetOnAxisTests	: F_HourAngleOffsetOnAxis_Tests;
 	fbRaDecCoordinatesTests	: FB_RaDecCoordinates_Tests;
-	fbRaDecTelescopeControlTests	: FB_RaDecTelescopeControl_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>
