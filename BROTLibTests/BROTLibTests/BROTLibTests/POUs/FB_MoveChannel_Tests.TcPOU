@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_MoveChannel_Tests" Id="{0d2c72b7-a502-426a-96f6-ce47324ac382}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_MoveChannel, the two-instance move channel of FB_Axis (HalfBROT#103). Each fbCh(...) call is one cycle;
+// aDone, aAborted and aBusy are what the two MC instances reported in their last call. The scenario tests run the
+// real FB_MoveFollower and FB_AxisCommand against FB_NcMoveMock, which models the NC as seen on MONET/S in MS-73.
+FUNCTION_BLOCK FB_MoveChannel_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[First_Request_Edge_On_One_Slot();
+Retarget_Uses_Other_Slot();
+Old_Slot_Abort_Does_Not_Release();
+Active_Slot_Abort_Releases();
+Active_Slot_Done_Releases();
+Old_Slot_Done_Ignored();
+Done_Not_Reported_While_Request_Pending();
+Waits_While_Other_Slot_Busy();
+Not_Allowed_Waits();
+Cancel_Drops_Pending_No_Switch();
+Reset_Releases_Both();
+Error_Keeps_Execute_Of_Active_Slot();
+Three_Requests_Alternate();
+Retarget_Reaches_New_Target_Without_Finishing_Old();
+Old_Wiring_Shows_The_Bug();
+Reverse_Retarget_Is_Followed();
+Same_Direction_Extension_Is_Followed();
+Rapid_Retargets();
+]]></ST>
+    </Implementation>
+    <Method Name="First_Request_Edge_On_One_Slot" Id="{fa8ac548-566b-482c-932d-77f2d4d70056}">
+      <Declaration><![CDATA[// The first request: Execute rises on exactly one slot.
+METHOD PRIVATE First_Request_Edge_On_One_Slot
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('First_Request_Edge_On_One_Slot');
+fbCh.Request();
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Pending, Message := 'after Request: Pending');
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[1], Message := 'slot 1 Execute');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[0], Message := 'slot 0 Execute');
+AssertEquals_INT(Expected := 1, Actual := fbCh.nActive, Message := 'active slot');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.Pending, Message := 'started: Pending');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Retarget_Uses_Other_Slot" Id="{251bf926-e314-41ed-81d6-22c3e97f85b5}">
+      <Declaration><![CDATA[// A request while the first command runs: one cycle low on both slots, then the edge on the other slot.
+METHOD PRIVATE Retarget_Uses_Other_Slot
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Retarget_Uses_Other_Slot');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[0], Message := 'low cycle: slot 0');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'low cycle: slot 1');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Pending, Message := 'low cycle: Pending');
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[0], Message := 'retarget: slot 0 rises');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'retarget: slot 1 stays low');
+AssertEquals_INT(Expected := 0, Actual := fbCh.nActive, Message := 'retarget: active slot');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Old_Slot_Abort_Does_Not_Release" Id="{e8ef2451-de48-4fce-bf37-df02ceeb02e8}">
+      <Declaration><![CDATA[// The abort of the superseded slot (any length) neither releases the new command nor is reported.
+METHOD PRIVATE Old_Slot_Abort_Does_Not_Release
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Slot_Abort_Does_Not_Release');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[1] := TRUE; aB[0] := TRUE;
+aA[1] := TRUE; aB[1] := FALSE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[0], Message := 'abort of the old slot: new Execute stays');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.Aborted, Message := 'abort of the old slot: not reported');
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[0], Message := 'abort held: new Execute stays');
+AssertEquals_UDINT(Expected := 1, Actual := fbCh.nSuperseded, Message := 'counted once');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Active_Slot_Abort_Releases" Id="{b31f70e2-bbc6-4779-b541-385e164ce2ba}">
+      <Declaration><![CDATA[// The abort of the active slot (stop, jog) releases Execute (#92) and is reported.
+METHOD PRIVATE Active_Slot_Abort_Releases
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Active_Slot_Abort_Releases');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+aA[1] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'aborted: Execute released');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Aborted, Message := 'aborted: reported');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Active_Slot_Done_Releases" Id="{67f38bc5-be51-444b-974d-27a69948a3ed}">
+      <Declaration><![CDATA[// Done of the active slot releases Execute and is reported.
+METHOD PRIVATE Active_Slot_Done_Releases
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Active_Slot_Done_Releases');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+aD[1] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'done: Execute released');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Done, Message := 'done: reported');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Old_Slot_Done_Ignored" Id="{902b4a1c-7c3e-44d8-830e-6d66e0647e0d}">
+      <Declaration><![CDATA[// Done of the superseded slot is not the end of the new command.
+METHOD PRIVATE Old_Slot_Done_Ignored
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Slot_Done_Ignored');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[1] := TRUE; aB[0] := TRUE;
+aD[1] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[0], Message := 'old done: new Execute stays');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.Done, Message := 'old done: not reported');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Done_Not_Reported_While_Request_Pending" Id="{bc87a7d1-02a2-48f3-b285-73f80dac6202}">
+      <Declaration><![CDATA[// Done between MoveTo() and the edge on the new slot is the old move arriving, not the new one.
+METHOD PRIVATE Done_Not_Reported_While_Request_Pending
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Done_Not_Reported_While_Request_Pending');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh.Request();
+aD[1] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Pending, Message := 'request pending');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.Done, Message := 'Done hidden while pending');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Waits_While_Other_Slot_Busy" Id="{fa48f03d-aec2-4383-9a03-37e8e05fda4b}">
+      <Declaration><![CDATA[// The other slot is still busy (its abort is not through yet): the request waits and starts when it is free.
+METHOD PRIVATE Waits_While_Other_Slot_Busy
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Waits_While_Other_Slot_Busy');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[0] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Pending, Message := 'other slot busy: Pending');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[0], Message := 'other slot busy: no edge on 0');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'other slot busy: no edge on 1');
+aB[0] := FALSE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[0], Message := 'other slot free: edge on 0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Not_Allowed_Waits" Id="{81cf71dc-d039-4212-962b-4d30e6e28685}">
+      <Declaration><![CDATA[// Not allowed: nothing starts, the active slot does not change.
+METHOD PRIVATE Not_Allowed_Waits
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Not_Allowed_Waits');
+bAllowed := FALSE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.Pending, Message := 'not allowed: Pending');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[0], Message := 'not allowed: slot 0');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'not allowed: slot 1');
+AssertEquals_INT(Expected := 0, Actual := fbCh.nActive, Message := 'not allowed: active slot unchanged');
+bAllowed := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[1], Message := 'allowed: starts');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel_Drops_Pending_No_Switch" Id="{b6cc79c9-de86-4d71-91bb-43a53bb22f69}">
+      <Declaration><![CDATA[// Cancel drops a pending request; the slot is not switched.
+METHOD PRIVATE Cancel_Drops_Pending_No_Switch
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Cancel_Drops_Pending_No_Switch');
+fbCh.Request();
+fbCh.Cancel();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.Pending, Message := 'cancelled: Pending');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'cancelled: slot 1');
+AssertEquals_INT(Expected := 0, Actual := fbCh.nActive, Message := 'cancelled: active slot unchanged');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset_Releases_Both" Id="{f784fa3a-03d9-476c-a38c-50ea3302c47c}">
+      <Declaration><![CDATA[// Reset releases Execute of both slots and drops the pending request.
+METHOD PRIVATE Reset_Releases_Both
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Reset_Releases_Both');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[1] := TRUE; aB[0] := TRUE;
+fbCh.Request();
+bReset := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[0], Message := 'reset: slot 0');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.aExecute[1], Message := 'reset: slot 1');
+AssertEquals_BOOL(Expected := FALSE, Actual := fbCh.Pending, Message := 'reset: Pending');
+bReset := FALSE; aB[0] := FALSE; aB[1] := FALSE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[1], Message := 'after reset: starts on the other slot');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Keeps_Execute_Of_Active_Slot" Id="{f737bac1-0f99-407b-940e-b38b53317d41}">
+      <Declaration><![CDATA[// No Done and no abort (an MC error): Execute of the active slot stays TRUE, as FB_AxisCommand does.
+METHOD PRIVATE Error_Keeps_Execute_Of_Active_Slot
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Keeps_Execute_Of_Active_Slot');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aB[fbCh.nActive] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[1], Message := 'error: Execute stays');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Three_Requests_Alternate" Id="{997cbb42-bac4-4551-8480-df5a3b763be7}">
+      <Declaration><![CDATA[// Three commands in a row use the slots 1, 0, 1.
+METHOD PRIVATE Three_Requests_Alternate
+VAR
+	fbCh	: BROTLib.FB_MoveChannel;
+	aD		: ARRAY[0..1] OF BOOL;
+	aA		: ARRAY[0..1] OF BOOL;
+	aB		: ARRAY[0..1] OF BOOL;
+	bAllowed	: BOOL := TRUE;
+	bReset	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Three_Requests_Alternate');
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_INT(Expected := 1, Actual := fbCh.nActive, Message := 'first');
+aD[1] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aD[1] := FALSE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_INT(Expected := 0, Actual := fbCh.nActive, Message := 'second');
+aD[0] := TRUE;
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+aD[0] := FALSE;
+fbCh.Request();
+fbCh(Allowed := bAllowed, Reset := bReset, aDone := aD, aAborted := aA, aBusy := aB);
+AssertEquals_INT(Expected := 1, Actual := fbCh.nActive, Message := 'third');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbCh.aExecute[1], Message := 'third: Execute');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Retarget_Reaches_New_Target_Without_Finishing_Old" Id="{c41cdf1e-9136-4676-8cb7-16a64e1f44c8}">
+      <Declaration><![CDATA[// MS-73 in the rig: 36 -> 33, then 38 after 50 cycles (about 35 mm). With any abort latency of the NC the axis turns, never
+// reaches 33, ends at 38 with one start per target and one MoveDone, and no abort reaches the follower.
+METHOD PRIVATE Retarget_Reaches_New_Target_Without_Finishing_Old
+VAR
+	fbF		: BROTLib.FB_MoveFollower;
+	fbCh	: BROTLib.FB_MoveChannel;
+	fbCmd	: BROTLib.FB_AxisCommand;
+	fbNc	: FB_NcMoveMock;
+	aExec	: ARRAY[0..1] OF BOOL;
+	fTarget	: LREAL;
+	bDone	: BOOL;
+	bAborted	: BOOL;
+	i		: INT;
+	nL		: INT;
+	nLat	: INT;
+	fFinal	: LREAL;
+	bReached	: BOOL;
+	nStarts	: INT;
+	nDone	: INT;
+	nAborted	: INT;
+	bSettled	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Retarget_Reaches_New_Target_Without_Finishing_Old');
+FOR nL := 0 TO 4 DO
+	CASE nL OF
+		0: nLat := 0;
+		1: nLat := 1;
+		2: nLat := 2;
+		3: nLat := 5;
+		4: nLat := 20;
+	END_CASE
+	RunRetarget(nAbortLatency := nLat, bTwoSlots := TRUE, fFinal => fFinal, bReachedFirst => bReached, nStarts => nStarts,
+		nDone => nDone, nAborted => nAborted, bSettled => bSettled);
+	AssertEquals_LREAL(Expected := 38.0, Actual := fFinal, Delta := 0.001, Message := 'ends at the second target');
+	AssertEquals_BOOL(Expected := FALSE, Actual := bReached, Message := 'never reaches the first target');
+	AssertEquals_INT(Expected := 2, Actual := nStarts, Message := 'one start per target');
+	AssertEquals_INT(Expected := 1, Actual := nDone, Message := 'one MoveDone');
+	AssertEquals_INT(Expected := 0, Actual := nAborted, Message := 'no abort reaches the follower');
+	AssertEquals_BOOL(Expected := TRUE, Actual := bSettled, Message := 'settled');
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Old_Wiring_Shows_The_Bug" Id="{9ceba25c-f78a-4a8b-bf34-471472b97e11}">
+      <Declaration><![CDATA[// The same rig with one instance, as FB_Axis was before HalfBROT#103: the retrigger is ignored, the first target is reached
+// first. Documents that the mock models the issue; not a gate on the fix.
+METHOD PRIVATE Old_Wiring_Shows_The_Bug
+VAR
+	fbF		: BROTLib.FB_MoveFollower;
+	fbCh	: BROTLib.FB_MoveChannel;
+	fbCmd	: BROTLib.FB_AxisCommand;
+	fbNc	: FB_NcMoveMock;
+	aExec	: ARRAY[0..1] OF BOOL;
+	fTarget	: LREAL;
+	bDone	: BOOL;
+	bAborted	: BOOL;
+	i		: INT;
+	fFinal	: LREAL;
+	bReached	: BOOL;
+	nStarts	: INT;
+	nDone	: INT;
+	nAborted	: INT;
+	bSettled	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Wiring_Shows_The_Bug');
+RunRetarget(nAbortLatency := 2, bTwoSlots := FALSE, fFinal => fFinal, bReachedFirst => bReached, nStarts => nStarts,
+	nDone => nDone, nAborted => nAborted, bSettled => bSettled);
+AssertEquals_BOOL(Expected := TRUE, Actual := bReached, Message := 'one instance: first target reached first');
+AssertEquals_LREAL(Expected := 38.0, Actual := fFinal, Delta := 0.001, Message := 'one instance: second target later');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reverse_Retarget_Is_Followed" Id="{56c8eb62-b397-4ed1-860d-1a0aae0eae06}">
+      <Declaration><![CDATA[// The retarget turns the axis round: 36 -> 33, then 40 after 50 cycles.
+METHOD PRIVATE Reverse_Retarget_Is_Followed
+VAR
+	fbF		: BROTLib.FB_MoveFollower;
+	fbCh	: BROTLib.FB_MoveChannel;
+	fbCmd	: BROTLib.FB_AxisCommand;
+	fbNc	: FB_NcMoveMock;
+	aExec	: ARRAY[0..1] OF BOOL;
+	fTarget	: LREAL;
+	bDone	: BOOL;
+	bAborted	: BOOL;
+	i		: INT;
+	fFinal	: LREAL;
+	bReached	: BOOL;
+	nStarts	: INT;
+	nDone	: INT;
+	nAborted	: INT;
+	bSettled	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Reverse_Retarget_Is_Followed');
+RunRetarget(nAbortLatency := 3, bTwoSlots := TRUE, fSecondTarget := 40.0, fFinal => fFinal, bReachedFirst => bReached, nStarts => nStarts,
+	nDone => nDone, nAborted => nAborted, bSettled => bSettled);
+AssertEquals_LREAL(Expected := 40.0, Actual := fFinal, Delta := 0.001, Message := 'ends at the second target');
+AssertEquals_BOOL(Expected := FALSE, Actual := bReached, Message := 'never reaches the first target');
+AssertEquals_INT(Expected := 1, Actual := nDone, Message := 'one MoveDone');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Same_Direction_Extension_Is_Followed" Id="{5f1d6e46-732b-41a9-9c4f-338f2d647f05}">
+      <Declaration><![CDATA[// The new target lies beyond the first one: 36 -> 33, then 30 after 50 cycles; the axis does not stop at 33.
+METHOD PRIVATE Same_Direction_Extension_Is_Followed
+VAR
+	fbF		: BROTLib.FB_MoveFollower;
+	fbCh	: BROTLib.FB_MoveChannel;
+	fbCmd	: BROTLib.FB_AxisCommand;
+	fbNc	: FB_NcMoveMock;
+	aExec	: ARRAY[0..1] OF BOOL;
+	fTarget	: LREAL;
+	bDone	: BOOL;
+	bAborted	: BOOL;
+	i		: INT;
+	fFinal	: LREAL;
+	bReached	: BOOL;
+	nStarts	: INT;
+	nDone	: INT;
+	nAborted	: INT;
+	bSettled	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Same_Direction_Extension_Is_Followed');
+RunRetarget(nAbortLatency := 3, bTwoSlots := TRUE, fSecondTarget := 30.0, fFinal => fFinal, bReachedFirst => bReached, nStarts => nStarts,
+	nDone => nDone, nAborted => nAborted, bSettled => bSettled);
+AssertEquals_LREAL(Expected := 30.0, Actual := fFinal, Delta := 0.001, Message := 'ends at the second target');
+AssertEquals_INT(Expected := 1, Actual := nDone, Message := 'one MoveDone');
+AssertEquals_INT(Expected := 0, Actual := nAborted, Message := 'no abort reaches the follower');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Rapid_Retargets" Id="{de444e72-6bb3-4047-9325-de805b759613}">
+      <Declaration><![CDATA[// Four targets three cycles apart with an abort latency of 5 cycles: a retarget waits while both instances are busy, the last
+// target is the one reached.
+METHOD PRIVATE Rapid_Retargets
+VAR
+	fbF		: BROTLib.FB_MoveFollower;
+	fbCh	: BROTLib.FB_MoveChannel;
+	fbCmd	: BROTLib.FB_AxisCommand;
+	fbNc	: FB_NcMoveMock;
+	aExec	: ARRAY[0..1] OF BOOL;
+	fTarget	: LREAL;
+	bDone	: BOOL;
+	bAborted	: BOOL;
+	i		: INT;
+	nAborted	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Rapid_Retargets');
+fTarget := 33.0;
+FOR i := 1 TO 900 DO
+	IF i = 10 THEN fTarget := 38.0; END_IF
+	IF i = 13 THEN fTarget := 31.0; END_IF
+	IF i = 16 THEN fTarget := 41.0; END_IF
+	fbF(fTarget := fTarget, fActual := fbNc.fActual, fTolerance := 0.005, bActive := TRUE, bReady := TRUE,
+		bMoveDone := bDone, bAborted := bAborted, bError := FALSE, bStopDone := FALSE);
+	IF fbF.bStartMove THEN
+		fbCh.Request();
+	END_IF
+	fbCh(Allowed := TRUE, Reset := FALSE, aDone := fbNc.aDone, aAborted := fbNc.aAborted, aBusy := fbNc.aBusy);
+	aExec := fbCh.aExecute;
+	bAborted := fbCh.Aborted;
+	fbNc(aExecute := aExec, fPosition := fTarget, nAbortLatency := 5, fInitial := 36.0);
+	bDone := fbNc.aDone[fbCh.nActive] AND NOT fbCh.Pending;
+	IF bAborted THEN nAborted := nAborted + 1; END_IF
+END_FOR
+AssertEquals_LREAL(Expected := 41.0, Actual := fbNc.fActual, Delta := 0.001, Message := 'the last target is reached');
+AssertEquals_INT(Expected := 0, Actual := nAborted, Message := 'no abort reaches the follower');
+AssertEquals_BOOL(Expected := TRUE, Actual := fbF.bSettled, Message := 'settled');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RunRetarget" Id="{656b0ed6-043a-43ad-af07-10021c839b43}">
+      <Declaration><![CDATA[// MS-73 in a rig: follower, channel (or one FB_AxisCommand), mock NC; the first target 33 from 36 mm, the second after
+// nRetargetCycle cycles. Collects what the follower saw.
+METHOD PRIVATE RunRetarget : BOOL
+VAR_INPUT
+	nAbortLatency	: INT;
+	bTwoSlots		: BOOL;		// the channel (FB_Axis); FALSE: one instance as before HalfBROT#103
+	nRetargetCycle	: INT := 50;
+	fSecondTarget	: LREAL := 38.0;
+END_VAR
+VAR_OUTPUT
+	fFinal			: LREAL;
+	bReachedFirst	: BOOL;		// the axis came to the first target
+	nStarts			: INT;		// bStartMove of the follower
+	nDone			: INT;		// MoveDone cycles the follower saw
+	nAborted		: INT;		// CommandAborted cycles the follower saw
+	bSettled		: BOOL;
+END_VAR
+VAR
+	fbF		: BROTLib.FB_MoveFollower;
+	fbCh	: BROTLib.FB_MoveChannel;
+	fbCmd	: BROTLib.FB_AxisCommand;
+	fbNc	: FB_NcMoveMock;
+	aExec	: ARRAY[0..1] OF BOOL;
+	fTarget	: LREAL;
+	bDone	: BOOL;
+	bAborted	: BOOL;
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fTarget := 33.0;
+FOR i := 1 TO 900 DO
+	IF i = nRetargetCycle THEN
+		fTarget := fSecondTarget;
+	END_IF
+	fbF(fTarget := fTarget, fActual := fbNc.fActual, fTolerance := 0.005, bActive := TRUE, bReady := TRUE,
+		bMoveDone := bDone, bAborted := bAborted, bError := FALSE, bStopDone := FALSE);
+	IF fbF.bStartMove THEN
+		nStarts := nStarts + 1;
+		IF bTwoSlots THEN
+			fbCh.Request();
+		ELSE
+			fbCmd.Request();
+		END_IF
+	END_IF
+	IF bTwoSlots THEN
+		fbCh(Allowed := TRUE, Reset := FALSE, aDone := fbNc.aDone, aAborted := fbNc.aAborted, aBusy := fbNc.aBusy);
+		aExec := fbCh.aExecute;
+		bAborted := fbCh.Aborted;
+	ELSE
+		fbCmd(Allowed := TRUE, Reset := FALSE, Done := fbNc.aDone[0], Aborted := fbNc.aAborted[0]);
+		aExec[0] := fbCmd.Execute;
+		aExec[1] := FALSE;
+		bAborted := fbNc.aAborted[0];
+	END_IF
+	fbNc(aExecute := aExec, fPosition := fTarget, nAbortLatency := nAbortLatency, fInitial := 36.0);
+	// MoveDone as FB_Axis reports it: the latest command's Done, not while a request is pending
+	IF bTwoSlots THEN
+		bDone := fbNc.aDone[fbCh.nActive] AND NOT fbCh.Pending;
+	ELSE
+		bDone := fbNc.aDone[0] AND NOT fbCmd.Pending;
+	END_IF
+	IF bDone THEN
+		nDone := nDone + 1;
+	END_IF
+	IF bAborted THEN
+		nAborted := nAborted + 1;
+	END_IF
+	IF ABS(fbNc.fActual - 33.0) < 0.001 THEN
+		bReachedFirst := TRUE;
+	END_IF
+END_FOR
+fFinal := fbNc.fActual;
+bSettled := fbF.bSettled;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
