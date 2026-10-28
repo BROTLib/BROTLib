@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_HourAngleOffsetOnAxis" Id="{dcd2c845-1d45-46a3-8ada-c31451d5fd60}" SpecialFunc="None">
+    <Declaration><![CDATA[// Hour-angle-axis correction (degrees) for a cross-declination offset on the sky (fHourAngleOffset, degrees) at
+// declination fDeclination (degrees): fHourAngleOffset / COS(fDeclination). Near the pole 1/COS grows without bound
+// and is a division by zero at +-90 deg, so COS is floored at COS(89.5 deg) (factor 115 at most) and the result is
+// limited to +-10 deg, the bound BROTLib puts on the offset command (BROTLib#27, same as MONETcommon's
+// F_AzimuthOffsetOnAxis near the zenith). Below |dec| = 89.5 deg the result is unchanged.
+// Moved here from IAG50cm (IAG50cm#17).
+FUNCTION F_HourAngleOffsetOnAxis : LREAL
+VAR_INPUT
+	fHourAngleOffset	: LREAL;	// cross-declination offset on the sky, degrees
+	fDeclination		: LREAL;	// declination, degrees
+END_VAR
+VAR CONSTANT
+	D2R				: LREAL := 0.017453292519943295;
+	MIN_COS			: LREAL := 0.008726535498373935;	// COS(89.5 deg)
+	MAX_AXIS_OFFSET	: LREAL := 10.0;					// degrees
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_HourAngleOffsetOnAxis := LIMIT(-MAX_AXIS_OFFSET, fHourAngleOffset / MAX(COS(fDeclination * D2R), MIN_COS), MAX_AXIS_OFFSET);
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

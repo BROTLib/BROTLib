@@ -1,94 +1,133 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="FB_RaDecTelescopeControl" Id="{970d8181-0be4-4e4a-9ab2-2a422d7ff3f2}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK FB_RaDecTelescopeControl EXTENDS FB_BaseTelescopeControl IMPLEMENTS I_RaDecTelescope;
+    <Declaration><![CDATA[// Equatorial (HA/Dec) telescope: the offsets of I_RaDecTelescope and the coordinate transforms (IAG50cm#17).
+// A subclass that, like MONETcommon's, does not call SUPER^() from its body calls _UpdateClock() and, around its
+// own pointing model, _UpdateTarget() and _UpdateCurrent(): the body of this block never runs for it.
+// The pointing model, the state machine and the axes stay in the subclass.
+FUNCTION_BLOCK ABSTRACT FB_RaDecTelescopeControl EXTENDS FB_BaseTelescopeControl IMPLEMENTS I_RaDecTelescope
 VAR_INPUT
+	fHourAngleOffset		: LREAL := 0.0;		// absolute offset for hour angle (cross-declination on the sky), degrees
+	fDeclinationOffset		: LREAL := 0.0;		// absolute offset for declination, degrees
+	// TRUE: the slew altitude is an observed (refracted) one (AstroBROT default, MONET). IAG50cm passes FALSE until IAG50cm#3 is decided.
+	bSlewAltIsObserved		: BOOL := TRUE;
 END_VAR
 VAR_OUTPUT
+	fHourAngleApparent		: LREAL;	// apparent hour angle of the target
+	fDeclinationApparent	: LREAL;	// apparent declination of the target
+	fRightAscensionCurrentICRS		: LREAL;	// position of the axes in ICRS, without offsets and pointing correction
+	fDeclinationCurrentICRS			: LREAL;
+	fRightAscensionCurrentICRScorr	: LREAL;	// sky position in ICRS, with offsets and inverse pointing correction
+	fDeclinationCurrentICRScorr		: LREAL;
 END_VAR
 VAR
-	eq2hor				: FB_EQ2HOR;
-	hor2eq				: FB_HOR2EQ;
-
-	fHourAngleOffset	: LREAL := 0.0;		// absolute offset for hour angle
-	fDeclinationOffset	: LREAL := 0.0;		// absolute offset for declination
-	
-	fHourAngleVelocity	: LREAL;	// rotational velocity of the HA
-	fDeclinationVelocity: LREAL;	// rotational velocity of the declination
-	
-	fElevationPointing  	: LREAL;	// true position of the elevation with applied pointing model
-	fAzimuthPointing    	: LREAL;	// true position of the azimuth with applied pointing model
-	fRightAscensionPointing	: LREAL;	// RA from pointing Az/El
-	fDeclinationPointing	: LREAL;	// Dec from pointing Az/El
-	
-	fDerotationSign	: LREAL := 1.0;	// sign of derotation
-END_VAR
-VAR PERSISTENT
-	EOFF				: LREAL;	// elevation encoder zero offset
-	AN_E				: LREAL;	// azimuth axis offset/misalignment north-south
-	AE_E				: LREAL;	// azimuth axis offset/misalignment east-west
-	TF					: LREAL;	// gravitational flexure correction at the horizon
-	AOFF				: LREAL;	// azimuth encoder zero offset
-	BNP					: LREAL;	// collimation error of the electromagnetic axis
-	AN_A				: LREAL;	// azimuth axis offset/misalignment north-south
-	AE_A				: LREAL;	// azimuth axis offset/misalignment east-west,
-	NPAE				: LREAL;	// Non-perpendicularity between the mount azimuth and elevation axes
+	fbCoordinates			: FB_RaDecCoordinates;
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[SUPER^();
-
-// Alt/Az to RA/Dec
-hor2eq(alt := fElevation, 
-		az := fAzimuth,
-		jd := fJD,
-		lat := telescopeConfig.latitude,
-		lon := telescopeConfig.longitude,
-		altitude := telescopeConfig.altitude,
-		ra => fRightAscensionCalc,
-		dec => fDeclinationCalc);
-		
-// to HA
-fHourAngleCalc := 0.0;
-
-// apply pointing model
-//fRightAscensionCalc := fRightAscensionCalc + PointingModelRightAscension
-//fDeclinationCalc := fDeclinationCalc + PointingModelDeclination 
-
-// calculate velocities
-//fHourAngleVelocity := F_Elevationvelocity(fAzimuthCalc, telescopeConfig.latitude);
-//fDeclinationVelocity := F_Azimuthvelocity(fElevationCalc, fAzimuthCalc, telescopeConfig.latitude);
-
-// apply reverse pointing model
-//fElevationPointing := fElevationCurrent - PointingModelElevation(fAzimuthCurrent, fElevationCurrent, EOFF, AN_E, AE_E, TF);
-//fAzimuthPointing := fAzimuthCurrent - PointingModelAzimuth(fAzimuthCurrent, fElevationCurrent, AOFF, BNP, AN_A, AE_A, NPAE);
-
-// add offsets
-//fElevationCurrent := fElevationPointing - fElevationOffset;
-//fAzimuthCurrent := fAzimuthPointing - fAzimuthOffset;
-
-// calculate horizontal coordinates
-eq2hor(
-	ra := fRightAscensionCurrent,
-	dec := fDeclinationCurrent,
-	lon := telescopeConfig.longitude,
-	lat := telescopeConfig.latitude,
-	JD := fJD,
-	alt => fElevationCalc,
-	az => fAzimuthCalc,
-	ha => fHourAngleCalc);
 ]]></ST>
     </Implementation>
+    <Method Name="_UpdateTarget" Id="{2bbf8ddc-7457-4cc7-a970-f3d674d63a45}">
+      <Declaration><![CDATA[// Apparent HA/Dec and Alt/Az of the target and the slew target RA/Dec/HA, from fRightAscension, fDeclination, fElevation,
+// fAzimuth, fJd and fTimeOffset. Call after _UpdateClock() and before the pointing model.
+METHOD _UpdateTarget
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbCoordinates.fJd := fJd;
+fbCoordinates.fTimeOffset := fTimeOffset;
+fbCoordinates.fLongitude := telescopeConfig.longitude;
+fbCoordinates.fLatitude := telescopeConfig.latitude;
+fbCoordinates.fAltitude := telescopeConfig.altitude;
+fbCoordinates.fRightAscension := fRightAscension;
+fbCoordinates.fDeclination := fDeclination;
+fbCoordinates.fElevation := fElevation;
+fbCoordinates.fAzimuth := fAzimuth;
+fbCoordinates.bSlewAltIsObserved := bSlewAltIsObserved;
+fbCoordinates.Target();
+fHourAngleApparent := fbCoordinates.fHourAngleApparent;
+fDeclinationApparent := fbCoordinates.fDeclinationApparent;
+fElevationCalc := fbCoordinates.fElevationCalc;
+fAzimuthCalc := fbCoordinates.fAzimuthCalc;
+fRightAscensionCalc := fbCoordinates.fRightAscensionCalc;
+fDeclinationCalc := fbCoordinates.fDeclinationCalc;
+fHourAngleCalc := fbCoordinates.fHourAngleCalc;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_UpdateCurrent" Id="{478bd33e-9cac-4448-965f-ce731d57c3ba}">
+      <Declaration><![CDATA[// ICRS and Alt/Az of the axes and of the sky from fHourAngleCurrent and fDeclinationCurrent (the subclass reads them from
+// its axes first) and the offsets. The inverse pointing correction comes from the subclass; while bInversionValid is
+// FALSE the last valid one is kept. Call after _UpdateTarget().
+METHOD _UpdateCurrent
+VAR_INPUT
+	fHourAngleInversion		: LREAL;
+	fDeclinationInversion	: LREAL;
+	bInversionValid			: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbCoordinates.fHourAngleCurrent := fHourAngleCurrent;
+fbCoordinates.fDeclinationCurrent := fDeclinationCurrent;
+fbCoordinates.fHourAngleOffset := fHourAngleOffset;
+fbCoordinates.fDeclinationOffset := fDeclinationOffset;
+fbCoordinates.fHourAngleInversion := fHourAngleInversion;
+fbCoordinates.fDeclinationInversion := fDeclinationInversion;
+fbCoordinates.bInversionValid := bInversionValid;
+fbCoordinates.Current();
+fRightAscensionCurrentICRS := fbCoordinates.fRightAscensionCurrentICRS;
+fDeclinationCurrentICRS := fbCoordinates.fDeclinationCurrentICRS;
+fRightAscensionCurrentICRScorr := fbCoordinates.fRightAscensionCurrentICRScorr;
+fDeclinationCurrentICRScorr := fbCoordinates.fDeclinationCurrentICRScorr;
+fElevationCurrent := fbCoordinates.fElevationCurrent;
+fAzimuthCurrent := fbCoordinates.fAzimuthCurrent;
+fElevationCurrentSky := fbCoordinates.fElevationCurrentSky;
+fAzimuthCurrentSky := fbCoordinates.fAzimuthCurrentSky;
+fRightAscensionCurrent := fRightAscensionCurrentICRS;
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="_PublishTelemetry" Id="{560c4df5-8843-4b45-8467-c2296981790f}">
       <Declaration><![CDATA[METHOD _PublishTelemetry : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.RA.OFFSET', fHourAngleOffset);
+        <ST><![CDATA[SUPER^._PublishTelemetry();
+IF fbComm = 0 THEN
+	RETURN;
+END_IF
+// the names pyBROT reads (IAG50cm publishes the same)
+fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.HA.OFFSET', fHourAngleOffset);
 fbComm.PublishLREAL('telescope', 'dome', 'POSITION.INSTRUMENTAL.DEC.OFFSET', fDeclinationOffset);
 ]]></ST>
       </Implementation>
     </Method>
+    <Property Name="Declination" Id="{75e1c780-a77a-4422-ab35-fb545cc791db}">
+      <Declaration><![CDATA[PROPERTY Declination : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{7a4a071c-8f0c-4e7f-a5c5-deb1259f6805}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Declination := fDeclinationCurrentICRS;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="RightAscension" Id="{705483fe-aaeb-4516-9eed-46f5a3627fb2}">
+      <Declaration><![CDATA[PROPERTY RightAscension : LREAL
+]]></Declaration>
+      <Get Name="Get" Id="{bdbbed2e-23b3-4dd4-9081-876302a3acea}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[RightAscension := fRightAscensionCurrentICRS;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
     <Property Name="DeclinationOffset" Id="{215080a3-42ae-4b14-aacb-d9676be48ca3}">
       <Declaration><![CDATA[PROPERTY DeclinationOffset : LREAL
 ]]></Declaration>
@@ -129,39 +168,5 @@ END_VAR
         </Implementation>
       </Set>
     </Property>
-    <LineIds Name="FB_RaDecTelescopeControl">
-      <LineId Id="285" Count="1" />
-      <LineId Id="232" Count="0" />
-      <LineId Id="225" Count="6" />
-      <LineId Id="223" Count="0" />
-      <LineId Id="235" Count="2" />
-      <LineId Id="224" Count="0" />
-      <LineId Id="45" Count="0" />
-      <LineId Id="233" Count="1" />
-      <LineId Id="84" Count="0" />
-      <LineId Id="50" Count="0" />
-      <LineId Id="52" Count="1" />
-      <LineId Id="130" Count="0" />
-      <LineId Id="104" Count="8" />
-      <LineId Id="239" Count="7" />
-      <LineId Id="238" Count="0" />
-      <LineId Id="44" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_RaDecTelescopeControl._PublishTelemetry">
-      <LineId Id="6" Count="1" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_RaDecTelescopeControl.DeclinationOffset.Get">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_RaDecTelescopeControl.DeclinationOffset.Set">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_RaDecTelescopeControl.HourAngleOffset.Get">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="FB_RaDecTelescopeControl.HourAngleOffset.Set">
-      <LineId Id="2" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

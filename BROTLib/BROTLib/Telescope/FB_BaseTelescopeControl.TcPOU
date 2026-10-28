@@ -240,6 +240,24 @@ fbComm.PublishString('telescope', 'dome', 'TELESCOPE.CONFIG.MOUNT', telescopeCon
 ]]></ST>
       </Implementation>
     </Method>
+    <Method Name="_UpdateClock" Id="{c5141413-9d80-47a4-a950-6f1e2ae97825}">
+      <Declaration><![CDATA[// Reads the astronomical clock and sets fJd (only while the clock is valid, otherwise the last value stays) and fLst.
+// Returns TRUE while the clock is valid. A derived block that does not call SUPER^() from its body calls this once per
+// scan (MONETcommon and IAG50cm do the same inline). What to do without valid time (stop pointing) is the caller's decision.
+METHOD PROTECTED _UpdateClock : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbTime();
+IF fbTime.bValid THEN
+	fJd := DateTime2JD(fbTime.time_RTCEX2);
+END_IF
+fLst := CT2LST(telescopeConfig.longitude, fJd);
+_UpdateClock := fbTime.bValid;
+]]></ST>
+      </Implementation>
+    </Method>
     <Property Name="Altitude" Id="{caafb587-dfec-4075-98b5-4e0c659dd422}">
       <Declaration><![CDATA[PROPERTY Altitude : LREAL
 ]]></Declaration>

@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RaDecCoordinates" Id="{f96385ec-2b4a-4c27-b494-c794cd2acaf2}" SpecialFunc="None">
+    <Declaration><![CDATA[// Coordinate transforms of an equatorial (HA/Dec) telescope, without axes, clock or comm (IAG50cm#17). The owner sets the
+// inputs and calls Target() and Current() in its scan: Target() before it runs its pointing model (which needs
+// fHourAngleApparent/fDeclinationApparent), Current() after (it needs the axis positions and the inversion).
+// Moved out of IAG50cm's FB_TelescopeControl with the same AstroBROT calls in the same order, and ONE FB_EQ2HOR
+// instance for the three conversions to Alt/Az, as there (FB_EQ2HOR keeps state between calls).
+FUNCTION_BLOCK FB_RaDecCoordinates
+VAR_INPUT
+	fJd						: LREAL;		// Julian date, UTC
+	fTimeOffset				: LREAL;		// added to fJd for all conversions (TCS time offset)
+	fLongitude				: LREAL;		// degrees
+	fLatitude				: LREAL;		// degrees
+	fAltitude				: LREAL;		// height above sea level, metres
+	// target (TCS input)
+	fRightAscension			: LREAL;		// ICRS, degrees
+	fDeclination			: LREAL;		// ICRS, degrees
+	// slew target (TCS input)
+	fElevation				: LREAL;		// degrees
+	fAzimuth				: LREAL;		// degrees
+	// TRUE: the slew altitude is an observed (refracted) one, FALSE: a theoretical one. IAG50cm runs FALSE
+	// (IAG50cm#3 decides), AstroBROT's own default and MONET's choice is TRUE.
+	bSlewAltIsObserved		: BOOL := TRUE;
+	// axis positions and corrections
+	fHourAngleCurrent		: LREAL;		// degrees
+	fDeclinationCurrent		: LREAL;		// degrees
+	fHourAngleOffset		: LREAL;		// user offset on the sky (cross-declination), degrees
+	fDeclinationOffset		: LREAL;		// user offset, degrees
+	fHourAngleInversion		: LREAL;		// inverse pointing correction of this scan
+	fDeclinationInversion	: LREAL;
+	bInversionValid			: BOOL;			// FALSE: the inversion did not converge, keep the last valid correction
+END_VAR
+VAR_OUTPUT
+	// Target()
+	fHourAngleApparent		: LREAL;		// apparent hour angle of the target
+	fDeclinationApparent	: LREAL;		// apparent declination of the target
+	fElevationCalc			: LREAL;		// Alt/Az of the target
+	fAzimuthCalc			: LREAL;
+	fRightAscensionCalc		: LREAL;		// RA/Dec/HA of the slew target
+	fDeclinationCalc		: LREAL;
+	fHourAngleCalc			: LREAL;
+	// Current()
+	fRightAscensionCurrentICRS		: LREAL;	// where the axes point, without offsets and pointing correction
+	fDeclinationCurrentICRS			: LREAL;
+	fRightAscensionCurrentICRScorr	: LREAL;	// where the sky is, with offsets and the inverse pointing correction
+	fDeclinationCurrentICRScorr		: LREAL;
+	fElevationCurrent		: LREAL;		// Alt/Az of the axes
+	fAzimuthCurrent			: LREAL;
+	fElevationCurrentSky	: LREAL;		// Alt/Az of the sky position
+	fAzimuthCurrentSky		: LREAL;
+	fHourAngleInversionHeld		: LREAL;	// the inversion actually used (last valid one)
+	fDeclinationInversionHeld	: LREAL;
+END_VAR
+VAR
+	fbRaDec2HaDec	: FB_RADEC2HADEC;
+	fbEq2Hor		: FB_EQ2HOR;
+	fbHor2Eq		: FB_HOR2EQ;
+	fbHaDec2RaDec	: FB_HADEC2RADEC;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// the work is in Target() and Current(), the owner decides where in its scan they run
+]]></ST>
+    </Implementation>
+    <Method Name="Target" Id="{7b36f19e-4b13-4d56-90e2-22d3be9fa356}">
+      <Declaration><![CDATA[// Apparent HA/Dec of the target, its Alt/Az (to check if it is on the sky or in the ground) and the RA/Dec/HA of the slew target.
+METHOD Target
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbRaDec2HaDec(
+	ra := fRightAscension,
+	dec := fDeclination,
+	lon := fLongitude,
+	JD := fJd + fTimeOffset,
+	ha_out => fHourAngleApparent,
+	dec_out => fDeclinationApparent);
+fbEq2Hor(
+	ra := fRightAscension,
+	dec := fDeclination,
+	lon := fLongitude,
+	lat := fLatitude,
+	altitude := fAltitude,
+	JD := fJd + fTimeOffset,
+	refract_to_observed := TRUE,
+	alt => fElevationCalc,
+	az => fAzimuthCalc);
+fbHor2Eq(
+	alt := fElevation,
+	az := fAzimuth,
+	jd := fJd + fTimeOffset,
+	lat := fLatitude,
+	lon := fLongitude,
+	altitude := fAltitude,
+	alt_is_observed := bSlewAltIsObserved,
+	ra => fRightAscensionCalc,
+	dec => fDeclinationCalc,
+	ha => fHourAngleCalc);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Current" Id="{a917cf6a-ee29-4454-a35e-971ad1558fbd}">
+      <Declaration><![CDATA[// Where the axes point and where that is on the sky: ICRS raw and corrected, Alt/Az raw and sky.
+// Needs Target() of the same scan (the HA offset on the axis uses fDeclinationApparent).
+METHOD Current
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// near the horizon the inversion is chaotic and does not converge: keep the last trustworthy correction
+IF bInversionValid THEN
+	fHourAngleInversionHeld := fHourAngleInversion;
+	fDeclinationInversionHeld := fDeclinationInversion;
+END_IF
+
+// transform from apparent to icrs
+fbHaDec2RaDec(
+	ha := fHourAngleCurrent,
+	dec := fDeclinationCurrent,
+	jd := fJd + fTimeOffset,
+	lon := fLongitude,
+	ra_out => fRightAscensionCurrentICRS,
+	dec_out => fDeclinationCurrentICRS);
+fbHaDec2RaDec(
+	ha := fHourAngleCurrent - fHourAngleInversionHeld - F_HourAngleOffsetOnAxis(fHourAngleOffset, fDeclinationApparent),
+	dec := fDeclinationCurrent - fDeclinationInversionHeld - fDeclinationOffset,
+	jd := fJd + fTimeOffset,
+	lon := fLongitude,
+	ra_out => fRightAscensionCurrentICRScorr,
+	dec_out => fDeclinationCurrentICRScorr);
+
+// to Alt/Az
+fbEq2Hor(
+	ra := fRightAscensionCurrentICRS,
+	dec := fDeclinationCurrentICRS,
+	lon := fLongitude,
+	lat := fLatitude,
+	altitude := fAltitude,
+	refract_to_observed := FALSE,
+	JD := fJd + fTimeOffset,
+	alt => fElevationCurrent,
+	az => fAzimuthCurrent);
+fbEq2Hor(
+	ra := fRightAscensionCurrentICRScorr,
+	dec := fDeclinationCurrentICRScorr,
+	lon := fLongitude,
+	lat := fLatitude,
+	altitude := fAltitude,
+	refract_to_observed := FALSE,
+	JD := fJd + fTimeOffset,
+	alt => fElevationCurrentSky,
+	az => fAzimuthCurrentSky);
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

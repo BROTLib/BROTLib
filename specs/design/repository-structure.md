@@ -63,7 +63,7 @@ The central library defining telescope control abstractions, interfaces, coordin
 **Telescope Control:**
 - `FB_BaseTelescopeControl` -- Abstract base for all telescope types (command inputs and shared state, MQTT telemetry)
 - `FB_AltAzTelescopeControl` -- Alt-Az specific extension (pointing model, derotator, EOFF/AN/AE/TF error terms)
-- `FB_RaDecTelescopeControl` -- Equatorial mount extension (unfinished, not used by any project)
+- `FB_RaDecTelescopeControl` -- Equatorial mount extension (offsets, coordinate transforms via `FB_RaDecCoordinates`; IAG50cm#17)
 
 **Command model:** `E_TCSCommand` (`no_command`, `gohome`, `park`, `track`, `goto`, `stop`, `slew`, `poweron`). The 8-state machine that used to be documented here was removed in 2026; the stage-based command handling lives in the consuming projects.
 

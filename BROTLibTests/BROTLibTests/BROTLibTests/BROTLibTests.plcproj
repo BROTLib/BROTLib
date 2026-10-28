@@ -106,6 +106,18 @@
     <Compile Include="POUs\F_SuspendStop_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_HourAngleOffsetOnAxis_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RaDecCoordinates_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RaDecTelescopeControl_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RaDecTestTelescope.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_RefractionWeather_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

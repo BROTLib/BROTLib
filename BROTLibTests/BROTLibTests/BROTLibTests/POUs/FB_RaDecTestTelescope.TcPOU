@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RaDecTestTelescope" Id="{5392fdec-5487-4c5b-8092-5a86b4435175}" SpecialFunc="None">
+    <Declaration><![CDATA[// Minimal concrete FB_RaDecTelescopeControl for the tests: no axes, no state machine. Makes the protected _UpdateClock
+// callable and lets a test set fJd.
+FUNCTION_BLOCK FB_RaDecTestTelescope EXTENDS BROTLib.FB_RaDecTelescopeControl
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="UpdateClock" Id="{89cb7af0-7d17-4d40-a13a-573fb90bbd3f}">
+      <Declaration><![CDATA[METHOD UpdateClock : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[UpdateClock := _UpdateClock();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetJd" Id="{13ddc328-5b1b-4992-81eb-7aef9a2cfc3f}">
+      <Declaration><![CDATA[METHOD SetJd
+VAR_INPUT
+	fValue	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fJd := fValue;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
