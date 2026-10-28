@@ -5,16 +5,9 @@
 // the refraction direction and the held inversion. Every test has its own instance because FB_EQ2HOR keeps state between calls.
 FUNCTION_BLOCK FB_RaDecCoordinates_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
-	fbBase		: BROTLib.FB_RaDecCoordinates;
-	fbLater		: BROTLib.FB_RaDecCoordinates;
-	fbHeld		: BROTLib.FB_RaDecCoordinates;
-	fbObs		: BROTLib.FB_RaDecCoordinates;
-	fbTheo		: BROTLib.FB_RaDecCoordinates;
-	fbPole		: BROTLib.FB_RaDecCoordinates;
-	fbMeridian	: BROTLib.FB_RaDecCoordinates;
-	fbRaw		: BROTLib.FB_RaDecCoordinates;
-	fbOffset	: BROTLib.FB_RaDecCoordinates;
-	fbProbe		: BROTLib.FB_RaDecCoordinates;
+	fbA		: BROTLib.FB_RaDecCoordinates;	// reused by the tests, each sets every input it needs
+	fbB		: BROTLib.FB_RaDecCoordinates;
+	fbHeld	: BROTLib.FB_RaDecCoordinates;	// own instance: the held inversion starts empty
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -35,23 +28,35 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Time_Offset_Moves_The_Hour_Angle');
-fbBase.fJd := 2460000.5;
-fbBase.fLongitude := 10.0;
-fbBase.fLatitude := 50.0;
-fbBase.fAltitude := 300.0;
-fbBase.fRightAscension := 100.0;
-fbBase.fDeclination := 20.0;
-fbBase.Target();
-fbLater.fJd := 2460000.5;
-fbLater.fLongitude := 10.0;
-fbLater.fLatitude := 50.0;
-fbLater.fAltitude := 300.0;
-fbLater.fRightAscension := 100.0;
-fbLater.fDeclination := 20.0;
-fbLater.fTimeOffset := 1.0 / 24.0;
-fbLater.Target();
-AssertEquals_LREAL(Expected := 15.04, Actual := fbLater.fHourAngleApparent - fbBase.fHourAngleApparent, Delta := 0.05, Message := 'one hour later: +15.04 deg of hour angle');
-AssertEquals_LREAL(Expected := fbBase.fDeclinationApparent, Actual := fbLater.fDeclinationApparent, Delta := 0.01, Message := 'declination does not move with time');
+fbA.fJd := 2460000.5;
+fbA.fLongitude := 10.0;
+fbA.fLatitude := 50.0;
+fbA.fAltitude := 300.0;
+fbA.fTimeOffset := 0.0;
+fbA.fHourAngleOffset := 0.0;
+fbA.fDeclinationOffset := 0.0;
+fbA.fHourAngleInversion := 0.0;
+fbA.fDeclinationInversion := 0.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.fRightAscension := 100.0;
+fbA.fDeclination := 20.0;
+fbA.Target();
+fbB.fJd := 2460000.5;
+fbB.fLongitude := 10.0;
+fbB.fLatitude := 50.0;
+fbB.fAltitude := 300.0;
+fbB.fTimeOffset := 0.0;
+fbB.fHourAngleOffset := 0.0;
+fbB.fDeclinationOffset := 0.0;
+fbB.fHourAngleInversion := 0.0;
+fbB.fDeclinationInversion := 0.0;
+fbB.bSlewAltIsObserved := TRUE;
+fbB.fRightAscension := 100.0;
+fbB.fDeclination := 20.0;
+fbB.fTimeOffset := 1.0 / 24.0;
+fbB.Target();
+AssertEquals_LREAL(Expected := 15.04, Actual := fbB.fHourAngleApparent - fbA.fHourAngleApparent, Delta := 0.05, Message := 'one hour later: +15.04 deg of hour angle');
+AssertEquals_LREAL(Expected := fbA.fDeclinationApparent, Actual := fbB.fDeclinationApparent, Delta := 0.01, Message := 'declination does not move with time');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -64,22 +69,34 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Target_On_The_Meridian_Is_At_The_Zenith');
-fbProbe.fJd := 2460000.5;
-fbProbe.fLongitude := 10.0;
-fbProbe.fLatitude := 50.0;
-fbProbe.fAltitude := 300.0;
-fbProbe.fRightAscension := 100.0;
-fbProbe.fDeclination := 50.0;
-fbProbe.Target();
-fbMeridian.fJd := 2460000.5;
-fbMeridian.fLongitude := 10.0;
-fbMeridian.fLatitude := 50.0;
-fbMeridian.fAltitude := 300.0;
-fbMeridian.fRightAscension := 100.0 + fbProbe.fHourAngleApparent;
-fbMeridian.fDeclination := 50.0;
-fbMeridian.Target();
-AssertEquals_LREAL(Expected := 0.0, Actual := fbMeridian.fHourAngleApparent, Delta := 0.05, Message := 'on the meridian');
-AssertTrue(Condition := fbMeridian.fElevationCalc > 89.0, Message := 'on the meridian at dec = latitude: near the zenith');
+fbA.fJd := 2460000.5;
+fbA.fLongitude := 10.0;
+fbA.fLatitude := 50.0;
+fbA.fAltitude := 300.0;
+fbA.fTimeOffset := 0.0;
+fbA.fHourAngleOffset := 0.0;
+fbA.fDeclinationOffset := 0.0;
+fbA.fHourAngleInversion := 0.0;
+fbA.fDeclinationInversion := 0.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.fRightAscension := 100.0;
+fbA.fDeclination := 50.0;
+fbA.Target();
+fbB.fJd := 2460000.5;
+fbB.fLongitude := 10.0;
+fbB.fLatitude := 50.0;
+fbB.fAltitude := 300.0;
+fbB.fTimeOffset := 0.0;
+fbB.fHourAngleOffset := 0.0;
+fbB.fDeclinationOffset := 0.0;
+fbB.fHourAngleInversion := 0.0;
+fbB.fDeclinationInversion := 0.0;
+fbB.bSlewAltIsObserved := TRUE;
+fbB.fRightAscension := 100.0 + fbA.fHourAngleApparent;
+fbB.fDeclination := 50.0;
+fbB.Target();
+AssertEquals_LREAL(Expected := 0.0, Actual := fbB.fHourAngleApparent, Delta := 0.05, Message := 'on the meridian');
+AssertTrue(Condition := fbB.fElevationCalc > 89.0, Message := 'on the meridian at dec = latitude: near the zenith');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -93,24 +110,36 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Slew_Target_Refraction_Direction');
-fbObs.fJd := 2460000.5;
-fbObs.fLongitude := 10.0;
-fbObs.fLatitude := 50.0;
-fbObs.fAltitude := 300.0;
-fbObs.fElevation := 10.0;
-fbObs.fAzimuth := 180.0;
-fbObs.bSlewAltIsObserved := TRUE;
-fbObs.Target();
-fbTheo.fJd := 2460000.5;
-fbTheo.fLongitude := 10.0;
-fbTheo.fLatitude := 50.0;
-fbTheo.fAltitude := 300.0;
-fbTheo.fElevation := 10.0;
-fbTheo.fAzimuth := 180.0;
-fbTheo.bSlewAltIsObserved := FALSE;
-fbTheo.Target();
-AssertTrue(Condition := ABS(fbObs.fDeclinationCalc - fbTheo.fDeclinationCalc) > 0.05, Message := 'refraction direction moves the slew target by more than 3 arcmin');
-AssertTrue(Condition := ABS(fbObs.fDeclinationCalc - fbTheo.fDeclinationCalc) < 0.4, Message := '... and by less than 24 arcmin');
+fbA.fJd := 2460000.5;
+fbA.fLongitude := 10.0;
+fbA.fLatitude := 50.0;
+fbA.fAltitude := 300.0;
+fbA.fTimeOffset := 0.0;
+fbA.fHourAngleOffset := 0.0;
+fbA.fDeclinationOffset := 0.0;
+fbA.fHourAngleInversion := 0.0;
+fbA.fDeclinationInversion := 0.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.fElevation := 10.0;
+fbA.fAzimuth := 180.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.Target();
+fbB.fJd := 2460000.5;
+fbB.fLongitude := 10.0;
+fbB.fLatitude := 50.0;
+fbB.fAltitude := 300.0;
+fbB.fTimeOffset := 0.0;
+fbB.fHourAngleOffset := 0.0;
+fbB.fDeclinationOffset := 0.0;
+fbB.fHourAngleInversion := 0.0;
+fbB.fDeclinationInversion := 0.0;
+fbB.bSlewAltIsObserved := TRUE;
+fbB.fElevation := 10.0;
+fbB.fAzimuth := 180.0;
+fbB.bSlewAltIsObserved := FALSE;
+fbB.Target();
+AssertTrue(Condition := ABS(fbA.fDeclinationCalc - fbB.fDeclinationCalc) > 0.05, Message := 'refraction direction moves the slew target by more than 3 arcmin');
+AssertTrue(Condition := ABS(fbA.fDeclinationCalc - fbB.fDeclinationCalc) < 0.4, Message := '... and by less than 24 arcmin');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -123,22 +152,28 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Current_Without_Corrections_Is_Raw');
-fbRaw.fJd := 2460000.5;
-fbRaw.fLongitude := 10.0;
-fbRaw.fLatitude := 50.0;
-fbRaw.fAltitude := 300.0;
-fbRaw.fRightAscension := 100.0;
-fbRaw.fDeclination := 20.0;
-fbRaw.Target();
-fbRaw.fHourAngleCurrent := 0.0;
-fbRaw.fDeclinationCurrent := 50.0;
-fbRaw.bInversionValid := TRUE;
-fbRaw.Current();
-AssertEquals_LREAL(Expected := fbRaw.fRightAscensionCurrentICRS, Actual := fbRaw.fRightAscensionCurrentICRScorr, Delta := 1.0E-9, Message := 'RA corrected = raw');
-AssertEquals_LREAL(Expected := fbRaw.fDeclinationCurrentICRS, Actual := fbRaw.fDeclinationCurrentICRScorr, Delta := 1.0E-9, Message := 'Dec corrected = raw');
-AssertEquals_LREAL(Expected := fbRaw.fElevationCurrent, Actual := fbRaw.fElevationCurrentSky, Delta := 1.0E-9, Message := 'elevation sky = raw');
-AssertTrue(Condition := fbRaw.fElevationCurrent > 89.0, Message := 'hour angle 0 at dec = latitude: axes at the zenith');
-AssertEquals_LREAL(Expected := 50.0, Actual := fbRaw.fDeclinationCurrentICRS, Delta := 1.0, Message := 'ICRS Dec within precession of the apparent Dec');
+fbA.fJd := 2460000.5;
+fbA.fLongitude := 10.0;
+fbA.fLatitude := 50.0;
+fbA.fAltitude := 300.0;
+fbA.fTimeOffset := 0.0;
+fbA.fHourAngleOffset := 0.0;
+fbA.fDeclinationOffset := 0.0;
+fbA.fHourAngleInversion := 0.0;
+fbA.fDeclinationInversion := 0.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.fRightAscension := 100.0;
+fbA.fDeclination := 20.0;
+fbA.Target();
+fbA.fHourAngleCurrent := 0.0;
+fbA.fDeclinationCurrent := 50.0;
+fbA.bInversionValid := TRUE;
+fbA.Current();
+AssertEquals_LREAL(Expected := fbA.fRightAscensionCurrentICRS, Actual := fbA.fRightAscensionCurrentICRScorr, Delta := 1.0E-9, Message := 'RA corrected = raw');
+AssertEquals_LREAL(Expected := fbA.fDeclinationCurrentICRS, Actual := fbA.fDeclinationCurrentICRScorr, Delta := 1.0E-9, Message := 'Dec corrected = raw');
+AssertEquals_LREAL(Expected := fbA.fElevationCurrent, Actual := fbA.fElevationCurrentSky, Delta := 1.0E-9, Message := 'elevation sky = raw');
+AssertTrue(Condition := fbA.fElevationCurrent > 89.0, Message := 'hour angle 0 at dec = latitude: axes at the zenith');
+AssertEquals_LREAL(Expected := 50.0, Actual := fbA.fDeclinationCurrentICRS, Delta := 1.0, Message := 'ICRS Dec within precession of the apparent Dec');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -151,19 +186,25 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Declination_Offset_Is_Subtracted');
-fbOffset.fJd := 2460000.5;
-fbOffset.fLongitude := 10.0;
-fbOffset.fLatitude := 50.0;
-fbOffset.fAltitude := 300.0;
-fbOffset.fRightAscension := 100.0;
-fbOffset.fDeclination := 20.0;
-fbOffset.Target();
-fbOffset.fHourAngleCurrent := 0.0;
-fbOffset.fDeclinationCurrent := 50.0;
-fbOffset.fDeclinationOffset := 0.5;
-fbOffset.bInversionValid := TRUE;
-fbOffset.Current();
-AssertEquals_LREAL(Expected := fbOffset.fDeclinationCurrentICRS - 0.5, Actual := fbOffset.fDeclinationCurrentICRScorr, Delta := 0.01, Message := 'sky Dec = axis Dec - offset');
+fbA.fJd := 2460000.5;
+fbA.fLongitude := 10.0;
+fbA.fLatitude := 50.0;
+fbA.fAltitude := 300.0;
+fbA.fTimeOffset := 0.0;
+fbA.fHourAngleOffset := 0.0;
+fbA.fDeclinationOffset := 0.0;
+fbA.fHourAngleInversion := 0.0;
+fbA.fDeclinationInversion := 0.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.fRightAscension := 100.0;
+fbA.fDeclination := 20.0;
+fbA.Target();
+fbA.fHourAngleCurrent := 0.0;
+fbA.fDeclinationCurrent := 50.0;
+fbA.fDeclinationOffset := 0.5;
+fbA.bInversionValid := TRUE;
+fbA.Current();
+AssertEquals_LREAL(Expected := fbA.fDeclinationCurrentICRS - 0.5, Actual := fbA.fDeclinationCurrentICRScorr, Delta := 0.01, Message := 'sky Dec = axis Dec - offset');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -179,6 +220,12 @@ fbHeld.fJd := 2460000.5;
 fbHeld.fLongitude := 10.0;
 fbHeld.fLatitude := 50.0;
 fbHeld.fAltitude := 300.0;
+fbHeld.fTimeOffset := 0.0;
+fbHeld.fHourAngleOffset := 0.0;
+fbHeld.fDeclinationOffset := 0.0;
+fbHeld.fHourAngleInversion := 0.0;
+fbHeld.fDeclinationInversion := 0.0;
+fbHeld.bSlewAltIsObserved := TRUE;
 fbHeld.fRightAscension := 100.0;
 fbHeld.fDeclination := 20.0;
 fbHeld.Target();
@@ -216,23 +263,29 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Pole_And_Horizon_Stay_Finite');
-fbPole.fJd := 2460000.5;
-fbPole.fLongitude := 10.0;
-fbPole.fLatitude := 50.0;
-fbPole.fAltitude := 300.0;
-fbPole.fRightAscension := 10.0;
-fbPole.fDeclination := 89.9;
-fbPole.fElevation := -5.0;
-fbPole.fAzimuth := 0.0;
-fbPole.Target();
-fbPole.fHourAngleCurrent := 179.0;
-fbPole.fDeclinationCurrent := 89.9;
-fbPole.bInversionValid := TRUE;
-fbPole.Current();
-AssertTrue(Condition := ABS(fbPole.fHourAngleApparent) < 1.0E6, Message := 'HA finite');
-AssertTrue(Condition := ABS(fbPole.fElevationCalc) < 1.0E6, Message := 'target elevation finite');
-AssertTrue(Condition := ABS(fbPole.fDeclinationCalc) < 1.0E6, Message := 'slew target below the horizon finite');
-AssertTrue(Condition := ABS(fbPole.fElevationCurrentSky) < 1.0E6, Message := 'sky elevation finite');
+fbA.fJd := 2460000.5;
+fbA.fLongitude := 10.0;
+fbA.fLatitude := 50.0;
+fbA.fAltitude := 300.0;
+fbA.fTimeOffset := 0.0;
+fbA.fHourAngleOffset := 0.0;
+fbA.fDeclinationOffset := 0.0;
+fbA.fHourAngleInversion := 0.0;
+fbA.fDeclinationInversion := 0.0;
+fbA.bSlewAltIsObserved := TRUE;
+fbA.fRightAscension := 10.0;
+fbA.fDeclination := 89.9;
+fbA.fElevation := -5.0;
+fbA.fAzimuth := 0.0;
+fbA.Target();
+fbA.fHourAngleCurrent := 179.0;
+fbA.fDeclinationCurrent := 89.9;
+fbA.bInversionValid := TRUE;
+fbA.Current();
+AssertTrue(Condition := ABS(fbA.fHourAngleApparent) < 1.0E6, Message := 'HA finite');
+AssertTrue(Condition := ABS(fbA.fElevationCalc) < 1.0E6, Message := 'target elevation finite');
+AssertTrue(Condition := ABS(fbA.fDeclinationCalc) < 1.0E6, Message := 'slew target below the horizon finite');
+AssertTrue(Condition := ABS(fbA.fElevationCurrentSky) < 1.0E6, Message := 'sky elevation finite');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

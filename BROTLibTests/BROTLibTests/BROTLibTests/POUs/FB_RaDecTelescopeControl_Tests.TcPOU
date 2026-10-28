@@ -5,10 +5,6 @@
 FUNCTION_BLOCK FB_RaDecTelescopeControl_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
 	fbTel	: FB_RaDecTestTelescope(comm := 0);
-	fbTelClock	: FB_RaDecTestTelescope(comm := 0);
-	fbTelProps	: FB_RaDecTestTelescope(comm := 0);
-	fbTelPublish	: FB_RaDecTestTelescope(comm := 0);
-	fbTelCoord	: FB_RaDecTestTelescope(comm := 0);
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -45,8 +41,8 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Clock_Not_Valid_Leaves_Jd_Alone');
-AssertFalse(Condition := fbTelClock.UpdateClock(), Message := 'clock not valid yet');
-AssertEquals_LREAL(Expected := 0.0, Actual := fbTelClock.fJd, Delta := 1.0E-12, Message := 'fJd not set from an invalid clock');
+AssertFalse(Condition := fbTel.UpdateClock(), Message := 'clock not valid yet');
+AssertEquals_LREAL(Expected := 0.0, Actual := fbTel.fJd, Delta := 1.0E-12, Message := 'fJd not set from an invalid clock');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -58,9 +54,9 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Properties_Follow_The_Current_ICRS_Position');
-fbTelProps.SetCurrentICRS(123.0, -12.5);
-AssertEquals_LREAL(Expected := 123.0, Actual := fbTelProps.RightAscension, Delta := 1.0E-12, Message := 'RightAscension');
-AssertEquals_LREAL(Expected := -12.5, Actual := fbTelProps.Declination, Delta := 1.0E-12, Message := 'Declination');
+fbTel.SetCurrentICRS(123.0, -12.5);
+AssertEquals_LREAL(Expected := 123.0, Actual := fbTel.RightAscension, Delta := 1.0E-12, Message := 'RightAscension');
+AssertEquals_LREAL(Expected := -12.5, Actual := fbTel.Declination, Delta := 1.0E-12, Message := 'Declination');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -73,9 +69,9 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Publish_Without_Comm_Does_Not_Crash');
-fbTelPublish.fHourAngleOffset := 0.5;
-fbTelPublish._PublishTelemetry();
-AssertEquals_LREAL(Expected := 0.5, Actual := fbTelPublish.fHourAngleOffset, Delta := 1.0E-12, Message := 'returned without a crash');
+fbTel.fHourAngleOffset := 0.5;
+fbTel._PublishTelemetry();
+AssertEquals_LREAL(Expected := 0.5, Actual := fbTel.fHourAngleOffset, Delta := 1.0E-12, Message := 'returned without a crash');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
@@ -87,18 +83,18 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Update_Target_And_Current_Fill_The_Inherited_Outputs');
-fbTelCoord.telescopeConfig.longitude := 10.0;
-fbTelCoord.telescopeConfig.latitude := 50.0;
-fbTelCoord.telescopeConfig.altitude := 300.0;
-fbTelCoord.SetJd(2460000.5);
-fbTelCoord.fRightAscension := 100.0;
-fbTelCoord.fDeclination := 50.0;
-fbTelCoord._UpdateTarget();
-fbTelCoord.SetAxes(0.0, 50.0);
-fbTelCoord._UpdateCurrent(0.0, 0.0, TRUE);
-AssertTrue(Condition := ABS(fbTelCoord.fDeclinationApparent - 50.0) < 1.0, Message := 'apparent Dec within precession of the catalog Dec');
-AssertTrue(Condition := fbTelCoord.fElevationCurrent > 89.0, Message := 'axes at HA 0, Dec = latitude: zenith, in the inherited output');
-AssertEquals_LREAL(Expected := fbTelCoord.fRightAscensionCurrentICRS, Actual := fbTelCoord.fRightAscensionCurrent, Delta := 1.0E-12, Message := 'the base fRightAscensionCurrent follows');
+fbTel.telescopeConfig.longitude := 10.0;
+fbTel.telescopeConfig.latitude := 50.0;
+fbTel.telescopeConfig.altitude := 300.0;
+fbTel.SetJd(2460000.5);
+fbTel.fRightAscension := 100.0;
+fbTel.fDeclination := 50.0;
+fbTel._UpdateTarget();
+fbTel.SetAxes(0.0, 50.0);
+fbTel._UpdateCurrent(0.0, 0.0, TRUE);
+AssertTrue(Condition := ABS(fbTel.fDeclinationApparent - 50.0) < 1.0, Message := 'apparent Dec within precession of the catalog Dec');
+AssertTrue(Condition := fbTel.fElevationCurrent > 89.0, Message := 'axes at HA 0, Dec = latitude: zenith, in the inherited output');
+AssertEquals_LREAL(Expected := fbTel.fRightAscensionCurrentICRS, Actual := fbTel.fRightAscensionCurrent, Delta := 1.0E-12, Message := 'the base fRightAscensionCurrent follows');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
