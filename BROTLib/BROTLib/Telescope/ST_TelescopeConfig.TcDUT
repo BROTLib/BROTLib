@@ -13,11 +13,16 @@ STRUCT
 	azimuthPark			: LREAL;
 	derotatorPark		: LREAL;
 	focusPark			: LREAL;
+	houranglePark		: LREAL;	// equatorial mounts (IAG50cm)
+	declinationPark		: LREAL;
 
 	// home position
 	elevationHome		: LREAL;
 	azimuthHome			: LREAL;
 	derotatorHome		: LREAL;
+	hourangleHome		: LREAL;	// equatorial mounts (IAG50cm)
+	declinationHome		: LREAL;
+	focusHome			: LREAL;
 	
 	// information about telescope
 	name				: STRING;
