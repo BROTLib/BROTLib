@@ -95,7 +95,7 @@ fbB.bSlewAltIsObserved := TRUE;
 fbB.fRightAscension := 100.0 + fbA.fHourAngleApparent;
 fbB.fDeclination := 50.0;
 fbB.Target();
-AssertEquals_LREAL(Expected := 0.0, Actual := fbB.fHourAngleApparent, Delta := 0.05, Message := 'on the meridian');
+AssertEquals_LREAL(Expected := 0.0, Actual := fbB.fHourAngleApparent, Delta := 0.5, Message := 'on the meridian (apparent-place corrections move RA by about 0.1 deg)');
 AssertTrue(Condition := fbB.fElevationCalc > 89.0, Message := 'on the meridian at dec = latitude: near the zenith');
 TEST_FINISHED();
 ]]></ST>

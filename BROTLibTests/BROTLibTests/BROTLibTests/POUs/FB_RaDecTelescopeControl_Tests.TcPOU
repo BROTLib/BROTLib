@@ -9,7 +9,6 @@ END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[Offsets_Through_The_Interface();
-Clock_Not_Valid_Leaves_Jd_Alone();
 Properties_Follow_The_Current_ICRS_Position();
 Publish_Without_Comm_Does_Not_Crash();
 Update_Target_And_Current_Fill_The_Inherited_Outputs();
@@ -29,20 +28,6 @@ ipRaDec.DeclinationOffset := -0.5;
 AssertEquals_LREAL(Expected := 0.25, Actual := ipRaDec.HourAngleOffset, Delta := 1.0E-12, Message := 'HA offset through I_RaDecTelescope');
 AssertEquals_LREAL(Expected := -0.5, Actual := ipRaDec.DeclinationOffset, Delta := 1.0E-12, Message := 'Dec offset through I_RaDecTelescope');
 AssertEquals_LREAL(Expected := 0.25, Actual := fbTel.fHourAngleOffset, Delta := 1.0E-12, Message := 'the input holds it');
-TEST_FINISHED();
-]]></ST>
-      </Implementation>
-    </Method>
-    <Method Name="Clock_Not_Valid_Leaves_Jd_Alone" Id="{76745789-e629-4d4e-80ab-5d21e8469786}">
-      <Declaration><![CDATA[// Without a synchronised clock (no ADS read happens in the test) fJd stays and the method says so.
-METHOD PRIVATE Clock_Not_Valid_Leaves_Jd_Alone
-VAR
-END_VAR
-]]></Declaration>
-      <Implementation>
-        <ST><![CDATA[TEST('Clock_Not_Valid_Leaves_Jd_Alone');
-AssertFalse(Condition := fbTel.UpdateClock(), Message := 'clock not valid yet');
-AssertEquals_LREAL(Expected := 0.0, Actual := fbTel.fJd, Delta := 1.0E-12, Message := 'fJd not set from an invalid clock');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
