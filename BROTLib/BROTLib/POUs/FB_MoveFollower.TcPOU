@@ -36,7 +36,7 @@ END_VAR
 VAR
 	bStopping	: BOOL;		// Stop() was called: no start or restart until the target changes
 	fHeldTarget	: LREAL;	// target at the time of Stop()
-	bRestarted	: BOOL;		// the move was restarted in the last cycle, its abort of the old move is not the end
+	bRestarted	: BOOL;		// the move was restarted in the last cycle, its abort of the old move is not the end (defensive: FB_Axis does not report the abort of a superseded move since HalfBROT#103)
 	fSettledTarget	: LREAL;	// target the axis arrived at
 	fBand		: LREAL;	// MAX(fHoldBand, fTolerance)
 	bWasMoving	: BOOL;		// a move was running when the cycle began

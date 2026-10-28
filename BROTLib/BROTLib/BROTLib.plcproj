@@ -179,6 +179,9 @@
     <Compile Include="POUs\FB_AxisCommand.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_MoveChannel.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_BaseAxis.TcPOU">
       <SubType>Code</SubType>
     </Compile>

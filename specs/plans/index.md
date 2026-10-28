@@ -76,3 +76,9 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   log lines lost / late / out of order after a broker outage (T44): method-local `FB_EventLog` instances lose a refused
   publish, per-instance retries do not keep the order. One shared log queue in `FB_Comm_MQTT_Influx` (`FB_LogQueue`),
   drained only while connected. **implemented**, offline tests only, hardware check T44
+- [2026-10-28-axis-retarget-while-busy-hotfix-103.md](2026-10-28-axis-retarget-while-busy-hotfix-103.md) —
+  a new focus target during a move is ignored until the move ends (HalfBROT#103): MS-73 on MONET/S showed the NC ignores a
+  rising `Execute` on a busy `MC_MoveAbsolute`. `FB_Axis` gets two move instances used alternately (new pure
+  `FB_MoveChannel`), `Done`/`CommandAborted`/`MoveDone` only from the active slot, so the superseded abort does not reach the
+  follower; mock-NC TcUnit scenarios, optional sim-axis check first, BROTLib 0.15.1, pins, MS-73 repeat. **proposed**,
+  nothing implemented, compiled or run; open: sim check first, pin wave order, modulo, slot-wait timeout

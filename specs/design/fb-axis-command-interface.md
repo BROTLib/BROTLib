@@ -178,6 +178,13 @@ What the implementation changed against the design above, found while building:
   `Execute` once allowed (one cycle low first if still TRUE), **released on `Done` or `CommandAborted`** (#92; `MC_Stop` must not be held, it
   keeps the axis in Stopping; this also gives the same one-cycle `Done` pulse the telescope state machines saw
   before), kept on an error until the next request or `Reset`. Outputs `MovePending`/`HomePending` on `FB_Axis`.
+- **`FB_MoveChannel`** (HalfBROT#103) sits between `MoveTo()` and the move MC blocks. The NC ignores a rising `Execute` on an
+  `MC_MoveAbsolute` that is still `Busy` (MS-73 on MONET/S: no abort, the first move ends first), so a new target during a
+  move never took effect. `FB_Axis` has two move instances; each new command goes to the other one, whose edge makes the
+  NC abort the running move. `Done` and `CommandAborted` that release `Execute` and feed `MoveDone`/`CommandAborted` come
+  from the active instance only (the abort of the superseded one arrives two or more cycles after the restart, later than
+  the follower's `bRestarted` guard lasts), `Busy`/`Active`/`Error` are the OR of both. A command waits (`MovePending`)
+  while the other instance is still busy.
 - **Adapter in the `I_Axis` setters**, so the telescope state machines are unchanged: `MoveAxis`/`StopAxis`
   (each repo's `FB_AxisControl`) and `HomeAxis` (BROTLib's `FB_BaseAxis`) call `MoveTo()`/`Stop()`/`_StartHoming()`
   on FALSE -> TRUE; `MoveAxis := FALSE` calls `CancelMove()`. `bMoveAxis`/`bHomeAxis`/`bStopAxis` stay the levels the
