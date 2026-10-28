@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_MoveChannel" Id="{5b8e2f60-3a41-4c9d-8e17-d2c4f6a90b13}" SpecialFunc="None">
+    <Declaration><![CDATA[// The move channel of FB_Axis (HalfBROT#103). The NC ignores a rising Execute on an MC_MoveAbsolute that is still Busy,
+// so a new target during a move never took effect. Two MC instances (slots) are used alternately: each new command
+// (the rising Execute of the inner FB_AxisCommand, one per Request()) goes to the other slot, whose edge makes the NC
+// abort the running move (MC_Aborting). Done and Aborted, which release Execute, come from the active slot only, so the
+// abort of the superseded slot neither releases the new command nor reaches the caller (Done and Aborted outputs). A new
+// command waits (Pending) while the other slot is still Busy. Pure logic, tested without an NC axis (FB_MoveChannel_Tests).
+FUNCTION_BLOCK FB_MoveChannel
+VAR_INPUT
+	Allowed		: BOOL;		// the MC blocks may start now (Ready AND Calibrated AND NOT ExtActive); a request waits until then
+	Reset		: BOOL;		// drops a pending request and releases Execute of both slots, which clears their errors
+	// Done, CommandAborted and Busy of the two MC instances from their last call
+	aDone		: ARRAY[0..1] OF BOOL;
+	aAborted	: ARRAY[0..1] OF BOOL;
+	aBusy		: ARRAY[0..1] OF BOOL;
+END_VAR
+VAR_OUTPUT
+	aExecute	: ARRAY[0..1] OF BOOL;	// for the Execute of the two MC instances
+	nActive		: INT;			// slot of the latest command (0 before the first request)
+	Pending		: BOOL;			// a request waits for Allowed, for the other slot to be free or for the one-cycle low
+	Done		: BOOL;			// the latest command is done (not while a newer request is pending)
+	Aborted		: BOOL;			// the latest command was aborted by something else (stop, jog); not the abort of a retarget
+	nSuperseded	: UDINT;		// diagnostics: aborts of a superseded slot, one per retarget that worked
+END_VAR
+VAR
+	Command		: FB_AxisCommand;
+	rtExecute	: R_TRIG;
+	rtOldAborted	: R_TRIG;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// the other slot must be idle for a new command; only the active slot can become busy, so a stale Busy never frees one
+Command(Allowed := Allowed AND NOT aBusy[1 - nActive], Reset := Reset,
+	Done := aDone[nActive], Aborted := aAborted[nActive]);
+rtExecute(CLK := Command.Execute);
+IF rtExecute.Q THEN
+	nActive := 1 - nActive;		// a new command: the other slot
+END_IF
+aExecute[nActive] := Command.Execute;
+aExecute[1 - nActive] := FALSE;		// the superseded slot keeps running until the NC aborts it
+rtOldAborted(CLK := aAborted[1 - nActive]);
+IF rtOldAborted.Q THEN
+	nSuperseded := nSuperseded + 1;
+END_IF
+Pending := Command.Pending;
+// the old move's Done between MoveTo() and the edge on the new slot is not the end of the new move
+Done := aDone[nActive] AND NOT Command.Pending;
+Aborted := aAborted[nActive];
+]]></ST>
+    </Implementation>
+    <Method Name="Request" Id="{c1d93a7e-6f52-4e08-b3a4-7e19d5f02c68}">
+      <Declaration><![CDATA[// Latch a request; it starts at the next call once Allowed and the other slot is idle. A request while the last command
+// is still executing goes to the other slot and aborts the running move in the NC (HalfBROT#103).
+METHOD Request : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Command.Request();
+Pending := TRUE;
+Request := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel" Id="{9e47b2d5-0c3a-4f81-a6d9-48b5e3c71f20}">
+      <Declaration><![CDATA[// Drop a pending request. A command that has already started is not stopped (use the stop channel).
+METHOD Cancel : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Command.Cancel();
+Pending := FALSE;
+Cancel := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

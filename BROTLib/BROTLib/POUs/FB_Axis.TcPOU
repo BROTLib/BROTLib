@@ -54,7 +54,8 @@ VAR_OUTPUT
 	HomeActive:	BOOL;
 	// the axis is ready
 	Ready:		BOOL;
-	// the command has been aborted (a pulse of the MC block; Execute of the aborted command is released on it, #92)
+	// the command has been aborted (a pulse of the MC block; Execute of the aborted command is released on it, #92);
+	// not for the move that a MoveTo() during a move supersedes (HalfBROT#103)
 	CommandAborted: BOOL;
 	// axis busy
 	Busy: 		BOOL;
@@ -85,15 +86,19 @@ END_VAR
 VAR
 	Axis_Power:		MC_Power;
 	Axis_Reset:		MC_Reset;
-	Axis_Move:		MC_MoveAbsolute;
-	Axis_Modulo:	MC_MoveModulo;
+	Axis_Move:		ARRAY[0..1] OF MC_MoveAbsolute;	// used alternately, see FB_MoveChannel (HalfBROT#103)
+	Axis_Modulo:	ARRAY[0..1] OF MC_MoveModulo;
 	//Axis_Position:	MC_ReadActualPosition;
 	Axis_Stop:		MC_Stop;
 	Axis_Status:	MC_ReadStatus;
 	Axis_Home:		MC_Home;
 	Axis_Jog: 		MC_Jog;
 	Axis_SetpointEnable:	MC_ExtSetPointGenEnable;
-	MoveCommand:	FB_AxisCommand;	// MoveTo()/CancelMove() (#63)
+	MoveChannel:	FB_MoveChannel;	// MoveTo()/CancelMove() (#63), a new target while moving goes to the other instance (HalfBROT#103)
+	MoveSlot:		INT;			// loop index of the two move instances
+	aMoveDone:		ARRAY[0..1] OF BOOL;
+	aMoveAborted:	ARRAY[0..1] OF BOOL;
+	aMoveBusy:		ARRAY[0..1] OF BOOL;
 	HomeCommand:	FB_AxisCommand;	// Home()/CancelHome()
 	StopCommand:	FB_AxisCommand;	// Stop(), idempotent (#93)
 	HomeReference:	LREAL;			// reference position of the last Home() (#62)
@@ -213,24 +218,45 @@ ExtActive := F_ExtSetpointActive(
 
 (* end of tracking section  ********************************************** *)
 
-MoveCommand(Allowed := Ready AND Calibrated AND NOT ExtActive, Reset := Reset, Done := Axis_Modulo.Done OR Axis_Move.Done,
-	Aborted := Axis_Modulo.CommandAborted OR Axis_Move.CommandAborted);	// #92
-MovePending := MoveCommand.Pending;
+// outputs of the move instances from their last call
+FOR MoveSlot := 0 TO 1 DO
+	IF isModuloAxis THEN
+		aMoveDone[MoveSlot] := Axis_Modulo[MoveSlot].Done;
+		aMoveAborted[MoveSlot] := Axis_Modulo[MoveSlot].CommandAborted;
+		aMoveBusy[MoveSlot] := Axis_Modulo[MoveSlot].Busy;
+	ELSE
+		aMoveDone[MoveSlot] := Axis_Move[MoveSlot].Done;
+		aMoveAborted[MoveSlot] := Axis_Move[MoveSlot].CommandAborted;
+		aMoveBusy[MoveSlot] := Axis_Move[MoveSlot].Busy;
+	END_IF
+END_FOR
+// #92: Execute is released on Done or CommandAborted of the active instance
+MoveChannel(Allowed := Ready AND Calibrated AND NOT ExtActive, Reset := Reset,
+	aDone := aMoveDone, aAborted := aMoveAborted, aBusy := aMoveBusy);
+MovePending := MoveChannel.Pending;
+// HalfBROT#103: the NC ignores a rising Execute on an instance that is still Busy, so each new command goes to the
+// other instance, which makes the NC abort the running move. The default BufferMode is MC_Aborting.
+FOR MoveSlot := 0 TO 1 DO
+	IF isModuloAxis THEN
+		Axis_Modulo[MoveSlot](
+			Axis := 		AxisRef,
+			Execute := 		MoveChannel.aExecute[MoveSlot],
+			Position := 	Position,
+			Velocity :=		Velocity,
+			Direction := 	MC_Shortest_Way);
+	ELSE
+		Axis_Move[MoveSlot](
+			Axis := 		AxisRef,
+			Execute := 		MoveChannel.aExecute[MoveSlot],
+			Position := 	Position,
+			Velocity := 	Velocity);
+	END_IF
+END_FOR
+// the arrival of the latest command only, and not while a newer MoveTo() waits (the old move's Done is not its)
 IF isModuloAxis THEN
-	Axis_Modulo(
-		Axis := 		AxisRef,
-		Execute := 		MoveCommand.Execute,
-		Position := 	Position,
-		Velocity :=		Velocity,
-		Direction := 	MC_Shortest_Way,
-		Done => 		MoveDone);
+	MoveDone := Axis_Modulo[MoveChannel.nActive].Done AND NOT MoveChannel.Pending;
 ELSE
-	Axis_Move(
-		Axis := 		AxisRef,
-		Execute := 		MoveCommand.Execute,
-		Position := 	Position,
-		Velocity := 	Velocity,
-		Done => 		MoveDone);
+	MoveDone := Axis_Move[MoveChannel.nActive].Done AND NOT MoveChannel.Pending;
 END_IF
 
 Axis_Jog(
@@ -300,13 +326,15 @@ IF Axis_Reset.Error THEN
 	ErrorID := Axis_Reset.ErrorID;
 END_IF
 
-IF Axis_Modulo.Error THEN
-	ErrorID := Axis_Modulo.ErrorID;
-END_IF
+FOR MoveSlot := 0 TO 1 DO
+	IF Axis_Modulo[MoveSlot].Error THEN
+		ErrorID := Axis_Modulo[MoveSlot].ErrorID;
+	END_IF
 
-IF Axis_Move.Error THEN
-	ErrorID := Axis_Move.ErrorID;
-END_IF
+	IF Axis_Move[MoveSlot].Error THEN
+		ErrorID := Axis_Move[MoveSlot].ErrorID;
+	END_IF
+END_FOR
 
 IF Axis_Home.Error THEN
 	ErrorID := Axis_Home.ErrorID;
@@ -325,8 +353,8 @@ IF Axis_Status.Error THEN
 END_IF
 Busy := 	Axis_SetpointEnable.Busy OR
 			Axis_Reset.Busy OR
-			Axis_Modulo.Busy OR
-			Axis_Move.Busy OR
+			Axis_Modulo[0].Busy OR Axis_Modulo[1].Busy OR
+			Axis_Move[0].Busy OR Axis_Move[1].Busy OR
 			Axis_Home.Busy OR
 			Axis_Jog.Busy;
 
@@ -334,22 +362,22 @@ Error := 	Axis_Power.Error OR
 			Axis_SetpointEnable.Error OR
 			SetpointEnableFailed OR		// keeps a setpoint enable error visible after Execute dropped (#9)
 			Axis_Reset.Error OR
-			Axis_Modulo.Error OR
-			Axis_Move.Error OR
+			Axis_Modulo[0].Error OR Axis_Modulo[1].Error OR
+			Axis_Move[0].Error OR Axis_Move[1].Error OR
 			Axis_Home.Error OR
 			Axis_Jog.Error OR
 			Axis_Stop.Error OR
 			Axis_Status.Error;
 
 Active := 	// Axis_Power.Active OR //alsways true if enabled
-			Axis_Modulo.Active OR
-			Axis_Move.Active OR
+			Axis_Modulo[0].Active OR Axis_Modulo[1].Active OR
+			Axis_Move[0].Active OR Axis_Move[1].Active OR
 			Axis_Home.Active OR
 			Axis_Jog.Active OR
 			Axis_Stop.Active;
 
-CommandAborted :=	Axis_Modulo.CommandAborted OR
-					Axis_Move.CommandAborted OR
+// the abort of a superseded move instance (a MoveTo() during a move, HalfBROT#103) is not reported: it is not the end of the move
+CommandAborted :=	MoveChannel.Aborted OR
 					Axis_Home.CommandAborted OR
 					Axis_Jog.CommandAborted OR
 					Axis_Stop.CommandAborted;
@@ -371,11 +399,12 @@ Homing :=	Axis_Status.Homing;
     </Implementation>
     <Method Name="MoveTo" Id="{784bf5f8-2806-405c-9e5e-c434da6fb245}">
       <Declaration><![CDATA[// Move to Position as passed in the next call (so the caller's limits on Position apply). Starts once the axis is
-// Ready and Calibrated; a MoveTo() while moving restarts with the new Position. MoveDone pulses when it is reached.
+// Ready and Calibrated; a MoveTo() while moving goes to the other move instance, which makes the NC abort the running
+// move: the axis turns to the new Position without stopping (HalfBROT#103). MoveDone pulses when it is reached.
 METHOD MoveTo : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[MoveCommand.Request();
+        <ST><![CDATA[MoveChannel.Request();
 MovePending := TRUE;
 MoveTo := TRUE;
 ]]></ST>
@@ -413,7 +442,7 @@ Home := TRUE;
 METHOD Stop : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[MoveCommand.Cancel();
+        <ST><![CDATA[MoveChannel.Cancel();
 HomeCommand.Cancel();
 MovePending := FALSE;
 HomePending := FALSE;
@@ -426,7 +455,7 @@ Stop := StopCommand.RequestIfIdle(Busy := Stopping, Done := StopDone, Failed := 
 METHOD CancelMove : BOOL
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[MoveCommand.Cancel();
+        <ST><![CDATA[MoveChannel.Cancel();
 MovePending := FALSE;
 CancelMove := TRUE;
 ]]></ST>

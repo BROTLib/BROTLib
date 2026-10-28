@@ -82,6 +82,12 @@
     <Compile Include="POUs\FB_AxisCommand_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_MoveChannel_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_NcMoveMock.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_SetpointEnableExecute_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

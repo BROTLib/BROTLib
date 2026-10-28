@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_NcMoveMock" Id="{f848e018-2b09-4e3a-b1d3-5164979f1c86}" SpecialFunc="None">
+    <Declaration><![CDATA[// Test model of the NC behind two MC_MoveAbsolute instances, as seen on MONET/S in MS-73 (HalfBROT#103): a rising Execute on an
+// idle instance starts a move to fPosition (latched at the edge) at fSpeed per call; a rising Execute on an instance that
+// is still Busy is ignored; a rising Execute on the other instance makes the NC abort the running one after
+// nAbortLatency calls (CommandAborted, Busy FALSE), the new move then goes on from where the axis is. Done and
+// CommandAborted are held while Execute is TRUE and last one call otherwise (they are read by the caller in the next
+// cycle and cleared by the call after that).
+FUNCTION_BLOCK FB_NcMoveMock
+VAR_INPUT
+	aExecute		: ARRAY[0..1] OF BOOL;
+	fPosition		: LREAL;
+	fSpeed			: LREAL := 0.02;
+	nAbortLatency	: INT;
+	fInitial		: LREAL;		// actual position at the first call
+END_VAR
+VAR_OUTPUT
+	aBusy			: ARRAY[0..1] OF BOOL;
+	aDone			: ARRAY[0..1] OF BOOL;
+	aAborted		: ARRAY[0..1] OF BOOL;
+	fActual			: LREAL;
+END_VAR
+VAR
+	bInit			: BOOL;
+	aPrev			: ARRAY[0..1] OF BOOL;
+	aTarget			: ARRAY[0..1] OF LREAL;
+	aAbortCnt		: ARRAY[0..1] OF INT := [-1, -1];
+	nMover			: INT;
+	i				: INT;
+	j				: INT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF NOT bInit THEN
+	fActual := fInitial;
+	bInit := TRUE;
+END_IF
+FOR i := 0 TO 1 DO
+	IF NOT aExecute[i] THEN
+		aDone[i] := FALSE;
+		aAborted[i] := FALSE;
+	END_IF
+END_FOR
+// rising Execute: an idle instance starts (and the other one is aborted later), a busy one ignores it
+FOR i := 0 TO 1 DO
+	IF aExecute[i] AND NOT aPrev[i] AND NOT aBusy[i] THEN
+		aBusy[i] := TRUE;
+		aTarget[i] := fPosition;
+		j := 1 - i;
+		IF aBusy[j] THEN
+			aAbortCnt[j] := nAbortLatency;
+		ELSE
+			nMover := i;
+		END_IF
+	END_IF
+	aPrev[i] := aExecute[i];
+END_FOR
+// the aborts
+FOR j := 0 TO 1 DO
+	IF aAbortCnt[j] = 0 THEN
+		aBusy[j] := FALSE;
+		aAborted[j] := TRUE;
+		aAbortCnt[j] := -1;
+		IF nMover = j THEN
+			nMover := 1 - j;
+		END_IF
+	ELSIF aAbortCnt[j] > 0 THEN
+		aAbortCnt[j] := aAbortCnt[j] - 1;
+	END_IF
+END_FOR
+// the axis moves to the target of the running instance
+IF aBusy[nMover] THEN
+	IF ABS(aTarget[nMover] - fActual) <= fSpeed THEN
+		fActual := aTarget[nMover];
+		aBusy[nMover] := FALSE;
+		aDone[nMover] := TRUE;
+		aAbortCnt[nMover] := -1;		// arrived before the NC aborted it
+		IF aBusy[1 - nMover] THEN
+			nMover := 1 - nMover;
+		END_IF
+	ELSIF aTarget[nMover] > fActual THEN
+		fActual := fActual + fSpeed;
+	ELSE
+		fActual := fActual - fSpeed;
+	END_IF
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
