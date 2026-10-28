@@ -4,11 +4,11 @@
     <Declaration><![CDATA[// Tests for BROTLib.FB_RaDecTelescopeControl through a minimal concrete subclass (IAG50cm#17).
 FUNCTION_BLOCK FB_RaDecTelescopeControl_Tests EXTENDS TcUnit.FB_TestSuite
 VAR
-	fbTel			: FB_RaDecTestTelescope;
-	fbTelClock		: FB_RaDecTestTelescope;
-	fbTelProps		: FB_RaDecTestTelescope;
-	fbTelPublish	: FB_RaDecTestTelescope;
-	fbTelCoord		: FB_RaDecTestTelescope;
+	fbTel	: FB_RaDecTestTelescope(comm := 0);
+	fbTelClock	: FB_RaDecTestTelescope(comm := 0);
+	fbTelProps	: FB_RaDecTestTelescope(comm := 0);
+	fbTelPublish	: FB_RaDecTestTelescope(comm := 0);
+	fbTelCoord	: FB_RaDecTestTelescope(comm := 0);
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -58,8 +58,7 @@ END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Properties_Follow_The_Current_ICRS_Position');
-fbTelProps.fRightAscensionCurrentICRS := 123.0;
-fbTelProps.fDeclinationCurrentICRS := -12.5;
+fbTelProps.SetCurrentICRS(123.0, -12.5);
 AssertEquals_LREAL(Expected := 123.0, Actual := fbTelProps.RightAscension, Delta := 1.0E-12, Message := 'RightAscension');
 AssertEquals_LREAL(Expected := -12.5, Actual := fbTelProps.Declination, Delta := 1.0E-12, Message := 'Declination');
 TEST_FINISHED();
@@ -95,8 +94,7 @@ fbTelCoord.SetJd(2460000.5);
 fbTelCoord.fRightAscension := 100.0;
 fbTelCoord.fDeclination := 50.0;
 fbTelCoord._UpdateTarget();
-fbTelCoord.fHourAngleCurrent := 0.0;
-fbTelCoord.fDeclinationCurrent := 50.0;
+fbTelCoord.SetAxes(0.0, 50.0);
 fbTelCoord._UpdateCurrent(0.0, 0.0, TRUE);
 AssertTrue(Condition := ABS(fbTelCoord.fDeclinationApparent - 50.0) < 1.0, Message := 'apparent Dec within precession of the catalog Dec');
 AssertTrue(Condition := fbTelCoord.fElevationCurrent > 89.0, Message := 'axes at HA 0, Dec = latitude: zenith, in the inherited output');

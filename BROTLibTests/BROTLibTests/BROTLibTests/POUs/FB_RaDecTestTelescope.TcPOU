@@ -31,5 +31,31 @@ END_VAR
 ]]></ST>
       </Implementation>
     </Method>
+    <Method Name="SetCurrentICRS" Id="{07dd60d9-7f70-4e5f-9ade-6ce1a223d798}">
+      <Declaration><![CDATA[METHOD SetCurrentICRS
+VAR_INPUT
+	fRa	: LREAL;
+	fDec	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fRightAscensionCurrentICRS := fRa;
+fDeclinationCurrentICRS := fDec;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetAxes" Id="{c2971cac-b1d8-4763-bd4d-99a62f91dadb}">
+      <Declaration><![CDATA[METHOD SetAxes
+VAR_INPUT
+	fHourAngle	: LREAL;
+	fDec	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fHourAngleCurrent := fHourAngle;
+fDeclinationCurrent := fDec;
+]]></ST>
+      </Implementation>
+    </Method>
   </POU>
 </TcPlcObject>
