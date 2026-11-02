@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="ST_MotionConfig" Id="{47fc489f-9a80-4379-a91b-bde9ebe5913c}">
+    <Declaration><![CDATA[// Motion limits of an alt-az telescope: move velocities, timeouts, elevation windows and track margins
+// (MONETcommon#24, step 2a). Alt-az only: equatorial mounts (IAG50cm) do not use it; their site data is in
+// ST_TelescopeConfig. The defaults are the literals FB_MonetTelescopeControl (MONETcommon 0.11.x) had built in, so
+// a consumer that leaves the struct at its defaults behaves as before. Check a configuration with
+// F_MotionConfigValid before using it.
+TYPE ST_MotionConfig :
+STRUCT
+	// velocities of the commanded moves (goto, home, park, power-on, slew and the move onto a track target),
+	// deg/s; the tracking rate itself is computed
+	fAzimuthMoveVelocity	: LREAL := 10.0;
+	fDerotatorMoveVelocity	: LREAL := 10.0;
+	fElevationMoveVelocity	: LREAL := 5.0;	// 5.0 confirmed on site for MONETS, 10.0 was too fast
+
+	// timeouts
+	tStateMachineTimeout	: TIME := T#600S;	// goto, home and slew state machines (software errors 16#10/16#30)
+	tCommandTimeout			: TIME := T#2M;		// park, gohome, goto and slew command
+	tIdleParkTimeout		: TIME := T#12H;	// no command and not parked: park
+	tPowerOnTimeout			: TIME := T#12H;	// poweron command
+	tTrackTimeout			: TIME := T#12H;	// track command
+	tStopTimeout			: TIME := T#15S;	// stop command (#84)
+	tSuspendStopTimeout		: TIME := T#15S;	// stop on the switch to manual under motion (#118)
+
+	// elevation windows, degrees; the limits are inside the window
+	fGotoMinElevation		: LREAL := 2.0;		// goto target (F_GotoTargetCheck)
+	fGotoMaxElevation		: LREAL := 89.5;
+	fTrackMinElevation		: LREAL := 5.0;		// tracking stops outside this window
+	fTrackMaxElevation		: LREAL := 89.5;
+	fHorizonMargin			: LREAL := 0.2;		// above fHorizon, below which the horizon guard stops and homes
+
+	// azimuth/derotator turn choice (F_AxisTurn): degrees kept free at the limit the target moves towards, and the
+	// track time in seconds above which two turns count as equal (4 h)
+	fAzimuthTrackMargin		: LREAL := 1.0;
+	fDerotatorTrackMargin	: LREAL := 1.0;
+	fAzimuthTrackTimeCap	: LREAL := 14400.0;
+	fDerotatorTrackTimeCap	: LREAL := 14400.0;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

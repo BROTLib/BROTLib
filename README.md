@@ -58,7 +58,7 @@ BROTLib/
 │   │   │   ├── E_DomeRotationState.TcDUT
 │   │   │   ├── E_Horn.TcDUT, E_Blink.TcDUT
 │   │   │   ├── ST_AltAzCoordinate.TcDUT, ST_RaDecCoordinate.TcDUT
-│   │   │   ├── ST_TelescopeConfig.TcDUT
+│   │   │   ├── ST_TelescopeConfig.TcDUT, ST_MotionConfig.TcDUT (in Telescope/)
 │   │   │   └── ST_InfoData*.TcDUT
 │   │   ├── GVLs/GVL_Math.TcGVL  # Mathematical constants
 │   │   ├── Interfaces/          # I_Telescope, I_Axis, I_BaseAxis, I_Dome,
@@ -191,7 +191,8 @@ organised into four layers:
   `F_TCSCommandText` for the log line), `F_ErrorParkRequest` (a new axis error starts the emergency park),
   `F_ResetMoveAbort` and `F_SuspendStop` (a reset or the switch to manual under motion stops the moving axes; the
   inputs take `bAnyAxisMoving`, the caller ORs its axes), `F_GotoTargetCheck`, `F_TargetBelowHorizonWarning` and
-  `F_HomeBelowHorizon` (elevation windows). Their TcUnit suites are in BROTLibTests.
+  `F_HomeBelowHorizon` (elevation windows), and `F_MotionConfigValid` (checks an `ST_MotionConfig`, see below).
+  Their TcUnit suites are in BROTLibTests.
 
 ### Axes and pointing
 
@@ -291,6 +292,13 @@ logic for focus blocks: a new target during a move restarts the move.
 - `ST_AltAzCoordinate` — altitude / azimuth coordinate pair.
 - `ST_TelescopeConfig` — telescope configuration structure shared with IAG50cm
   (identical copy in both projects; not yet unified into a single definition).
+- `ST_MotionConfig` — motion limits of an **alt-az** telescope (equatorial mounts do not use it): move
+  velocities, state-machine/command/idle-park/power-on/track/stop/suspend-stop timeouts, goto and track
+  elevation windows, horizon margin, azimuth/derotator track margins and track time caps. The defaults are the
+  literals MONETcommon's `FB_MonetTelescopeControl` had built in (MONETcommon#24, plan
+  `2026-11-02-reference-implementation-issue-24.md` in MONETcommon, step 2a; pinned by
+  `F_MotionConfigValid_Tests`). `F_MotionConfigValid` is TRUE when velocities, timeouts and track time caps are
+  > 0, both windows are ordered (min < max) and the margins are >= 0. Nothing in BROTLib uses it yet.
 - `ST_InfoDataConnection` / `ST_InfoDataFB` / `ST_InfoDataGroup` — debug info
   data structures used by the `FB_Info*` debug blocks.
 - `E_TCSCommand`, `E_TCSErrors`, `E_TelescopeMode` — command, error and mode

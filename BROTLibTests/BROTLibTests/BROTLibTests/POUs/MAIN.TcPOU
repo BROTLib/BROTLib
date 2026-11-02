@@ -25,6 +25,7 @@ VAR
 	fbGotoTargetCheckTests	: F_GotoTargetCheck_Tests;
 	fbTargetBelowHorizonWarningTests	: F_TargetBelowHorizonWarning_Tests;
 	fbHomeBelowHorizonTests	: F_HomeBelowHorizon_Tests;
+	fbMotionConfigValidTests	: F_MotionConfigValid_Tests;
 	fbAxisCommandTests		: FB_AxisCommand_Tests;
 	fbMoveFollowerTests		: FB_MoveFollower_Tests;
     fbStartupReadinessTests : FB_StartupReadiness_Tests;

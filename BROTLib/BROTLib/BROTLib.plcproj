@@ -284,7 +284,13 @@
     <Compile Include="Telescope\Command\F_HomeBelowHorizon.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Telescope\Command\F_MotionConfigValid.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\ST_TelescopeConfig.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Telescope\ST_MotionConfig.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="GVLs\Global_Version.TcGVL">
