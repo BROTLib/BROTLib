@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_MotionConfigValid_Tests" Id="{1f6ce4d7-28a8-48dc-b42c-97eea1913325}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.ST_MotionConfig (defaults = the literals of MONETcommon's FB_MonetTelescopeControl) and
+// BROTLib.F_MotionConfigValid (MONETcommon#24, step 2a). Each method starts from the defaults (method VARs are
+// initialised on every call) and breaks one field at a time.
+FUNCTION_BLOCK F_MotionConfigValid_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Defaults_Equal_Old_Literals();
+Defaults_Are_Valid();
+Velocity_Not_Positive_Is_Invalid();
+Timeout_Zero_Is_Invalid();
+Window_Not_Ordered_Is_Invalid();
+Margin_Negative_Is_Invalid();
+Track_Time_Cap_Not_Positive_Is_Invalid();
+]]></ST>
+    </Implementation>
+    <Method Name="Defaults_Equal_Old_Literals" Id="{832aefd2-ed55-4ca7-9b6f-bcaa79ed869c}">
+      <Declaration><![CDATA[// Every default against the literal it replaces in FB_MonetTelescopeControl (MONETcommon develop, 2026-11-02).
+// A failure here is a changed speed or timeout on a real mount.
+METHOD PRIVATE Defaults_Equal_Old_Literals
+VAR
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Defaults_Equal_Old_Literals');
+AssertEquals_LREAL(Expected := 10.0, Actual := stConfig.fAzimuthMoveVelocity, Delta := 0.0, Message := 'fbAzimuth.Velocity := 10.0');
+AssertEquals_LREAL(Expected := 10.0, Actual := stConfig.fDerotatorMoveVelocity, Delta := 0.0, Message := 'fbDerotator.Velocity := 10.0');
+AssertEquals_LREAL(Expected := 5.0, Actual := stConfig.fElevationMoveVelocity, Delta := 0.0, Message := 'fElevationMoveVelocity := 5.0');
+AssertEquals_TIME(Expected := T#600S, Actual := stConfig.tStateMachineTimeout, Message := 'goto/home/slew T#600S');
+AssertEquals_TIME(Expected := T#2M, Actual := stConfig.tCommandTimeout, Message := 'park/gohome/goto/slew command T#2M');
+AssertEquals_TIME(Expected := T#12H, Actual := stConfig.tIdleParkTimeout, Message := 'tonPowerTimeout T#12H');
+AssertEquals_TIME(Expected := T#12H, Actual := stConfig.tPowerOnTimeout, Message := 'poweron command T#12H');
+AssertEquals_TIME(Expected := T#12H, Actual := stConfig.tTrackTimeout, Message := 'track command T#12H');
+AssertEquals_TIME(Expected := T#15S, Actual := stConfig.tStopTimeout, Message := 'stop command T#15S');
+AssertEquals_TIME(Expected := T#15S, Actual := stConfig.tSuspendStopTimeout, Message := 'suspend stop T#15S');
+AssertEquals_LREAL(Expected := 2.0, Actual := stConfig.fGotoMinElevation, Delta := 0.0, Message := 'F_GotoTargetCheck(.., 2.0, ..)');
+AssertEquals_LREAL(Expected := 89.5, Actual := stConfig.fGotoMaxElevation, Delta := 0.0, Message := 'F_GotoTargetCheck(.., .., 89.5)');
+AssertEquals_LREAL(Expected := 5.0, Actual := stConfig.fTrackMinElevation, Delta := 0.0, Message := 'track cutoff < 5.0');
+AssertEquals_LREAL(Expected := 89.5, Actual := stConfig.fTrackMaxElevation, Delta := 0.0, Message := 'track cutoff > 89.5');
+AssertEquals_LREAL(Expected := 0.2, Actual := stConfig.fHorizonMargin, Delta := 0.0, Message := 'fHorizonMargin := 0.2');
+AssertEquals_LREAL(Expected := 1.0, Actual := stConfig.fAzimuthTrackMargin, Delta := 0.0, Message := 'fAzimuthTrackMargin := 1.0');
+AssertEquals_LREAL(Expected := 1.0, Actual := stConfig.fDerotatorTrackMargin, Delta := 0.0, Message := 'fDerotatorTrackMargin := 1.0');
+AssertEquals_LREAL(Expected := 14400.0, Actual := stConfig.fAzimuthTrackTimeCap, Delta := 0.0, Message := 'fAzimuthTrackTimeCap := 14400.0');
+AssertEquals_LREAL(Expected := 14400.0, Actual := stConfig.fDerotatorTrackTimeCap, Delta := 0.0, Message := 'fDerotatorTrackTimeCap := 14400.0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Defaults_Are_Valid" Id="{ed8eb5a8-0ddc-4c90-82e8-b1eaa39600a5}">
+      <Declaration><![CDATA[METHOD PRIVATE Defaults_Are_Valid
+VAR
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Defaults_Are_Valid');
+AssertTrue(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'defaults');
+// MONETS passes fElevationMoveVelocity := 3.0
+stConfig.fElevationMoveVelocity := 3.0;
+AssertTrue(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'MONETS elevation velocity 3.0');
+// zero margins are allowed
+stConfig.fHorizonMargin := 0.0;
+stConfig.fAzimuthTrackMargin := 0.0;
+stConfig.fDerotatorTrackMargin := 0.0;
+AssertTrue(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'zero margins');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Velocity_Not_Positive_Is_Invalid" Id="{22fd5a2b-7221-4ec0-89ea-e01769e04541}">
+      <Declaration><![CDATA[METHOD PRIVATE Velocity_Not_Positive_Is_Invalid
+VAR
+	stDefault	: BROTLib.ST_MotionConfig;
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Velocity_Not_Positive_Is_Invalid');
+stConfig := stDefault;
+stConfig.fAzimuthMoveVelocity := 0.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'azimuth 0');
+stConfig := stDefault;
+stConfig.fDerotatorMoveVelocity := 0.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator 0');
+stConfig := stDefault;
+stConfig.fElevationMoveVelocity := 0.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'elevation 0');
+stConfig := stDefault;
+stConfig.fElevationMoveVelocity := -5.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'elevation negative');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timeout_Zero_Is_Invalid" Id="{c3421102-56f4-4266-a6b0-750061c10d94}">
+      <Declaration><![CDATA[METHOD PRIVATE Timeout_Zero_Is_Invalid
+VAR
+	stDefault	: BROTLib.ST_MotionConfig;
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timeout_Zero_Is_Invalid');
+stConfig := stDefault;
+stConfig.tStateMachineTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'state machine');
+stConfig := stDefault;
+stConfig.tCommandTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'command');
+stConfig := stDefault;
+stConfig.tIdleParkTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'idle park');
+stConfig := stDefault;
+stConfig.tPowerOnTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'power on');
+stConfig := stDefault;
+stConfig.tTrackTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'track');
+stConfig := stDefault;
+stConfig.tStopTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'stop');
+stConfig := stDefault;
+stConfig.tSuspendStopTimeout := T#0S;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'suspend stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Window_Not_Ordered_Is_Invalid" Id="{c59cdc9a-99bd-4645-b24c-41b8e3c5de9f}">
+      <Declaration><![CDATA[// min must be below max; an empty window (min = max) is refused too.
+METHOD PRIVATE Window_Not_Ordered_Is_Invalid
+VAR
+	stDefault	: BROTLib.ST_MotionConfig;
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Window_Not_Ordered_Is_Invalid');
+stConfig := stDefault;
+stConfig.fGotoMinElevation := 89.5;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'goto min = max');
+stConfig := stDefault;
+stConfig.fGotoMinElevation := 90.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'goto min > max');
+stConfig := stDefault;
+stConfig.fTrackMaxElevation := 5.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'track max = min');
+stConfig := stDefault;
+stConfig.fTrackMaxElevation := 4.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'track max < min');
+stConfig := stDefault;
+stConfig.fGotoMaxElevation := 85.0;
+AssertTrue(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'narrower goto window');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Margin_Negative_Is_Invalid" Id="{90ac29ad-f684-49b1-bb9a-e121435d650b}">
+      <Declaration><![CDATA[METHOD PRIVATE Margin_Negative_Is_Invalid
+VAR
+	stDefault	: BROTLib.ST_MotionConfig;
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Margin_Negative_Is_Invalid');
+stConfig := stDefault;
+stConfig.fHorizonMargin := -0.1;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'horizon margin');
+stConfig := stDefault;
+stConfig.fAzimuthTrackMargin := -0.1;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'azimuth track margin');
+stConfig := stDefault;
+stConfig.fDerotatorTrackMargin := -0.1;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator track margin');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Track_Time_Cap_Not_Positive_Is_Invalid" Id="{ad802967-9ce3-4e30-9570-fa5799c2ee1b}">
+      <Declaration><![CDATA[METHOD PRIVATE Track_Time_Cap_Not_Positive_Is_Invalid
+VAR
+	stDefault	: BROTLib.ST_MotionConfig;
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Track_Time_Cap_Not_Positive_Is_Invalid');
+stConfig := stDefault;
+stConfig.fAzimuthTrackTimeCap := 0.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'azimuth cap 0');
+stConfig := stDefault;
+stConfig.fDerotatorTrackTimeCap := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator cap negative');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
