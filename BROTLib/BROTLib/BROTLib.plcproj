@@ -19,7 +19,7 @@
     <Company>BROT</Company>
     <Released>false</Released>
     <Title>BROTLib</Title>
-    <ProjectVersion>0.17.0</ProjectVersion>
+    <ProjectVersion>0.17.1</ProjectVersion>
     <AllowChecksForLibrary>false</AllowChecksForLibrary>
     <POUsForPropertyAccessIncluded>false</POUsForPropertyAccessIncluded>
     <GlobalVersionStructureIncluded>false</GlobalVersionStructureIncluded>
@@ -165,6 +165,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\F_ExtSetpointActive.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\F_HomeStopAbort.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\F_SetpointEnableExecute.TcPOU">
