@@ -100,6 +100,8 @@ VAR
 	aMoveAborted:	ARRAY[0..1] OF BOOL;
 	aMoveBusy:		ARRAY[0..1] OF BOOL;
 	HomeCommand:	FB_AxisCommand;	// Home()/CancelHome()
+	HomeStopped:	BOOL;			// Stop() ran while a homing was active (HalfBROT#114)
+	HomeStopAbort:	BOOL;			// MC_Home answered that stop with its "error during referencing": an abort, not an error
 	StopCommand:	FB_AxisCommand;	// Stop(), idempotent (#93)
 	HomeReference:	LREAL;			// reference position of the last Home() (#62)
 	SetpointEnableFailed:	BOOL;	// setpoint enable failed; no retry until Reset or the end of the track request (#9)
@@ -267,7 +269,7 @@ Axis_Jog(
 	Axis := 		AxisRef);
 
 
-HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted);	// #92
+HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted OR HomeStopAbort);	// #92, HalfBROT#114
 HomePending := HomeCommand.Pending;
 Axis_Home(
 	Axis := 			AxisRef,
@@ -277,6 +279,13 @@ Axis_Home(
 	bCalibrationCam := 	bCalibrationCam,
 	Done => 			HomeDone);
 HomeActive := HomeCommand.Execute OR Axis_Home.Busy;
+// HalfBROT#114: MC_Stop on a running MC_Home makes the block report 16#4B0A. For a homing the caller stopped that is an
+// abort: HomeCommand releases Execute in the next cycle (which clears the block's error), and the error is neither in
+// Error nor in ErrorID, so the caller does not cut the drive enable on it
+HomeStopAbort := F_HomeStopAbort(bHomeStopped := HomeStopped, bError := Axis_Home.Error, nErrorID := Axis_Home.ErrorID);
+IF Reset OR (NOT HomeActive AND NOT Axis_Home.Error) THEN
+	HomeStopped := FALSE;
+END_IF
 
 IF Axis_Status.Status.Homed THEN
 	Calibrated := TRUE;
@@ -336,7 +345,7 @@ FOR MoveSlot := 0 TO 1 DO
 	END_IF
 END_FOR
 
-IF Axis_Home.Error THEN
+IF Axis_Home.Error AND NOT HomeStopAbort THEN
 	ErrorID := Axis_Home.ErrorID;
 END_IF
 
@@ -364,7 +373,7 @@ Error := 	Axis_Power.Error OR
 			Axis_Reset.Error OR
 			Axis_Modulo[0].Error OR Axis_Modulo[1].Error OR
 			Axis_Move[0].Error OR Axis_Move[1].Error OR
-			Axis_Home.Error OR
+			(Axis_Home.Error AND NOT HomeStopAbort) OR
 			Axis_Jog.Error OR
 			Axis_Stop.Error OR
 			Axis_Status.Error;
@@ -378,7 +387,7 @@ Active := 	// Axis_Power.Active OR //alsways true if enabled
 
 // the abort of a superseded move instance (a MoveTo() during a move, HalfBROT#103) is not reported: it is not the end of the move
 CommandAborted :=	MoveChannel.Aborted OR
-					Axis_Home.CommandAborted OR
+					Axis_Home.CommandAborted OR HomeStopAbort OR
 					Axis_Jog.CommandAborted OR
 					Axis_Stop.CommandAborted;
 
@@ -427,6 +436,7 @@ END_VAR
 	RETURN;
 END_IF
 HomeReference := fReference;
+HomeStopped := FALSE;
 HomeCommand.Request();
 HomePending := TRUE;
 Home := TRUE;
@@ -438,7 +448,8 @@ Home := TRUE;
 // Idempotent (#93): while a stop is pending, running or still finishing (Stopping), no second MC_Stop is started and
 // the call returns FALSE; StopDone still follows (from the running stop, or once the axis is at rest, so a caller can
 // see two StopDone pulses for one stop). After an MC_Stop error the stop is retried. TRUE when a new MC_Stop was
-// requested.
+// requested. A Stop() during a homing ends it as an abort: the error MC_Home then reports (16#4B0A) is not an Error
+// (HalfBROT#114).
 METHOD Stop : BOOL
 ]]></Declaration>
       <Implementation>
@@ -446,6 +457,9 @@ METHOD Stop : BOOL
 HomeCommand.Cancel();
 MovePending := FALSE;
 HomePending := FALSE;
+IF HomeActive THEN
+	HomeStopped := TRUE;	// the MC_Stop ends the homing: its error is an abort (HalfBROT#114)
+END_IF
 Stop := StopCommand.RequestIfIdle(Busy := Stopping, Done := StopDone, Failed := Axis_Stop.Error);
 ]]></ST>
       </Implementation>

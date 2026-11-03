@@ -167,6 +167,9 @@
     <Compile Include="POUs\F_ExtSetpointActive.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_HomeStopAbort.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_SetpointEnableExecute.TcPOU">
       <SubType>Code</SubType>
     </Compile>
