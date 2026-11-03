@@ -82,3 +82,8 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   `FB_MoveChannel`), `Done`/`CommandAborted`/`MoveDone` only from the active slot, so the superseded abort does not reach the
   follower; mock-NC TcUnit scenarios, optional sim-axis check first, BROTLib 0.15.1, pins, MS-73 repeat. **proposed**,
   nothing implemented, compiled or run; open: sim check first, pin wave order, modulo, slot-wait timeout
+- [2026-11-03-fewer-ci-runs-in-the-release-chain.md](2026-11-03-fewer-ci-runs-in-the-release-chain.md) —
+  the release chain BROTLib -> HalfBROT/MONETRoof -> MONETcommon -> MONETS/MONETN (and IAG50cm) costs about 17 builds on the
+  single runner per wave. Main saving: `release.yml` posts the `build` status on the version-only bump commit instead of
+  dispatching a rebuild (17 -> 10), plus pin-PR automation in wave order and batching. Workflows of all eight repos.
+  **proposed**, nothing changed
