@@ -141,7 +141,20 @@ organised into four layers:
    MONET/N, derived from `FB_AltAzTelescopeControl`) and IAG50cm's standalone
    `FB_TelescopeControl`. They report `fReadyState` (0 shutdown … 1 ready, −1
    error), `nMotionState` (0 stopped / 1 moving / 8 tracking) and per-command
-   timeouts as telemetry. (An earlier 8-state machine described in
+   timeouts as telemetry.
+
+   The eight command inputs of `FB_BaseTelescopeControl` (`bPower`, `bGoHome`,
+   `bPark`, `bTrack`, `bGoto`, `bSlew`, `bStop`, `bReset`) are edge-triggered
+   (MONETcommon#24 step 5): a rising edge starts the command once, a held input
+   does not start it again and a falling one does not abort it. The telescope
+   control does not clear or write these inputs; command status comes from the
+   outputs and the telemetry. The `I_Telescope` methods (`Init`, `Home`, `Park`,
+   `Track`, `Slew`, `Stop`, `Reset`) start the same commands. MONETcommon's
+   `FB_MonetTelescopeControl` implements this from its step 5 release on;
+   IAG50cm's `FB_TelescopeControl` still clears its own copies
+   of the flags (until it moves onto the base, #25).
+
+   (An earlier 8-state machine described in
    `specs/design/repository-structure.md` was removed in 2026; no `E_TelescopeState` enum exists in the
    current code.)
 
