@@ -41,6 +41,11 @@ try {
     $runs = gh run list --repo $Repo --workflow $Workflow --status success --limit $Limit --json headSha
     if ($LASTEXITCODE -ne 0) { throw "gh run list failed with exit code $LASTEXITCODE (a private repo needs 'actions: read' in the permissions of the job)." }
     $shas = @($runs | ConvertFrom-Json | ForEach-Object { $_.headSha } | Where-Object { $_ -ne $Sha } | Select-Object -Unique)
+    # The version bump commit of release.yml has the statuses but no run (it is reported without a rebuild when the
+    # tree before the bump was tested): also look at the latest commits of develop.
+    $recent = @(gh api "repos/$Repo/commits?sha=develop&per_page=20" --jq '.[].sha')
+    if ($LASTEXITCODE -ne 0) { throw "gh api (commits of develop) failed with exit code $LASTEXITCODE." }
+    $shas = @(@($shas) + @($recent) | Where-Object { $_ -and $_ -ne $Sha } | Select-Object -Unique)
     foreach ($candidate in $shas) {
         $candidateTree = gh api "repos/$Repo/git/commits/$candidate" --jq .tree.sha
         if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Cannot read commit $candidate (gh exit code $LASTEXITCODE), skipping it."; continue }

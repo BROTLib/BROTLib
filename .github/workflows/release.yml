@@ -15,6 +15,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  statuses: write   # the bump commit reports `build` without a rebuild, see `Report CI on the bump commit`
 
 jobs:
   release:
@@ -34,6 +35,9 @@ jobs:
         with:
           ref: develop
           fetch-depth: 0
+
+      - name: Remember the develop head before the bump
+        run: echo "PRE_BUMP=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Bump ProjectVersion and GVL_Version
         env:
@@ -68,14 +72,53 @@ jobs:
             git push origin develop
           fi
 
-      - name: Start CI on the bump commit
+      - name: Report CI on the bump commit
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          PROOF: tests-passed
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # A push made with GITHUB_TOKEN starts no workflow, so without this the release PR head has no
-          # checks. workflow_dispatch is the exception: the runs report their checks on the bump commit.
-          gh workflow run tcbuild.yml --ref develop
+          # checks. The bump changes only the version files: when the develop head before it was built (a successful
+          # tcbuild run of the same tree with a `build-passed` status, the proof of tools/Find-TestedTree.ps1), the
+          # bump commit needs no rebuild. Report `build` and the proof on it as commit statuses (the required check
+          # `build` of the main ruleset does not care where it comes from). Otherwise, or if anything but the version
+          # files changed, start tcbuild.yml as before: workflow_dispatch reports `build` on the bump commit.
+          BUMP=$(git rev-parse HEAD)
+          only_version=true
+          while read -r f; do
+            case "$f" in
+              BROTLib/BROTLib/BROTLib.plcproj|BROTLib/BROTLib/GVLs/Global_Version.TcGVL) ;;
+              *) only_version=false ;;
+            esac
+          done < <(git diff --name-only "$PRE_BUMP" "$BUMP")
+
+          # prints a commit with the same tree as the pre-bump head and the proof status, nothing if there is none
+          find_tested() {
+            local pre_tree sha n
+            pre_tree=$(git rev-parse "$PRE_BUMP^{tree}")
+            for sha in "$PRE_BUMP" $(gh run list --workflow tcbuild.yml --status success --limit 50 --json headSha --jq '.[].headSha' | sort -u); do
+              [ "$(gh api "repos/$GH_REPO/git/commits/$sha" --jq .tree.sha)" = "$pre_tree" ] || continue
+              n=$(gh api "repos/$GH_REPO/commits/$sha/statuses" --jq "[.[] | select(.context==\"$PROOF\" and .state==\"success\")] | length")
+              if [ "$n" -gt 0 ]; then echo "$sha"; return 0; fi
+            done
+          }
+          tested=""
+          # best effort: an API error means no proof, and the bump commit is built as before
+          if [ "$only_version" = true ]; then tested=$(find_tested || true); fi
+
+          if [ -n "$tested" ]; then
+            echo "The tree of $PRE_BUMP was built and tested on $tested: reporting build on $BUMP without a rebuild."
+            for ctx in build "$PROOF"; do
+              gh api "repos/$GH_REPO/statuses/$BUMP" -f state=success -f context="$ctx" \
+                -f description="version bump of a tested tree, no rebuild" -f target_url="$RUN_URL"
+            done
+          else
+            echo "No proof for the tree of $PRE_BUMP (or more than the version files changed): building the bump commit."
+            gh workflow run tcbuild.yml --ref develop
+          fi
+
 
       - name: Open release PR (develop -> main)
         env:
