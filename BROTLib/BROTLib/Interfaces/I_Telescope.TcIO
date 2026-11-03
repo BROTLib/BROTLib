@@ -4,6 +4,9 @@
     <Declaration><![CDATA[// READY_STATE: 0 parked, 0.3 parking, 0.7 initializing, 0.8 calibrating/automatic startup positioning,
 // 1 online only after complete startup, -1 error; -2 remains unknown/not operational.
 // Mechanical readiness needed by home/calibration must be kept separate.
+// Commands: each method (Init, Home, Park, Track, Slew, Stop, Reset) starts its command once, like a rising edge of the
+// matching edge-triggered input of FB_BaseTelescopeControl (bPower, bGoHome, bPark, bTrack, bSlew, bStop, bReset);
+// the implementation does not clear or write those inputs (MONETcommon#24 step 5).
 INTERFACE I_Telescope
 ]]></Declaration>
     <Property Name="Altitude" Id="{ce60f76f-3a5f-482f-9275-0897e7d29930}">

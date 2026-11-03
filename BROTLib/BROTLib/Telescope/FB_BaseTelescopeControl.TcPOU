@@ -9,14 +9,21 @@ TCS interface section, modeled on an external TCS spec kept as a private interna
 specs/design/telescope-telemetry-publish-chain.md for what's actually confirmed about the
 on-wire format from tracing the code, since the spec itself isn't accessible from here.
 *)
-	bPower				: BOOL;		// true: Power on
-	bGoHome				: BOOL;		// true: go to home position, unset track/goto if active
-	bPark				: BOOL;		// boolean, true: go into park position, ready to stow telescope, unset track/goto
-	bTrack				: BOOL;		// boolean, TRUE: MOVE telescope TO last ra/de AND start tracking. Set 'goto' TO FALSE, IF TRUE. FALSE: Stop tracking as soon as possible
-	bGoto				: BOOL;		// boolean, TRUE: MOVE telescope TO tau/de AND stop there. Set track TO FALSE, IF TRUE. FALSE: no effect.)	
-	bSlew				: BOOL;		// move the telescope to a given az-alt position
-	bStop				: BOOL;		// boolean, TRUE: Stop motion OF telescope immediately, set goto AND track TO FALSE. FALSE: Allow motion OF telescope again via track/goto).	
-	bReset				: BOOL;		// initiates reset on all axis
+	// Command inputs (bPower ... bReset) are edge-triggered (MONETcommon#24 step 5): a rising edge starts the command
+	// once, holding the input TRUE does not start it again, and the input falling does not abort it. The telescope
+	// control does not clear or write these inputs; whether a command runs is reported by the outputs and telemetry
+	// (READY_STATE, nMotionState, bSlewing, bTracking, ...). The matching method (Init, Home, Park, Track, Slew, Stop,
+	// Reset) starts the same command; an edge and a method call in the same scan count once. This block has no state
+	// machine: the contract is implemented by the derived block (MONETcommon's FB_MonetTelescopeControl, which
+	// overrides the methods). The default method bodies below still set the input to TRUE.
+	bPower				: BOOL;		// edge-triggered: rising edge powers on and starts up the telescope (method: Init)
+	bGoHome				: BOOL;		// edge-triggered: rising edge moves to the home position, ends a running track/goto (method: Home)
+	bPark				: BOOL;		// edge-triggered: rising edge moves to the park position, ready to stow, ends a running track/goto (method: Park)
+	bTrack				: BOOL;		// edge-triggered: rising edge moves to fRightAscension/fDeclination and tracks it, ends a running goto (method: Track); stop tracking with bStop/Stop
+	bGoto				: BOOL;		// edge-triggered: rising edge moves to fRightAscension/fDeclination and stops there (then tracks if bAutoTrack), ends a running track; no method in I_Telescope
+	bSlew				: BOOL;		// edge-triggered: rising edge moves to fAzimuth/fElevation (method: Slew)
+	bStop				: BOOL;		// edge-triggered: rising edge stops all motion at once, ends track/goto/slew (method: Stop)
+	bReset				: BOOL;		// edge-triggered: rising edge resets the errors of all axes (method: Reset)
 	bAutoTrack			: BOOL := TRUE;	// automatic tracking after goto
 	bCoverAutoOpen		: BOOL := TRUE;	// automatically open the mirror covers on Init/PowerOn
 	// catalog/mean right ascension (ICRS/J2000), degrees, double -- fed straight into AstroBROT's
