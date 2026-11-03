@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="F_HomeStopAbort" Id="{9b3e5c71-2d48-4a96-8e07-6f1a4d2c8b35}" SpecialFunc="None">
+    <Declaration><![CDATA[// A homing that the caller stopped (FB_Axis.Stop() while HomeActive) and that MC_Home answers with "error during
+// referencing" (16#4B0A) is aborted, not failed (HalfBROT#114). Pure logic, tested without an NC axis. Any other error
+// of MC_Home, or the same error of a homing nobody stopped, stays an error.
+FUNCTION F_HomeStopAbort : BOOL
+VAR_INPUT
+	bHomeStopped	: BOOL;		// Stop() ran while the homing was active
+	bError			: BOOL;		// MC_Home.Error of the last call
+	nErrorID		: UDINT;	// MC_Home.ErrorID of the last call
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_HomeStopAbort := bHomeStopped AND bError AND nErrorID = 16#4B0A;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
