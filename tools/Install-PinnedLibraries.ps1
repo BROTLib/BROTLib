@@ -68,3 +68,23 @@ foreach ($key in ($pins.Keys | Sort-Object)) {
 & tctool install-library --file $dir --reptool-timeout $TimeoutSeconds
 if ($LASTEXITCODE -ne 0) { throw "tctool failed installing the pinned libraries (exit code $LASTEXITCODE)." }
 Write-Host "Installed $($pins.Count) pinned librar$(if ($pins.Count -eq 1) { 'y' } else { 'ies' })."
+
+# --- 4. make the project use the pins ------------------------------------------------------------------------------
+# TwinCAT writes `<Resolution>Name, * (Company)</Resolution>` into the PlaceholderResolution of a project, and `*`
+# means "the highest version installed", which beats the DefaultResolution pin: a newer release or branch build
+# installed by any other job (MONETcommon 0.15.0 for a MONETS pinned to 0.14.1) is what gets compiled. In the CI
+# workspace (not committed) set that Resolution to the pin, for the libraries the same file pins to a version.
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+Get-ChildItem $Root -Recurse -Filter *.plcproj | ForEach-Object {
+    $text = [IO.File]::ReadAllText($_.FullName)
+    $new = $text
+    foreach ($m in [regex]::Matches($text, '<DefaultResolution>\s*([^,<]+?)\s*,\s*([0-9][0-9.]*)\s*\(([^)<]*)\)\s*</DefaultResolution>')) {
+        $name = $m.Groups[1].Value
+        if (-not $Orgs.ContainsKey($name)) { continue }
+        $company = $m.Groups[3].Value
+        $old = '<Resolution>{0}, * ({1})</Resolution>' -f $name, $company
+        $pinned = '<Resolution>{0}, {1} ({2})</Resolution>' -f $name, $m.Groups[2].Value, $company
+        if ($new.Contains($old)) { $new = $new.Replace($old, $pinned); Write-Host "$($_.Name): $name resolves to $($m.Groups[2].Value), not the newest installed." }
+    }
+    if ($new -ne $text) { [IO.File]::WriteAllText($_.FullName, $new, $utf8) }
+}
