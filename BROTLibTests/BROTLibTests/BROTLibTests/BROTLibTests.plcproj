@@ -88,6 +88,18 @@
     <Compile Include="POUs\FB_NcMoveMock.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_MockStopAxis.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_StopRig.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_StopTransaction_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\StopLoop_Sim_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_HomeStopAbort_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

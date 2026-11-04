@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StopTransaction" Id="{3daa5e1c-9dd0-4e61-be59-5a1cb6bddadf}" SpecialFunc="None">
+    <Declaration><![CDATA[// Generic stop transaction for up to four axes: one stop per axis and transaction, and the transaction only settles
+// when it is really over (BROTLib#25 step 4.2). Union of MONETcommon.FB_MonetStopTransaction (three axes, #96, #150)
+// and IAG50cm.FB_StopTransaction (two axes, #108, #98, #113, #120); neither has adopted it yet.
+// A telescope that wrote StopAxis on every scan in which an axis was not at standstill restarted MC_Stop on an axis
+// that had just finished (FB_AxisCommand releases Execute only after it has seen Done). Here each enabled axis is sent
+// one stop per transaction, and the transaction settles when every axis that was sent a stop has reported StopDone (a
+// disabled axis counts as done), the telescope is at rest and has been for nSettleScans scans (the first StandStill
+// sample can come before the stop takes hold, IAG50cm#98), no enabled axis is locked for motion commands (IAG:
+// StateDWord bit 29) for nSettleScans scans and no calibration sweep runs (IAG, #113).
+// Timeout: either the owner passes its own timeout in bTimeout (MONETcommon: a level while its stop command runs) or
+// tTimeout > 0 starts an internal timer at Begin() (IAG50cm: 30 s). After the timeout the StopDone condition is
+// waived: at rest the transaction settles (bForced if an issued axis never reported Done); not at rest, bStuck is
+// raised once and the stop is kept.
+// Pure logic (no axis access). Index 1..4; an unused axis stays at its defaults (not enabled, so it is never sent a
+// stop and counts as done).
+//
+// Use: set the inputs every scan, call the body (request logic) while the telescope stops its axes, call Monitor()
+// every scan after bStopped is computed, and write abWriteLow / abWriteHigh to the StopAxis of the axis blocks.
+FUNCTION_BLOCK FB_StopTransaction
+VAR_INPUT
+	abEnabled		: ARRAY[1..4] OF BOOL;	// axis is enabled (a disabled axis is never sent a stop, #150, and counts as done)
+	abStandStill	: ARRAY[1..4] OF BOOL;	// fbAxis.StandStill (a running MC_Stop reports FALSE)
+	abStopAxis		: ARRAY[1..4] OF BOOL;	// the current StopAxis level of the axis block (a level left TRUE is written low first)
+	abStopDone		: ARRAY[1..4] OF BOOL;	// fbAxis.StopDone (pulse)
+	abMoving		: ARRAY[1..4] OF BOOL;	// fbAxis.InMotion OR fbAxis.InRamp (for Restart)
+	abStopping		: ARRAY[1..4] OF BOOL;	// fbAxis.Stopping (for Restart)
+	abLocked		: ARRAY[1..4] OF BOOL;	// motion commands locked (StateDWord bit 29)
+	abHoming		: ARRAY[1..4] OF BOOL;	// a calibration sweep of the axis is running or being aborted: does not settle
+	bStopped		: BOOL;					// the whole telescope is at rest
+	bTimeout		: BOOL;					// the stop command timeout of the owner has elapsed (level)
+	tTimeout		: TIME;					// internal timeout from Begin(); T#0S = none (use bTimeout)
+	nTimeDivisor	: UDINT := 1;			// test seam: divides tTimeout (FB_TimeoutTimer); production leaves it at 1
+END_VAR
+VAR_OUTPUT
+	abWriteLow		: ARRAY[1..4] OF BOOL;	// write StopAxis := FALSE in this scan (a level latched from an earlier stop)
+	abWriteHigh		: ARRAY[1..4] OF BOOL;	// write StopAxis := TRUE in this scan (the one stop of this transaction)
+	bSettled		: BOOL;					// the stop is over: release StopAxis and bStop
+	bActive			: BOOL;					// a transaction was begun and has not settled yet (homes and restarts wait for it)
+	bForced			: BOOL;					// one scan: settled after the timeout without StopDone from every issued axis
+	bStuck			: BOOL;					// one scan: timeout while the telescope is still not at rest
+	bTimedOut		: BOOL;					// one scan: the internal timeout (tTimeout) elapsed without settling
+	abNoDone		: ARRAY[1..4] OF BOOL;	// at that moment the axis was sent a stop and had not reported Done (until Begin/Cancel)
+END_VAR
+VAR
+	abIssued		: ARRAY[1..4] OF BOOL;	// the axis was sent its stop in this transaction, never again
+	abDone			: ARRAY[1..4] OF BOOL;	// the axis reported StopDone after it was sent its stop
+	abJustIssued	: ARRAY[1..4] OF BOOL;	// issued in this scan: a StopDone seen in the same scan is a leftover
+	nStoppedScans	: UINT;					// consecutive scans with bStopped
+	nClearScans		: UINT;					// consecutive scans without a motion lock on an enabled axis
+	tonTimeout		: FB_TimeoutTimer;		// internal timeout from Begin()
+	bExpired		: BOOL;					// the internal timeout elapsed in this transaction
+	bStuckReported	: BOOL;
+	i				: UINT;
+END_VAR
+VAR CONSTANT
+	nSettleScans	: UINT := 3;			// 30 ms at the 10 ms task
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FOR i := 1 TO 4 DO
+	abWriteLow[i] := FALSE;
+	abWriteHigh[i] := FALSE;
+	// #150: a disabled axis is not at StandStill either, but the axis block cannot run MC_Stop on it: the request would
+	// stay latched and start with the next power-on, which the NC refuses with 0x42EF
+	IF NOT abIssued[i] AND NOT abStandStill[i] AND abEnabled[i] THEN
+		IF abStopAxis[i] THEN
+			// latched from an earlier stop: one scan low, so that the next TRUE is a fresh edge
+			abWriteLow[i] := TRUE;
+		ELSE
+			abWriteHigh[i] := TRUE;
+			abIssued[i] := TRUE;
+			abJustIssued[i] := TRUE;
+		END_IF
+	END_IF
+END_FOR
+]]></ST>
+    </Implementation>
+    <Method Name="Begin" Id="{cb56bb2c-fb87-4a20-b1cf-88ece201ce17}">
+      <Declaration><![CDATA[// Start a new stop transaction: each axis may be sent one stop again.
+METHOD Begin
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 4 DO
+	abIssued[i] := FALSE;
+	abDone[i] := FALSE;
+	abJustIssued[i] := FALSE;
+	abNoDone[i] := FALSE;
+END_FOR
+nStoppedScans := 0;
+nClearScans := 0;
+bExpired := FALSE;
+bStuckReported := FALSE;
+tonTimeout(IN := FALSE, PT := tTimeout, nDivisor := nTimeDivisor);
+bActive := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel" Id="{fd9a3d40-50c1-4fa5-8b90-07a6f170228d}">
+      <Declaration><![CDATA[// Forget a running transaction (another command took over, error, reset): nothing waits for it any more.
+METHOD Cancel
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 4 DO
+	abNoDone[i] := FALSE;
+END_FOR
+bExpired := FALSE;
+tonTimeout(IN := FALSE, PT := tTimeout, nDivisor := nTimeDivisor);
+bActive := FALSE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Restart" Id="{c4b411cc-d63c-4cfc-b68b-e4effb94d629}">
+      <Declaration><![CDATA[// A repeated stop while a stop is running: send a new stop only to the axes that are moving again and are not
+// already stopping. A client that repeats stop cannot recreate the restart loop of MONETcommon#96.
+METHOD Restart
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 4 DO
+	IF abMoving[i] AND NOT abStopping[i] THEN
+		abIssued[i] := FALSE;
+		abDone[i] := FALSE;
+		abJustIssued[i] := FALSE;
+	END_IF
+END_FOR
+nStoppedScans := 0;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Monitor" Id="{ef419e38-9625-47db-9d03-be48b689da3d}">
+      <Declaration><![CDATA[// Call every scan after bStopped is computed. A transaction settles when every axis that was sent a stop has reported
+// StopDone (a disabled axis counts as done), the telescope is at rest and has been for nSettleScans scans, no enabled
+// axis has been locked for nSettleScans scans and no sweep homing runs. After the timeout (bTimeout, or tTimeout from
+// Begin()) the StopDone condition is waived: at rest the transaction settles (bForced if an issued axis never reported
+// Done); not at rest, bStuck is raised once and the stop is kept (the drives stay enabled).
+METHOD Monitor
+VAR
+	bDoneOk		: BOOL;
+	bHoming		: BOOL;
+	bLocked		: BOOL;
+	bTimedOutNow	: BOOL;
+	bSettleOk	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bForced := FALSE;
+bStuck := FALSE;
+bTimedOut := FALSE;
+
+bDoneOk := TRUE;
+bHoming := FALSE;
+bLocked := FALSE;
+FOR i := 1 TO 4 DO
+	IF abStopDone[i] AND abIssued[i] AND NOT abJustIssued[i] THEN
+		abDone[i] := TRUE;
+	END_IF
+	abJustIssued[i] := FALSE;
+	IF abIssued[i] AND NOT abDone[i] AND abEnabled[i] THEN
+		bDoneOk := FALSE;
+	END_IF
+	IF abHoming[i] THEN
+		bHoming := TRUE;
+	END_IF
+	IF abEnabled[i] AND abLocked[i] THEN
+		bLocked := TRUE;
+	END_IF
+END_FOR
+
+IF bStopped THEN
+	IF nStoppedScans < nSettleScans THEN
+		nStoppedScans := nStoppedScans + 1;
+	END_IF
+ELSE
+	nStoppedScans := 0;
+END_IF
+
+IF bLocked THEN
+	nClearScans := 0;
+ELSIF nClearScans < nSettleScans THEN
+	nClearScans := nClearScans + 1;
+END_IF
+
+// internal timeout from Begin(): the scan in which it elapses is reported, the axes without Done are remembered
+IF tTimeout > T#0S THEN
+	tonTimeout(IN := bActive, PT := tTimeout, nDivisor := nTimeDivisor);
+	IF bActive AND tonTimeout.Q AND NOT bExpired THEN
+		bExpired := TRUE;
+		bTimedOut := TRUE;
+		FOR i := 1 TO 4 DO
+			abNoDone[i] := abIssued[i] AND NOT abDone[i] AND abEnabled[i];
+		END_FOR
+	END_IF
+END_IF
+bTimedOutNow := bTimeout OR bExpired;
+
+bSettleOk := bStopped AND nStoppedScans >= nSettleScans AND nClearScans >= nSettleScans AND NOT bHoming;
+IF bActive THEN
+	IF bSettleOk AND bDoneOk THEN
+		bActive := FALSE;
+	ELSIF bTimedOutNow THEN
+		IF bSettleOk THEN
+			bForced := TRUE;
+			bActive := FALSE;
+		ELSIF NOT bStopped AND NOT bStuckReported THEN
+			bStuck := TRUE;
+			bStuckReported := TRUE;
+		END_IF
+	END_IF
+END_IF
+
+// no transaction running: finished as soon as the telescope is at rest
+bSettled := NOT bActive AND bStopped;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

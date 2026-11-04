@@ -1,0 +1,902 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StopTransaction_Tests" Id="{cdd6d34e-ec74-48bd-bda9-56f059182b06}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for FB_StopTransaction, the generic stop of up to four axes with one MC_Stop each (BROTLib#25 step 4.2). The
+// first 14 tests are MONETcommon.FB_MonetStopTransaction_Tests (#96, three axes: 1 = azimuth, 2 = elevation, 3 = derotator),
+// the rest are the cases of IAG50cm.FB_StopTransaction_Tests that the MONET block does not have (lock, sweep homing,
+// internal timeout, #98, #113, #120). Every test starts with all axes enabled and at standstill; one tx() + tx.Monitor() = one scan.
+FUNCTION_BLOCK FB_StopTransaction_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Moving_Axis_Gets_One_Stop();
+Standstill_Axis_Gets_No_Stop();
+Latched_StopAxis_Low_Then_High();
+No_Second_Stop_While_Stopping_After_Done();
+First_Standstill_Sample_Does_Not_Settle();
+Settles_After_Done_And_Three_Scans();
+Done_In_Different_Scans_Settles();
+Axis_Not_Enabled_Counts_As_Done();
+Axis_Not_Enabled_Gets_No_Stop();
+No_Transaction_Settles_On_Standstill();
+Cancel_Rearms_Next_Transaction();
+Restart_Resends_Only_To_Moving_Axes();
+Missing_Done_Settles_Only_On_Timeout();
+Timeout_While_Moving_Raises_Stuck_Once();
+Stop_Is_Sent_Once_Per_Axis_In_300_Scans();
+Four_Axes_Are_Stopped_Independently();
+Lock_Restarts_The_Clear_Count();
+Lock_On_A_Disabled_Axis_Is_Ignored();
+Not_Settled_While_Homing_Runs();
+Done_Before_The_Transaction_Is_Ignored();
+Done_In_The_Issue_Scan_Is_A_Leftover();
+Cancel_Releases_The_Wait();
+Timeout_Does_Not_Release_While_Locked_Or_Homing();
+Settled_Transaction_Does_Not_Time_Out();
+Internal_Timeout_Releases_A_Stop_Without_Done_At_Rest();
+Cancel_Stops_The_Internal_Timeout_And_Begin_Restarts_It();
+]]></ST>
+    </Implementation>
+    <Method Name="Moving_Axis_Gets_One_Stop" Id="{487b7228-6dc3-4bed-ba63-693469aed6ee}">
+      <Declaration><![CDATA[// The azimuth moves: one write in the first scan, none afterwards; the others get nothing.
+METHOD PRIVATE Moving_Axis_Gets_One_Stop
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moving_Axis_Gets_One_Stop');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+AssertTrue(Condition := tx.abWriteHigh[1], Message := 'azimuth is sent its stop');
+AssertFalse(Condition := tx.abWriteHigh[2], Message := 'elevation at rest: none');
+AssertFalse(Condition := tx.abWriteHigh[3], Message := 'derotator at rest: none');
+AssertFalse(Condition := tx.abWriteLow[1], Message := 'no low write');
+tx();
+AssertFalse(Condition := tx.abWriteHigh[1], Message := 'never a second stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Standstill_Axis_Gets_No_Stop" Id="{011021e1-a8ea-4a04-9a49-0b151afc54b5}">
+      <Declaration><![CDATA[METHOD PRIVATE Standstill_Axis_Gets_No_Stop
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Standstill_Axis_Gets_No_Stop');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.Begin();
+tx();
+FOR i := 1 TO 3 DO
+	AssertFalse(Condition := tx.abWriteHigh[i], Message := 'no stop for an axis at rest');
+	AssertFalse(Condition := tx.abWriteLow[i], Message := 'no low write for an axis at rest');
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Latched_StopAxis_Low_Then_High" Id="{dbab5c4f-02f8-4b5b-82dc-6d0f71074451}">
+      <Declaration><![CDATA[// A StopAxis level left TRUE from an earlier stop is written low for one scan first (#84), then the one stop follows.
+METHOD PRIVATE Latched_StopAxis_Low_Then_High
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Latched_StopAxis_Low_Then_High');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.abStopAxis[1] := TRUE;
+tx.Begin();
+tx();
+AssertTrue(Condition := tx.abWriteLow[1], Message := 'first scan: low');
+AssertFalse(Condition := tx.abWriteHigh[1], Message := 'first scan: not high');
+tx.abStopAxis[1] := FALSE;
+tx();
+AssertTrue(Condition := tx.abWriteHigh[1], Message := 'second scan: the stop');
+AssertFalse(Condition := tx.abWriteLow[1], Message := 'second scan: not low');
+tx();
+AssertFalse(Condition := tx.abWriteHigh[1], Message := 'and no more');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Second_Stop_While_Stopping_After_Done" Id="{78887284-9535-4ac1-906f-7364ba21b2fb}">
+      <Declaration><![CDATA[// The #96 guard: StopDone has cleared StopAxis, the axis is still Stopping (not StandStill). The 0.9.0 rule wrote a new edge here.
+METHOD PRIVATE No_Second_Stop_While_Stopping_After_Done
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Second_Stop_While_Stopping_After_Done');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+tx.bStopped := FALSE;
+tx.Monitor();
+tx.abStopAxis[1] := FALSE;
+tx.abStopDone[1] := TRUE;
+tx();
+tx.Monitor();
+tx.abStopDone[1] := FALSE;
+FOR n := 1 TO 5 DO
+	tx();
+	AssertFalse(Condition := tx.abWriteHigh[1], Message := 'no new stop while Stopping');
+	AssertFalse(Condition := tx.abWriteLow[1], Message := 'no low write either');
+	tx.Monitor();
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="First_Standstill_Sample_Does_Not_Settle" Id="{8445a5a4-aba7-4694-99e5-d3cd9f1138b5}">
+      <Declaration><![CDATA[// bStopped alone must not settle: the axis was sent a stop and has not reported StopDone (IAG50cm#98).
+METHOD PRIVATE First_Standstill_Sample_Does_Not_Settle
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('First_Standstill_Sample_Does_Not_Settle');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+tx.bStopped := FALSE;
+tx.Monitor();
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+FOR n := 1 TO 5 DO
+	tx();
+	tx.Monitor();
+	AssertFalse(Condition := tx.bSettled, Message := 'not settled without StopDone');
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'still waiting');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Settles_After_Done_And_Three_Scans" Id="{a7581612-5bf8-4779-bc25-c163797df0ec}">
+      <Declaration><![CDATA[METHOD PRIVATE Settles_After_Done_And_Three_Scans
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Settles_After_Done_And_Three_Scans');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+tx.bStopped := FALSE;
+tx.Monitor();
+tx.abStopDone[1] := TRUE;
+tx();
+tx.Monitor();
+tx.abStopDone[1] := FALSE;
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+tx();
+tx.Monitor();
+AssertFalse(Condition := tx.bSettled, Message := 'one scan at rest');
+tx();
+tx.Monitor();
+AssertFalse(Condition := tx.bSettled, Message := 'two scans at rest');
+tx();
+tx.Monitor();
+AssertTrue(Condition := tx.bSettled, Message := 'three scans at rest and StopDone seen');
+AssertFalse(Condition := tx.bActive, Message := 'no longer active');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Done_In_Different_Scans_Settles" Id="{48d93819-18ed-4c2e-bacc-844d8dddb0c6}">
+      <Declaration><![CDATA[// Azimuth and elevation report StopDone in different scans (the case that hung the 0.9.0 release of the stop).
+METHOD PRIVATE Done_In_Different_Scans_Settles
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Done_In_Different_Scans_Settles');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.abStandStill[2] := FALSE;
+tx.Begin();
+tx();
+tx.bStopped := FALSE;
+tx.Monitor();
+tx.abStopDone[1] := TRUE;
+tx();
+tx.Monitor();
+tx.abStopDone[1] := FALSE;
+tx.abStandStill[1] := TRUE;
+FOR n := 1 TO 3 DO
+	tx();
+	tx.Monitor();
+END_FOR
+tx.abStopDone[2] := TRUE;
+tx();
+tx.Monitor();
+AssertFalse(Condition := tx.bSettled, Message := 'elevation not at rest yet');
+tx.abStopDone[2] := FALSE;
+tx.abStandStill[2] := TRUE;
+tx.bStopped := TRUE;
+FOR n := 1 TO 3 DO
+	tx();
+	tx.Monitor();
+END_FOR
+AssertTrue(Condition := tx.bSettled, Message := 'settled three scans after both are at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Axis_Not_Enabled_Counts_As_Done" Id="{833dbab7-b7b6-425d-a687-1f0f742e146d}">
+      <Declaration><![CDATA[METHOD PRIVATE Axis_Not_Enabled_Counts_As_Done
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Axis_Not_Enabled_Counts_As_Done');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+tx.abEnabled[1] := FALSE;
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+FOR n := 1 TO 3 DO
+	tx();
+	tx.Monitor();
+END_FOR
+AssertTrue(Condition := tx.bSettled, Message := 'a disabled axis does not hold the stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="No_Transaction_Settles_On_Standstill" Id="{c4030127-e877-47b8-b130-204066afd00b}">
+      <Declaration><![CDATA[// No transaction begun (nothing to wait for): settled as soon as the telescope is at rest, like the old bStopped.
+METHOD PRIVATE No_Transaction_Settles_On_Standstill
+VAR
+	tx	: FB_StopTransaction;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('No_Transaction_Settles_On_Standstill');
+tx.bStopped := FALSE;
+tx.Monitor();
+AssertFalse(Condition := tx.bSettled, Message := 'moving');
+tx.bStopped := TRUE;
+tx.Monitor();
+AssertTrue(Condition := tx.bSettled, Message := 'at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel_Rearms_Next_Transaction" Id="{1172fe5e-0394-4380-bfda-a687de06119f}">
+      <Declaration><![CDATA[// A stop cut off by another command sends again in the next stop.
+METHOD PRIVATE Cancel_Rearms_Next_Transaction
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Cancel_Rearms_Next_Transaction');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+AssertTrue(Condition := tx.abWriteHigh[1], Message := 'first transaction');
+tx.Cancel();
+tx.Begin();
+tx();
+AssertTrue(Condition := tx.abWriteHigh[1], Message := 'second transaction sends again');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Restart_Resends_Only_To_Moving_Axes" Id="{22767488-48c6-43f9-9f13-49f4abcafa0e}">
+      <Declaration><![CDATA[// D2: a repeated stop. The azimuth moves again, the elevation is still stopping.
+METHOD PRIVATE Restart_Resends_Only_To_Moving_Axes
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Restart_Resends_Only_To_Moving_Axes');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.abStandStill[2] := FALSE;
+tx.Begin();
+tx();
+tx.Monitor();
+tx.abMoving[1] := TRUE;
+tx.abStopping[1] := FALSE;
+tx.abMoving[2] := TRUE;
+tx.abStopping[2] := TRUE;
+tx.Restart();
+tx();
+AssertTrue(Condition := tx.abWriteHigh[1], Message := 'the moving azimuth is sent a stop again');
+AssertFalse(Condition := tx.abWriteHigh[2], Message := 'the stopping elevation is not');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Missing_Done_Settles_Only_On_Timeout" Id="{4e0c42a0-4c5d-47f9-828f-214804083873}">
+      <Declaration><![CDATA[// D1: at rest, but an issued axis never reported StopDone. Waits, then settles on the timeout and says so once.
+METHOD PRIVATE Missing_Done_Settles_Only_On_Timeout
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Missing_Done_Settles_Only_On_Timeout');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+FOR n := 1 TO 5 DO
+	tx();
+	tx.Monitor();
+END_FOR
+AssertFalse(Condition := tx.bSettled, Message := 'waits for StopDone');
+tx.bTimeout := TRUE;
+tx();
+tx.Monitor();
+AssertTrue(Condition := tx.bForced, Message := 'forced on the timeout');
+AssertTrue(Condition := tx.bSettled, Message := 'and settled');
+tx();
+tx.Monitor();
+AssertFalse(Condition := tx.bForced, Message := 'reported once');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timeout_While_Moving_Raises_Stuck_Once" Id="{11102c3b-7d3a-4315-a703-2406959e7e8e}">
+      <Declaration><![CDATA[// D1: timeout while an axis is still not at standstill: reported once, the stop is kept (the drives stay enabled).
+METHOD PRIVATE Timeout_While_Moving_Raises_Stuck_Once
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timeout_While_Moving_Raises_Stuck_Once');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[1] := FALSE;
+tx.Begin();
+tx();
+tx.bStopped := FALSE;
+tx.bTimeout := TRUE;
+tx.Monitor();
+AssertTrue(Condition := tx.bStuck, Message := 'reported');
+tx.Monitor();
+AssertFalse(Condition := tx.bStuck, Message := 'only once');
+AssertTrue(Condition := tx.bActive, Message := 'the stop is kept');
+AssertFalse(Condition := tx.bSettled, Message := 'not settled');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Axis_Not_Enabled_Gets_No_Stop" Id="{e2358618-74a6-4939-bd49-0652a433bf8b}">
+      <Declaration><![CDATA[// #150: a stop before the axes are enabled (power-on at 27 s). A disabled axis is not at StandStill, so the transaction used to
+// send it StopAxis; FB_Axis.StopAllowed is FALSE there, the stop request stayed latched in FB_AxisCommand and started when the
+// next power-on enabled the axis (NC 0x42EF "locked ... stop command is still active"). The transaction now skips disabled axes.
+METHOD PRIVATE Axis_Not_Enabled_Gets_No_Stop
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Axis_Not_Enabled_Gets_No_Stop');
+FOR i := 1 TO 3 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+// azimuth and elevation not enabled yet: not StandStill either
+tx.abEnabled[1] := FALSE;
+tx.abStandStill[1] := FALSE;
+tx.abEnabled[2] := FALSE;
+tx.abStandStill[2] := FALSE;
+tx.Begin();
+tx();
+AssertFalse(Condition := tx.abWriteHigh[1], Message := 'no stop for the disabled azimuth');
+AssertFalse(Condition := tx.abWriteHigh[2], Message := 'no stop for the disabled elevation');
+AssertFalse(Condition := tx.abWriteHigh[3], Message := 'derotator at rest: none');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StepOnce" Id="{1b437066-3044-49ea-a2e9-4f0944663d68}">
+      <Declaration><![CDATA[// One scan in the order of the telescope: request logic, then Monitor().
+METHOD PRIVATE StepOnce
+VAR_IN_OUT
+	tx	: FB_StopTransaction;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[tx();
+tx.Monitor();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Is_Sent_Once_Per_Axis_In_300_Scans" Id="{b3c4e31b-a983-4e61-a9f8-bc80cd576fa1}">
+      <Declaration><![CDATA[// A stop that is rejected, dropped or never reports Done keeps StandStill FALSE: it must not be sent again (IAG50cm#108, #120).
+METHOD PRIVATE Stop_Is_Sent_Once_Per_Axis_In_300_Scans
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+	n1	: INT;
+	n2	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Is_Sent_Once_Per_Axis_In_300_Scans');
+tx.abEnabled[1] := TRUE;
+tx.abEnabled[2] := TRUE;
+tx.Begin();
+FOR i := 1 TO 300 DO
+	StepOnce(tx);
+	IF tx.abWriteHigh[1] THEN n1 := n1 + 1; END_IF
+	IF tx.abWriteHigh[2] THEN n2 := n2 + 1; END_IF
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := n1, Message := 'axis 1 stops sent');
+AssertEquals_INT(Expected := 1, Actual := n2, Message := 'axis 2 stops sent');
+AssertTrue(Condition := tx.bActive, Message := 'still active');
+AssertFalse(Condition := tx.bSettled, Message := 'not settled');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Four_Axes_Are_Stopped_Independently" Id="{eb3c7f22-53f9-4d72-ab7d-7376beef3d46}">
+      <Declaration><![CDATA[METHOD PRIVATE Four_Axes_Are_Stopped_Independently
+VAR
+	tx	: FB_StopTransaction;
+	i	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Four_Axes_Are_Stopped_Independently');
+FOR i := 1 TO 4 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abStandStill[2] := FALSE;
+tx.abStandStill[4] := FALSE;
+tx.Begin();
+tx();
+AssertFalse(Condition := tx.abWriteHigh[1], Message := 'axis 1 at rest');
+AssertTrue(Condition := tx.abWriteHigh[2], Message := 'axis 2 moves');
+AssertFalse(Condition := tx.abWriteHigh[3], Message := 'axis 3 at rest');
+AssertTrue(Condition := tx.abWriteHigh[4], Message := 'axis 4 moves');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Lock_Restarts_The_Clear_Count" Id="{af1d8ab3-2423-4723-a21f-8920116d2547}">
+      <Declaration><![CDATA[// IAG50cm: an enabled axis that is locked for motion commands (StateDWord bit 29) keeps the transaction open until it has
+// been free for three scans.
+METHOD PRIVATE Lock_Restarts_The_Clear_Count
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Lock_Restarts_The_Clear_Count');
+tx.abEnabled[1] := TRUE;
+tx.abEnabled[2] := TRUE;
+tx.Begin();
+StepOnce(tx);
+tx.abStandStill[1] := TRUE;
+tx.abStandStill[2] := TRUE;
+tx.bStopped := TRUE;
+tx.abStopDone[1] := TRUE;
+tx.abStopDone[2] := TRUE;
+tx.abLocked[1] := TRUE;
+StepOnce(tx);
+tx.abStopDone[1] := FALSE;
+tx.abStopDone[2] := FALSE;
+FOR n := 1 TO 10 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'locked: active');
+tx.abLocked[1] := FALSE;
+StepOnce(tx);
+StepOnce(tx);
+AssertTrue(Condition := tx.bActive, Message := 'two scans after the lock: active');
+StepOnce(tx);
+AssertFalse(Condition := tx.bActive, Message := 'three scans after the lock: settled');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Lock_On_A_Disabled_Axis_Is_Ignored" Id="{6647f738-ee9c-41f3-b7e6-1a13d65b80e8}">
+      <Declaration><![CDATA[METHOD PRIVATE Lock_On_A_Disabled_Axis_Is_Ignored
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Lock_On_A_Disabled_Axis_Is_Ignored');
+tx.abEnabled[1] := TRUE;
+tx.abLocked[2] := TRUE;
+tx.abStandStill[2] := TRUE;
+tx.Begin();
+StepOnce(tx);
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+tx.abStopDone[1] := TRUE;
+StepOnce(tx);
+tx.abStopDone[1] := FALSE;
+FOR n := 1 TO 3 DO
+	StepOnce(tx);
+END_FOR
+AssertFalse(Condition := tx.bActive, Message := 'a locked disabled axis does not hold the stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Not_Settled_While_Homing_Runs" Id="{4e4864e9-5c83-44db-8c2f-7c49314b8d5c}">
+      <Declaration><![CDATA[// IAG50cm#113: a calibration sweep that is still being aborted keeps the transaction open.
+METHOD PRIVATE Not_Settled_While_Homing_Runs
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Not_Settled_While_Homing_Runs');
+tx.abEnabled[1] := TRUE;
+tx.abEnabled[2] := TRUE;
+tx.Begin();
+StepOnce(tx);
+tx.abStandStill[1] := TRUE;
+tx.abStandStill[2] := TRUE;
+tx.bStopped := TRUE;
+tx.abStopDone[1] := TRUE;
+tx.abStopDone[2] := TRUE;
+tx.abHoming[1] := TRUE;
+StepOnce(tx);
+tx.abStopDone[1] := FALSE;
+tx.abStopDone[2] := FALSE;
+FOR n := 1 TO 20 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'axis 1 homing still busy');
+tx.abHoming[1] := FALSE;
+tx.abHoming[2] := TRUE;
+FOR n := 1 TO 20 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'axis 2 homing still busy');
+tx.abHoming[2] := FALSE;
+StepOnce(tx);
+AssertFalse(Condition := tx.bActive, Message := 'settled when the homing is idle');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Done_Before_The_Transaction_Is_Ignored" Id="{cebe9438-c37f-41df-9f47-d210616668d1}">
+      <Declaration><![CDATA[METHOD PRIVATE Done_Before_The_Transaction_Is_Ignored
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Done_Before_The_Transaction_Is_Ignored');
+tx.abEnabled[1] := TRUE;
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+tx.abStopDone[1] := TRUE;
+tx.Begin();
+StepOnce(tx);
+tx.abStopDone[1] := FALSE;
+tx.Begin();
+tx.abStandStill[1] := FALSE;
+StepOnce(tx);
+FOR n := 1 TO 20 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'a new transaction needs its own Done');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Done_In_The_Issue_Scan_Is_A_Leftover" Id="{1b60b751-067c-46bd-b636-3b3304dc3003}">
+      <Declaration><![CDATA[// A StopDone pulse that arrives in the scan in which the stop is sent belongs to the stop before.
+METHOD PRIVATE Done_In_The_Issue_Scan_Is_A_Leftover
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Done_In_The_Issue_Scan_Is_A_Leftover');
+tx.abEnabled[1] := TRUE;
+tx.abStopDone[1] := TRUE;
+tx.Begin();
+StepOnce(tx);
+AssertTrue(Condition := tx.abWriteHigh[1], Message := 'stop sent');
+tx.abStopDone[1] := FALSE;
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+FOR n := 1 TO 6 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'the leftover Done does not settle the stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel_Releases_The_Wait" Id="{fec0b2f6-c357-4778-a806-dc27a4e83279}">
+      <Declaration><![CDATA[METHOD PRIVATE Cancel_Releases_The_Wait
+VAR
+	tx	: FB_StopTransaction;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Cancel_Releases_The_Wait');
+tx.abEnabled[1] := TRUE;
+tx.Begin();
+StepOnce(tx);
+AssertTrue(Condition := tx.bActive, Message := 'active');
+tx.Cancel();
+AssertFalse(Condition := tx.bActive, Message := 'cancelled');
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+StepOnce(tx);
+AssertTrue(Condition := tx.bSettled, Message := 'settled as soon as the telescope is at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timeout_Does_Not_Release_While_Locked_Or_Homing" Id="{878d0e2c-1aca-4844-87b3-45c8aebaa556}">
+      <Declaration><![CDATA[// After the timeout the StopDone condition is waived, but a locked axis or a running sweep still keeps the transaction open.
+METHOD PRIVATE Timeout_Does_Not_Release_While_Locked_Or_Homing
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Timeout_Does_Not_Release_While_Locked_Or_Homing');
+tx.abEnabled[1] := TRUE;
+tx.Begin();
+StepOnce(tx);
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+tx.bTimeout := TRUE;
+tx.abLocked[1] := TRUE;
+FOR n := 1 TO 10 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'locked: kept');
+AssertFalse(Condition := tx.bForced, Message := 'locked: not forced');
+tx.abLocked[1] := FALSE;
+tx.abHoming[1] := TRUE;
+FOR n := 1 TO 10 DO
+	StepOnce(tx);
+END_FOR
+AssertTrue(Condition := tx.bActive, Message := 'homing: kept');
+AssertFalse(Condition := tx.bForced, Message := 'homing: not forced');
+tx.abHoming[1] := FALSE;
+StepOnce(tx);
+AssertTrue(Condition := tx.bForced, Message := 'released without StopDone');
+AssertFalse(Condition := tx.bActive, Message := 'settled');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Settled_Transaction_Does_Not_Time_Out" Id="{10eba13e-a41d-4686-895c-29b276856425}">
+      <Declaration><![CDATA[METHOD PRIVATE Settled_Transaction_Does_Not_Time_Out
+VAR
+	tx	: FB_StopTransaction;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Settled_Transaction_Does_Not_Time_Out');
+tx.abEnabled[1] := TRUE;
+tx.Begin();
+StepOnce(tx);
+tx.abStandStill[1] := TRUE;
+tx.bStopped := TRUE;
+tx.abStopDone[1] := TRUE;
+StepOnce(tx);
+tx.abStopDone[1] := FALSE;
+FOR n := 1 TO 3 DO
+	StepOnce(tx);
+END_FOR
+AssertFalse(Condition := tx.bActive, Message := 'settled');
+tx.bTimeout := TRUE;
+StepOnce(tx);
+AssertFalse(Condition := tx.bForced, Message := 'a settled transaction is not forced');
+AssertTrue(Condition := tx.bSettled, Message := 'still settled');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Internal_Timeout_Releases_A_Stop_Without_Done_At_Rest" Id="{65f60d97-d781-49de-af53-988535dcfcb3}">
+      <Declaration><![CDATA[// IAG50cm#120: axis 1 is sent its stop and never reports Done, the telescope is at rest. After tTimeout the transaction
+// settles once (bTimedOut and bForced in the same scan), with no second stop. Runs over several PLC cycles: a TON does not
+// advance inside one cycle. nTimeDivisor 100 makes the 30 s 300 ms.
+METHOD PRIVATE Internal_Timeout_Releases_A_Stop_Without_Done_At_Rest
+VAR_INST
+	tx			: FB_StopTransaction;
+	nCycles		: UINT;
+	nStops		: INT;
+	nTimedOut	: INT;
+	nForced		: INT;
+	nAfter		: UINT;
+	bStarted	: BOOL;
+	bFinished	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Internal_Timeout_Releases_A_Stop_Without_Done_At_Rest');
+IF bFinished THEN
+	RETURN;
+END_IF
+IF NOT bStarted THEN
+	tx.abEnabled[1] := TRUE;
+	tx.abEnabled[2] := TRUE;
+	tx.abStandStill[2] := TRUE;
+	tx.tTimeout := T#30S;
+	tx.nTimeDivisor := 100;
+	tx.Begin();
+	bStarted := TRUE;
+END_IF
+nCycles := nCycles + 1;
+// axis 1 is sent its stop in the first scan, afterwards the telescope is at rest
+tx.abStandStill[1] := nCycles > 1;
+tx.bStopped := nCycles > 1;
+tx();
+tx.Monitor();
+IF tx.abWriteHigh[1] THEN nStops := nStops + 1; END_IF
+IF tx.bTimedOut THEN nTimedOut := nTimedOut + 1; END_IF
+IF tx.bForced THEN nForced := nForced + 1; END_IF
+IF nCycles = 2 THEN
+	AssertTrue(Condition := tx.bActive, Message := 'active before the timeout');
+END_IF
+IF nForced > 0 THEN
+	nAfter := nAfter + 1;
+END_IF
+IF nAfter >= 5 THEN
+	AssertEquals_INT(Expected := 1, Actual := nStops, Message := 'axis 1 stops sent');
+	AssertEquals_INT(Expected := 1, Actual := nTimedOut, Message := 'bTimedOut pulses');
+	AssertEquals_INT(Expected := 1, Actual := nForced, Message := 'bForced pulses');
+	AssertFalse(Condition := tx.bActive, Message := 'settled by the timeout');
+	AssertTrue(Condition := tx.abNoDone[1], Message := 'axis 1 had no Done');
+	AssertFalse(Condition := tx.abNoDone[2], Message := 'axis 2 was not stopped');
+	bFinished := TRUE;
+	TEST_FINISHED();
+ELSIF nCycles > 3000 THEN
+	AssertTrue(Condition := FALSE, Message := 'the transaction never timed out');
+	bFinished := TRUE;
+	TEST_FINISHED();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Cancel_Stops_The_Internal_Timeout_And_Begin_Restarts_It" Id="{e244bec8-15d5-4f37-bb40-cb49fd5a4aed}">
+      <Declaration><![CDATA[// IAG50cm#120: a cancelled transaction never times out; a new Begin() starts the timeout again. Several PLC cycles.
+METHOD PRIVATE Cancel_Stops_The_Internal_Timeout_And_Begin_Restarts_It
+VAR_INST
+	tx			: FB_StopTransaction;
+	nCycles		: UINT;
+	nTimedOut	: INT;
+	nWait		: UINT;
+	bStarted	: BOOL;
+	bBegun		: BOOL;
+	bFinished	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Cancel_Stops_The_Internal_Timeout_And_Begin_Restarts_It');
+IF bFinished THEN
+	RETURN;
+END_IF
+IF NOT bStarted THEN
+	tx.abEnabled[1] := TRUE;
+	tx.tTimeout := T#30S;
+	tx.nTimeDivisor := 100;
+	tx.Begin();
+	bStarted := TRUE;
+END_IF
+nCycles := nCycles + 1;
+IF nCycles = 2 THEN
+	tx.Cancel();
+END_IF
+IF nCycles = 60 THEN
+	AssertEquals_INT(Expected := 0, Actual := nTimedOut, Message := 'no timeout after Cancel');
+	AssertFalse(Condition := tx.bActive, Message := 'still cancelled');
+	tx.Begin();
+	bBegun := TRUE;
+END_IF
+tx();
+tx.Monitor();
+IF tx.bTimedOut THEN nTimedOut := nTimedOut + 1; END_IF
+IF bBegun THEN
+	nWait := nWait + 1;
+	IF nTimedOut > 0 THEN
+		AssertEquals_INT(Expected := 1, Actual := nTimedOut, Message := 'timeout after the new Begin');
+		AssertTrue(Condition := tx.abNoDone[1], Message := 'axis 1 had no Done');
+		bFinished := TRUE;
+		TEST_FINISHED();
+	ELSIF nWait > 3000 THEN
+		AssertTrue(Condition := FALSE, Message := 'the new transaction never timed out');
+		bFinished := TRUE;
+		TEST_FINISHED();
+	END_IF
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

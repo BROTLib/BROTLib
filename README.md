@@ -207,6 +207,14 @@ organised into four layers:
   `F_HomeBelowHorizon` (elevation windows), and `F_MotionConfigValid` (checks an `ST_MotionConfig`, see below).
   Their TcUnit suites are in BROTLibTests.
 
+- **`FB_StopTransaction` (`Telescope/`)** — the stop of up to four axes with one `MC_Stop` each, pure logic, no axis access
+  (plan step 4.2; nobody calls it yet, MONETcommon and IAG50cm still have their own blocks). It merges
+  `FB_MonetStopTransaction` and IAG50cm's `FB_StopTransaction`: per-axis inputs `abEnabled`, `abStandStill`,
+  `abStopAxis`, `abStopDone`, `abMoving`, `abStopping`, `abLocked`, `abHoming`; outputs `abWriteLow`/`abWriteHigh`
+  for the `StopAxis` of the axis blocks, `bSettled`, `bActive`, `bForced`, `bStuck`, `bTimedOut`, `abNoDone`. The timeout
+  is either the owner's (`bTimeout`) or internal (`tTimeout`, with the `nTimeDivisor` test seam). A disabled axis is never
+  sent a stop. Call the body while stopping, `Monitor()` every scan, `Begin()`/`Cancel()`/`Restart()` around it.
+
 ### Axes and pointing
 
 - **`FB_BaseAxis` / `FB_Axis`** — axis abstraction over a TwinCAT NC axis:

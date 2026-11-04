@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_MockStopAxis" Id="{69c2ec11-b4bc-4506-8f1a-57057b21ef35}" SpecialFunc="None">
+    <Declaration><![CDATA[// Test double for the stop channel of one axis (MONETcommon#96): the HalfBROT StopAxis setter (a FALSE->TRUE edge calls
+// fbAxis.Stop(), which requests the stop command), the real FB_AxisCommand as the stop command, and a model of
+// MC_Stop: a rising Execute puts the axis in Stopping (also an axis at rest), Done comes after nDoneScans calls, Execute is
+// released by FB_AxisCommand when it has seen Done, and the axis is StandStill again only when Execute is FALSE after Done.
+// StopDone clears the StopAxis level, as the axis control block does. One call of the body = one PLC scan of the axis part.
+FUNCTION_BLOCK FB_MockStopAxis
+VAR_INPUT
+	nDoneScans		: UINT := 3;	// calls of the body after the rising Execute until Done
+END_VAR
+VAR_OUTPUT
+	bStandStill		: BOOL;
+	bStopping		: BOOL;
+	bMoving			: BOOL;
+	bStopDone		: BOOL;			// Done of this call (also a single pulse when Execute fell before Done)
+	bStopAxisLevel	: BOOL;			// the StopAxis level
+	nExecuteEdges	: UINT;			// rising edges of the MC_Stop Execute
+	nStopCalls		: UINT;			// fbAxis.Stop() calls (edges written to StopAxis)
+END_VAR
+VAR
+	fbCmd			: FB_AxisCommand;
+	eState			: INT;			// 0 moving, 1 stopping, 2 standstill
+	nCount			: UINT;
+	bMcDone			: BOOL;
+	bExecLast		: BOOL;
+	bExec			: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[bStopDone := FALSE;
+fbCmd(Allowed := (eState = 0) OR (eState = 2), Reset := FALSE, Done := bMcDone);
+bExec := fbCmd.Execute;
+
+IF bExec AND NOT bExecLast THEN
+	nExecuteEdges := nExecuteEdges + 1;
+	eState := 1;
+	nCount := 0;
+	bMcDone := FALSE;
+END_IF
+
+IF eState = 1 THEN
+	IF bExec THEN
+		IF nCount >= nDoneScans THEN
+			bMcDone := TRUE;
+		ELSE
+			nCount := nCount + 1;
+		END_IF
+	ELSE
+		IF bMcDone THEN
+			eState := 2;
+			bMcDone := FALSE;
+		ELSE
+			nCount := nCount + 1;
+			IF nCount >= nDoneScans THEN
+				eState := 2;
+				bStopDone := TRUE;
+			END_IF
+		END_IF
+	END_IF
+END_IF
+bExecLast := bExec;
+
+IF bMcDone THEN
+	bStopDone := TRUE;
+END_IF
+IF bStopDone THEN
+	bStopAxisLevel := FALSE;
+END_IF
+
+bStandStill := eState = 2;
+bStopping := eState = 1;
+bMoving := eState = 0;
+]]></ST>
+    </Implementation>
+    <Method Name="SetStop" Id="{d99eea84-97f8-4cd0-a3c8-a953cc498f82}">
+      <Declaration><![CDATA[// The StopAxis setter: a FALSE->TRUE edge of the level calls Stop() (requests the stop command).
+METHOD SetStop
+VAR_INPUT
+	bValue	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bValue AND NOT bStopAxisLevel THEN
+	fbCmd.Request();
+	nStopCalls := nStopCalls + 1;
+END_IF
+bStopAxisLevel := bValue;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LatchLevel" Id="{49431cc1-caec-4747-9c57-46de678150bd}">
+      <Declaration><![CDATA[// A StopAxis level left TRUE from an earlier stop (no request pending).
+METHOD LatchLevel
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bStopAxisLevel := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Rest" Id="{87e6d995-00f0-4709-9f62-5c2d40964f3e}">
+      <Declaration><![CDATA[// The axis stands still (the initial state is moving).
+METHOD Rest
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eState := 2;
+bStandStill := TRUE;
+bMoving := FALSE;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
