@@ -344,6 +344,8 @@ latched-level write-low (M), `Restart` (M), `bForced`/`bStuck` (M), motion-lock 
 after 3 scans. Test suite `FB_StopTransaction_Tests` = both existing suites (`FB_MonetStopTransaction_Tests`, IAG's
 `FB_StopTransaction_Tests`) re-expressed against the new block, plus `StopLoop_Sim_Tests`. Same BROTLib release as
 4.1 or the next.
+**Written 2026-11-04 (branch `feat/generic-stop-transaction`, not compiled or run yet):** `Telescope/FB_StopTransaction.TcPOU`, 4 axes, union of both blocks. Unified rules, to check at 4.3/4.4: a disabled axis is never sent a stop (MONET #150; IAG sent it before), a StopDone in the issue scan is a leftover (MONET), the transaction needs `nSettleScans` scans at rest as well as without a lock (IAG had only the lock count), the internal 30 s timeout of IAG is `tTimeout` (`bTimedOut`, `abNoDone`, `bForced` = IAG `bReleasedByTimeout`). Suites `FB_StopTransaction_Tests` (MONET's 14 tests plus the IAG cases the MONET block lacked), `StopLoop_Sim_Tests`, `FB_StopRig` and `FB_MockStopAxis` moved to BROTLibTests. IAG50cm has a local `FB_StopTransaction` with the same name; whether the local one shadows the library one is [unverified], so IAG adopts by deleting the local block in 4.4(a).
+
 
 **4.3 MONETcommon adopts:** pin the new BROTLib (`MONETcommon.plcproj:125`, tests `:110`) and HalfBROT if the chain
 needs it (below), delete the moved POUs and `FB_MonetStopTransaction`, remove the moved suites from MONETcommonTests.

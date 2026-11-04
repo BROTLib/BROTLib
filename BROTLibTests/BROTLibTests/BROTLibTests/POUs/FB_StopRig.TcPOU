@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_StopRig" Id="{5d60f9ab-fc52-4131-8522-d747f4f0c9e5}" SpecialFunc="None">
+    <Declaration><![CDATA[// Three mock axes plus the telescope side of a stop, in two variants (MONETcommon#96): ScanOld() is the 0.9.0 rule of
+// _StopTelescope (a StopAxis write on every scan in which an axis is not at standstill, bStop released when all axes are
+// at standstill in the same scan), ScanNew() is FB_StopTransaction. One scan = telescope part first, then the axis
+// part (MONETS order). The azimuth and the elevation move, the derotator is at rest.
+FUNCTION_BLOCK FB_StopRig
+VAR
+	Az					: FB_MockStopAxis;
+	El					: FB_MockStopAxis;
+	Dr					: FB_MockStopAxis;
+	tx					: FB_StopTransaction;
+	bIssuedAz			: BOOL;
+	bIssuedEl			: BOOL;
+	bBegun				: BOOL;
+	bStopped			: BOOL;
+	nScan				: UINT;
+	// old rule: the scan in which bStopped was first TRUE (the stop is then released), and the edges until then
+	bFirstStopped		: BOOL;
+	nFirstStoppedScan	: UINT;
+	nAzEdgesAtStop		: UINT;
+	nElEdgesAtStop		: UINT;
+	// new rule
+	bSettled			: BOOL;
+	nSettledScan		: UINT;
+	bStoppedAfterSettle	: BOOL := TRUE;
+	i					: UINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Setup" Id="{48561e2d-801b-4417-8fb0-9c1590854732}">
+      <Declaration><![CDATA[METHOD Setup
+VAR_INPUT
+	nAzDoneScans	: UINT;
+	nElDoneScans	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Az.nDoneScans := nAzDoneScans;
+El.nDoneScans := nElDoneScans;
+Dr.Rest();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ScanOld" Id="{7cbe55f9-51c4-4fcb-b5ca-e727d1be0d7d}">
+      <Declaration><![CDATA[// The 0.9.0 rule. Stops at the first scan in which all axes are at standstill (bStop is released there).
+METHOD ScanOld
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bFirstStopped THEN
+	RETURN;
+END_IF
+bStopped := Az.bStandStill AND El.bStandStill AND Dr.bStandStill;
+IF bStopped THEN
+	bFirstStopped := TRUE;
+	nFirstStoppedScan := nScan;
+	nAzEdgesAtStop := Az.nExecuteEdges;
+	nElEdgesAtStop := El.nExecuteEdges;
+	RETURN;
+END_IF
+
+IF NOT Az.bStandStill THEN
+	IF Az.bStopAxisLevel AND NOT bIssuedAz THEN
+		Az.SetStop(FALSE);
+	ELSE
+		Az.SetStop(TRUE);
+		bIssuedAz := TRUE;
+	END_IF
+END_IF
+IF NOT El.bStandStill THEN
+	IF El.bStopAxisLevel AND NOT bIssuedEl THEN
+		El.SetStop(FALSE);
+	ELSE
+		El.SetStop(TRUE);
+		bIssuedEl := TRUE;
+	END_IF
+END_IF
+
+Az();
+El();
+Dr();
+nScan := nScan + 1;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ScanNew" Id="{872bc816-3796-45ad-81c1-19798d93e066}">
+      <Declaration><![CDATA[// FB_StopTransaction. After it has settled the stop writes are over; bStoppedAfterSettle records that the axes stay at rest.
+METHOD ScanNew
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bStopped := Az.bStandStill AND El.bStandStill AND Dr.bStandStill;
+IF NOT bSettled THEN
+	IF NOT bBegun THEN
+		tx.Begin();
+		bBegun := TRUE;
+	END_IF
+	tx.abEnabled[1] := TRUE;
+	tx.abEnabled[2] := TRUE;
+	tx.abEnabled[3] := TRUE;
+	tx.abStandStill[1] := Az.bStandStill;
+	tx.abStandStill[2] := El.bStandStill;
+	tx.abStandStill[3] := Dr.bStandStill;
+	tx.abStopAxis[1] := Az.bStopAxisLevel;
+	tx.abStopAxis[2] := El.bStopAxisLevel;
+	tx.abStopAxis[3] := Dr.bStopAxisLevel;
+	tx.abStopDone[1] := Az.bStopDone;
+	tx.abStopDone[2] := El.bStopDone;
+	tx.abStopDone[3] := Dr.bStopDone;
+	tx.abMoving[1] := Az.bMoving;
+	tx.abMoving[2] := El.bMoving;
+	tx.abMoving[3] := Dr.bMoving;
+	tx.abStopping[1] := Az.bStopping;
+	tx.abStopping[2] := El.bStopping;
+	tx.abStopping[3] := Dr.bStopping;
+	tx();
+	IF tx.abWriteLow[1] THEN
+		Az.SetStop(FALSE);
+	ELSIF tx.abWriteHigh[1] THEN
+		Az.SetStop(TRUE);
+	END_IF
+	IF tx.abWriteLow[2] THEN
+		El.SetStop(FALSE);
+	ELSIF tx.abWriteHigh[2] THEN
+		El.SetStop(TRUE);
+	END_IF
+	IF tx.abWriteLow[3] THEN
+		Dr.SetStop(FALSE);
+	ELSIF tx.abWriteHigh[3] THEN
+		Dr.SetStop(TRUE);
+	END_IF
+	tx.bStopped := bStopped;
+	tx.bTimeout := FALSE;
+	tx.Monitor();
+	IF tx.bSettled THEN
+		bSettled := TRUE;
+		nSettledScan := nScan;
+		Az.SetStop(FALSE);
+		El.SetStop(FALSE);
+		Dr.SetStop(FALSE);
+	END_IF
+ELSIF NOT bStopped THEN
+	bStoppedAfterSettle := FALSE;
+END_IF
+
+Az();
+El();
+Dr();
+nScan := nScan + 1;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
