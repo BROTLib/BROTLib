@@ -215,6 +215,13 @@ organised into four layers:
   is either the owner's (`bTimeout`) or internal (`tTimeout`, with the `nTimeDivisor` test seam). A disabled axis is never
   sent a stop. Call the body while stopping, `Monitor()` every scan, `Begin()`/`Cancel()`/`Restart()` around it.
 
+- **`FB_CommandArbiter` (`Telescope/`)** — which telescope command runs now, pure logic (plan step 5.1; nobody calls it yet).
+  The precedence of `FB_MonetTelescopeControl` (stop > park aborts a power-on > power-on > a running stop > park > gohome >
+  goto > slew > track > idle) with its side effects as outputs the caller applies: `eCommand`, `bClear*`, `bInterrupt*`,
+  `bAbortStartup`, `bSetMoveAbortPending`, `bPowerAbortedByPark`, `bCommandChanged`. The one precedence the telescopes
+  disagree on is the input `bParkWinsOverPowerOn` (TRUE: a park aborts a running power-on, MONET; FALSE: a power-on cancels
+  a pending park, IAG50cm today). Call once per scan after the request flags are set, before the stage machines.
+
 ### Axes and pointing
 
 - **`FB_BaseAxis` / `FB_Axis`** — axis abstraction over a TwinCAT NC axis:
