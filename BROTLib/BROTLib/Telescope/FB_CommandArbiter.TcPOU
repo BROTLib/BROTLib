@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_CommandArbiter" Id="{930517ba-da96-4a03-883a-983661f50cd2}" SpecialFunc="None">
+    <Declaration><![CDATA[// Which telescope command runs now (BROTLib#25 step 5.1). Pure logic, no axis access: the precedence of
+// FB_MonetTelescopeControl (stop > park aborts a power-on > power-on > a running stop > park > gohome > goto > slew >
+// track > idle, MONETcommon#84, #87, #26) with the side effects of that block turned into outputs the caller applies.
+// Nobody calls it yet; MONETcommon (step 5.2) and IAG50cm (5.3) adopt it.
+//
+// Call once per scan, after the request flags of the scan are set (acceptance, error reactions, horizon guard) and before
+// the dispatch to the stage machines. The inputs are the request flags the caller keeps (a command is accepted when it
+// arrives, F_CommandAcceptance, so a flag is a request that may run), and the outputs are:
+// - eCommand: the command to dispatch in this scan (no_command: idle; the caller drops the axis commands);
+// - bClear*: drop that request flag (it was preempted or is satisfied by the winner);
+// - bInterrupt*: run that stage machine once with bInterrupted TRUE so that it resets its stage (one scan, then FALSE);
+// - bAbortStartup: FB_StartupControl.MarkAbortedIfStarting(Power := bPower);
+// - bSetMoveAbortPending: set the caller's bMoveAbortPending (an interrupted move still runs; stop it first);
+// - bPowerAbortedByPark: one scan, for the log line of MONETcommon#87;
+// - bCommandChanged: eCommand differs from the last scan; restart the per-command timeout.
+// All outputs are valid for this scan only.
+//
+// The two telescopes differ in one precedence, a policy input: bParkWinsOverPowerOn. TRUE (MONET, #87): a park aborts a
+// running power-on. FALSE (IAG50cm today, #109): a power-on cancels a pending park. The caller of IAG50cm also passes
+// bStop only for a user stop, so that an automatic stop does not abort a power-on (#27); the order is otherwise the same.
+FUNCTION_BLOCK FB_CommandArbiter
+VAR_INPUT
+	// requests
+	bStop				: BOOL;	// a stop is requested (outranks everything)
+	bPower				: BOOL;	// a power-on is requested or running
+	bInitializing		: BOOL;	// the startup is running (FB_StartupControl.Initializing), also without bPower
+	bPark				: BOOL;
+	bGoHome				: BOOL;
+	bGoto				: BOOL;
+	bSlew				: BOOL;
+	bTrack				: BOOL;
+	// state
+	bError				: BOOL;	// the telescope is in error: the park is an emergency park and runs at once
+	bEmergencyPark		: BOOL;	// the park runs at once as in an error although bError is FALSE (E-stop / safety park)
+	bReady				: BOOL;	// homed, covers open, axes enabled, brake open, no error
+	bBusy				: BOOL;	// an axis or the focus is busy
+	bStopped			: BOOL;	// every axis is at rest
+	bMoveAbortPending	: BOOL;	// an interrupted move still runs: stop it before the next command
+	// policy
+	bParkWinsOverPowerOn	: BOOL := TRUE;
+END_VAR
+VAR_OUTPUT
+	eCommand			: E_TCSCommand;
+	bClearPower			: BOOL;
+	bClearPark			: BOOL;
+	bClearGoHome		: BOOL;
+	bClearGoto			: BOOL;
+	bClearSlew			: BOOL;
+	bClearTrack			: BOOL;
+	bInterruptPower		: BOOL;
+	bInterruptPark		: BOOL;
+	bInterruptGoHome	: BOOL;
+	bInterruptGoto		: BOOL;
+	bInterruptSlew		: BOOL;
+	bAbortStartup		: BOOL;
+	bSetMoveAbortPending: BOOL;
+	bPowerAbortedByPark	: BOOL;
+	bCommandChanged		: BOOL;
+END_VAR
+VAR
+	ePrevious			: E_TCSCommand;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[eCommand := E_TCSCommand.no_command;
+bClearPower := FALSE;
+bClearPark := FALSE;
+bClearGoHome := FALSE;
+bClearGoto := FALSE;
+bClearSlew := FALSE;
+bClearTrack := FALSE;
+bInterruptPower := FALSE;
+bInterruptPark := FALSE;
+bInterruptGoHome := FALSE;
+bInterruptGoto := FALSE;
+bInterruptSlew := FALSE;
+bAbortStartup := FALSE;
+bSetMoveAbortPending := FALSE;
+bPowerAbortedByPark := FALSE;
+
+IF bStop THEN
+	// #80: a stop always aborts a startup, also when bPower is already FALSE (power-on dropped by an error)
+	bAbortStartup := TRUE;
+	bClearTrack := TRUE;
+	IF bPower OR bInitializing THEN
+		bClearPower := TRUE;
+		bInterruptPower := TRUE;
+	END_IF
+	// #84: clear every pending move and reset every stage machine
+	bClearPark := TRUE;
+	bClearGoto := TRUE;
+	bClearSlew := TRUE;
+	bClearGoHome := TRUE;
+	bInterruptPark := TRUE;
+	bInterruptGoto := TRUE;
+	bInterruptSlew := TRUE;
+	bInterruptGoHome := TRUE;
+	bSetMoveAbortPending := TRUE;
+	eCommand := E_TCSCommand.stop;
+
+ELSIF bPark AND (bPower OR bInitializing) AND bParkWinsOverPowerOn THEN
+	// #87: park wins over a running power-on. Abort it like the stop does, then let the park run once the axes have stopped
+	// (homing or the move home may still be running)
+	bAbortStartup := TRUE;
+	bClearPower := TRUE;
+	bInterruptPower := TRUE;
+	bSetMoveAbortPending := NOT bError;
+	bPowerAbortedByPark := TRUE;
+	eCommand := E_TCSCommand.stop;
+
+ELSIF bPower THEN
+	IF bPark AND NOT bParkWinsOverPowerOn THEN
+		bClearPark := TRUE;	// IAG50cm: a power-on cancels a pending park
+	END_IF
+	eCommand := E_TCSCommand.poweron;
+
+ELSIF bMoveAbortPending AND NOT bError THEN
+	// #84: the interrupted move is still running; stop it before the next command is dispatched. The flags of the new
+	// command stay set and run once the axes are at rest.
+	bClearTrack := TRUE;	// a pending track would otherwise start on the moving axes
+	eCommand := E_TCSCommand.stop;
+
+ELSIF bPark THEN
+	bClearTrack := TRUE;
+	IF bError OR bEmergencyPark THEN
+		// M2: an emergency park bypasses the bReady / bBusy gating, bReady requires NOT bError
+		eCommand := E_TCSCommand.park;
+	ELSIF bGoHome OR bGoto OR bSlew THEN
+		// lower commands are running: interrupt them, the park follows once they have stopped
+		bClearGoHome := TRUE;
+		bClearGoto := TRUE;
+		bClearSlew := TRUE;
+		bInterruptGoHome := TRUE;
+		bInterruptGoto := TRUE;
+		bInterruptSlew := TRUE;
+		bSetMoveAbortPending := TRUE;
+	ELSIF NOT bBusy AND (bReady OR bStopped) THEN
+		// #83/#87: also when not ready (parked, after a reset, after an aborted power-on) but at standstill
+		eCommand := E_TCSCommand.park;
+	END_IF
+
+ELSIF bGoHome THEN
+	bClearTrack := TRUE;
+	IF bGoto OR bSlew THEN
+		bClearGoto := TRUE;
+		bClearSlew := TRUE;
+		bInterruptGoto := TRUE;
+		bInterruptSlew := TRUE;
+		bSetMoveAbortPending := TRUE;
+	ELSIF bReady AND NOT bBusy AND bStopped THEN
+		eCommand := E_TCSCommand.gohome;
+	END_IF
+
+ELSIF bGoto THEN
+	bClearTrack := TRUE;
+	IF bSlew THEN
+		bClearSlew := TRUE;
+		bInterruptSlew := TRUE;
+		bSetMoveAbortPending := TRUE;
+	ELSIF bReady AND NOT bBusy THEN
+		eCommand := E_TCSCommand.goto;
+	END_IF
+
+ELSIF bSlew THEN
+	bClearTrack := TRUE;
+	IF bReady AND NOT bBusy THEN
+		eCommand := E_TCSCommand.slew;
+	END_IF
+
+ELSIF bTrack THEN
+	IF bReady AND NOT bBusy THEN
+		eCommand := E_TCSCommand.track;
+	END_IF
+END_IF
+
+bCommandChanged := eCommand <> ePrevious;
+ePrevious := eCommand;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

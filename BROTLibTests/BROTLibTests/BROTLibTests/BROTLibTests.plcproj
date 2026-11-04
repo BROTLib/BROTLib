@@ -100,6 +100,9 @@
     <Compile Include="POUs\StopLoop_Sim_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_CommandArbiter_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\F_HomeStopAbort_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -207,7 +210,7 @@
         </Parameter>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFTESTSFOREACHTESTSUITE</Key>
-          <Value>64</Value>
+          <Value>40</Value>
         </Parameter>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFASSERTSFOREACHTESTSUITE</Key>

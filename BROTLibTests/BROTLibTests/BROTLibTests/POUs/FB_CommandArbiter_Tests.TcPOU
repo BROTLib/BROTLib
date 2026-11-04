@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_CommandArbiter_Tests" Id="{4684e273-2315-4e4f-b991-dc3327787cd4}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for BROTLib.FB_CommandArbiter, the precedence of the telescope commands (BROTLib#25 step 5.1). The rows are the
+// arbitration of MONETcommon.FB_MonetTelescopeControl (#84, #87, #26, #83) and the one policy input that IAG50cm needs
+// the other way round (bParkWinsOverPowerOn). One arb() = one scan; the caller applies the clears between scans.
+FUNCTION_BLOCK FB_CommandArbiter_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Idle_Is_No_Command();
+A_Single_Request_Is_Dispatched_When_Ready();
+Moves_Wait_When_Not_Ready_Or_Busy();
+GoHome_Needs_Standstill();
+Stop_Beats_Everything_And_Resets_Every_Move();
+Stop_Aborts_A_Running_Power_On();
+Park_Aborts_A_Running_Power_On();
+Park_Aborting_A_Power_On_In_Error_Sets_No_Pending_Abort();
+PowerOn_Cancels_A_Pending_Park_When_The_Policy_Is_Off();
+PowerOn_Beats_Moves();
+A_Pending_Abort_Stops_Before_The_Next_Command();
+A_Pending_Abort_Does_Not_Stop_In_An_Error();
+Park_Interrupts_Lower_Moves();
+Park_Runs_At_Standstill_Without_Ready();
+Park_In_An_Error_Runs_At_Once();
+An_Emergency_Park_Flag_Acts_Like_An_Error();
+GoHome_Interrupts_Goto_And_Slew();
+Goto_Interrupts_Slew_And_Clears_Track();
+Slew_Beats_Track();
+Outputs_Are_Valid_For_One_Scan();
+Command_Changed_Is_A_One_Scan_Pulse();
+Precedence_Order_From_Park_Down();
+]]></ST>
+    </Implementation>
+    <Method Name="Ready" Id="{83e302bb-6811-4325-8611-5aaa92ecf4ad}">
+      <Declaration><![CDATA[// The usual state: homed and ready, at rest, nothing busy.
+METHOD PRIVATE Ready
+VAR_IN_OUT
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[arb.bReady := TRUE;
+arb.bStopped := TRUE;
+arb.bBusy := FALSE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Idle_Is_No_Command" Id="{6c9035b8-24b9-46eb-aa35-00fa2764066a}">
+      <Declaration><![CDATA[METHOD PRIVATE Idle_Is_No_Command
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Idle_Is_No_Command');
+Ready(arb);
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'no request');
+AssertFalse(Condition := arb.bClearTrack OR arb.bSetMoveAbortPending OR arb.bAbortStartup, Message := 'no side effect');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="A_Single_Request_Is_Dispatched_When_Ready" Id="{fb8054bc-315d-47ac-bf0b-eaa6aeb23cd0}">
+      <Declaration><![CDATA[METHOD PRIVATE A_Single_Request_Is_Dispatched_When_Ready
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('A_Single_Request_Is_Dispatched_When_Ready');
+Ready(arb);
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.track, Message := 'track');
+AssertFalse(Condition := arb.bClearTrack, Message := 'track keeps its own flag');
+arb.bTrack := FALSE;
+arb.bSlew := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.slew, Message := 'slew');
+arb.bSlew := FALSE;
+arb.bGoto := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.goto, Message := 'goto');
+arb.bGoto := FALSE;
+arb.bGoHome := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.gohome, Message := 'gohome');
+arb.bGoHome := FALSE;
+arb.bPark := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'park');
+arb.bPark := FALSE;
+arb.bPower := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.poweron, Message := 'power-on');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Moves_Wait_When_Not_Ready_Or_Busy" Id="{dc508b56-26eb-4c59-8d8e-dc023fc5d6f2}">
+      <Declaration><![CDATA[METHOD PRIVATE Moves_Wait_When_Not_Ready_Or_Busy
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Moves_Wait_When_Not_Ready_Or_Busy');
+Ready(arb);
+arb.bReady := FALSE;
+arb.bGoto := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'goto waits for bReady');
+AssertTrue(Condition := arb.bClearTrack, Message := 'but outranks track');
+Ready(arb);
+arb.bBusy := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'goto waits while busy');
+arb.bGoto := FALSE;
+arb.bSlew := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'slew waits while busy');
+arb.bSlew := FALSE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'track waits while busy');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GoHome_Needs_Standstill" Id="{34785560-2693-4691-a8bd-33c4bb015360}">
+      <Declaration><![CDATA[METHOD PRIVATE GoHome_Needs_Standstill
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('GoHome_Needs_Standstill');
+Ready(arb);
+arb.bStopped := FALSE;
+arb.bGoHome := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'moving: waits');
+arb.bStopped := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.gohome, Message := 'at rest: runs');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Beats_Everything_And_Resets_Every_Move" Id="{08b5c3e6-e3cf-421c-92df-6a073a380721}">
+      <Declaration><![CDATA[// #84: a stop clears every request, resets every stage machine and leaves a pending abort.
+METHOD PRIVATE Stop_Beats_Everything_And_Resets_Every_Move
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Beats_Everything_And_Resets_Every_Move');
+Ready(arb);
+arb.bStop := TRUE;
+arb.bPark := TRUE;
+arb.bGoHome := TRUE;
+arb.bGoto := TRUE;
+arb.bSlew := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.stop, Message := 'stop');
+AssertTrue(Condition := arb.bClearPark AND arb.bClearGoHome AND arb.bClearGoto AND arb.bClearSlew AND arb.bClearTrack, Message := 'every request cleared');
+AssertTrue(Condition := arb.bInterruptPark AND arb.bInterruptGoHome AND arb.bInterruptGoto AND arb.bInterruptSlew, Message := 'every stage machine reset');
+AssertTrue(Condition := arb.bSetMoveAbortPending, Message := 'pending abort');
+AssertTrue(Condition := arb.bAbortStartup, Message := 'startup aborted');
+AssertFalse(Condition := arb.bClearPower OR arb.bInterruptPower, Message := 'no power-on running');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Aborts_A_Running_Power_On" Id="{782cfa8f-06a0-492e-af8c-9bfe0867e3a7}">
+      <Declaration><![CDATA[// Also when only the startup runs (bPower already dropped by an error, #80).
+METHOD PRIVATE Stop_Aborts_A_Running_Power_On
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Aborts_A_Running_Power_On');
+Ready(arb);
+arb.bStop := TRUE;
+arb.bPower := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.stop, Message := 'stop beats power-on');
+AssertTrue(Condition := arb.bClearPower AND arb.bInterruptPower, Message := 'power-on dropped and reset');
+arb.bPower := FALSE;
+arb.bInitializing := TRUE;
+arb();
+AssertTrue(Condition := arb.bClearPower AND arb.bInterruptPower, Message := 'startup alone too');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Aborts_A_Running_Power_On" Id="{0d038985-c94b-41b6-ac25-7d4c7d7c56bc}">
+      <Declaration><![CDATA[// #87: park wins over a running power-on (policy TRUE, the default). The stop runs first, the park follows.
+METHOD PRIVATE Park_Aborts_A_Running_Power_On
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Aborts_A_Running_Power_On');
+Ready(arb);
+arb.bPark := TRUE;
+arb.bPower := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.stop, Message := 'stop first');
+AssertTrue(Condition := arb.bClearPower AND arb.bInterruptPower AND arb.bAbortStartup, Message := 'power-on aborted');
+AssertTrue(Condition := arb.bPowerAbortedByPark, Message := 'logged');
+AssertTrue(Condition := arb.bSetMoveAbortPending, Message := 'pending abort');
+AssertFalse(Condition := arb.bClearPark, Message := 'the park stays');
+arb.bPark := TRUE;
+arb.bPower := FALSE;
+arb.bInitializing := TRUE;
+arb();
+AssertTrue(Condition := arb.bPowerAbortedByPark, Message := 'also while only the startup runs');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Aborting_A_Power_On_In_Error_Sets_No_Pending_Abort" Id="{4e8cce60-f83c-4e55-ba67-aa7d97972751}">
+      <Declaration><![CDATA[// The drives are disabled in an error, there is nothing to wait for (#84).
+METHOD PRIVATE Park_Aborting_A_Power_On_In_Error_Sets_No_Pending_Abort
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Aborting_A_Power_On_In_Error_Sets_No_Pending_Abort');
+arb.bError := TRUE;
+arb.bPark := TRUE;
+arb.bPower := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.stop, Message := 'stop');
+AssertTrue(Condition := arb.bPowerAbortedByPark, Message := 'aborted by the park');
+AssertFalse(Condition := arb.bSetMoveAbortPending, Message := 'no pending abort in an error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PowerOn_Cancels_A_Pending_Park_When_The_Policy_Is_Off" Id="{5e98e137-7a43-4cf5-a45f-0f25b378d411}">
+      <Declaration><![CDATA[// IAG50cm today: the power-on runs and the park request is dropped.
+METHOD PRIVATE PowerOn_Cancels_A_Pending_Park_When_The_Policy_Is_Off
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('PowerOn_Cancels_A_Pending_Park_When_The_Policy_Is_Off');
+Ready(arb);
+arb.bParkWinsOverPowerOn := FALSE;
+arb.bPark := TRUE;
+arb.bPower := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.poweron, Message := 'power-on runs');
+AssertTrue(Condition := arb.bClearPark, Message := 'park dropped');
+AssertFalse(Condition := arb.bPowerAbortedByPark OR arb.bAbortStartup, Message := 'power-on not aborted');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PowerOn_Beats_Moves" Id="{277c8cfd-2be0-4d41-9d48-f8910dbc5ed5}">
+      <Declaration><![CDATA[METHOD PRIVATE PowerOn_Beats_Moves
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('PowerOn_Beats_Moves');
+Ready(arb);
+arb.bPower := TRUE;
+arb.bGoHome := TRUE;
+arb.bGoto := TRUE;
+arb.bSlew := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.poweron, Message := 'power-on');
+AssertFalse(Condition := arb.bClearGoHome OR arb.bClearGoto OR arb.bClearSlew OR arb.bClearTrack, Message := 'the moves are left alone');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="A_Pending_Abort_Stops_Before_The_Next_Command" Id="{5ad6e147-be01-48d7-9f77-9fbc09b30dad}">
+      <Declaration><![CDATA[// #84: the flags of the new command stay set; it runs after the stop.
+METHOD PRIVATE A_Pending_Abort_Stops_Before_The_Next_Command
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('A_Pending_Abort_Stops_Before_The_Next_Command');
+Ready(arb);
+arb.bMoveAbortPending := TRUE;
+arb.bGoto := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.stop, Message := 'stop first');
+AssertTrue(Condition := arb.bClearTrack, Message := 'a pending track must not start on moving axes');
+AssertFalse(Condition := arb.bClearGoto, Message := 'the goto waits');
+arb.bMoveAbortPending := FALSE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.goto, Message := 'goto after the stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="A_Pending_Abort_Does_Not_Stop_In_An_Error" Id="{5fe548a1-79e6-4c30-b7ed-49dcf06e39cd}">
+      <Declaration><![CDATA[METHOD PRIVATE A_Pending_Abort_Does_Not_Stop_In_An_Error
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('A_Pending_Abort_Does_Not_Stop_In_An_Error');
+arb.bError := TRUE;
+arb.bMoveAbortPending := TRUE;
+arb.bPark := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'the emergency park is not held back');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Interrupts_Lower_Moves" Id="{150ceee8-5ade-4683-9b6b-2284a5280630}">
+      <Declaration><![CDATA[// A park on top of a running move: no command in this scan, the lower moves are reset, the stop follows.
+METHOD PRIVATE Park_Interrupts_Lower_Moves
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Interrupts_Lower_Moves');
+Ready(arb);
+arb.bPark := TRUE;
+arb.bGoto := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'no command in this scan');
+AssertTrue(Condition := arb.bClearGoHome AND arb.bClearGoto AND arb.bClearSlew, Message := 'lower moves cleared');
+AssertTrue(Condition := arb.bInterruptGoHome AND arb.bInterruptGoto AND arb.bInterruptSlew, Message := 'lower stage machines reset');
+AssertTrue(Condition := arb.bSetMoveAbortPending, Message := 'pending abort');
+AssertTrue(Condition := arb.bClearTrack, Message := 'track cleared');
+AssertFalse(Condition := arb.bClearPark, Message := 'the park stays');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Runs_At_Standstill_Without_Ready" Id="{b30bdd3a-1d42-4c4b-851e-3f582008f32a}">
+      <Declaration><![CDATA[// #83/#87: parked, after a reset or after an aborted power-on; waits only while busy.
+METHOD PRIVATE Park_Runs_At_Standstill_Without_Ready
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Runs_At_Standstill_Without_Ready');
+arb.bPark := TRUE;
+arb.bStopped := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'at rest, not ready');
+arb.bStopped := FALSE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'moving and not ready: waits');
+arb.bReady := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'ready: runs');
+arb.bBusy := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'busy: waits');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_In_An_Error_Runs_At_Once" Id="{f63f7bb2-7169-4364-9333-7723532712bd}">
+      <Declaration><![CDATA[// M2: neither ready, nor idle, nor at rest is required; no lower move is interrupted (the drives are off).
+METHOD PRIVATE Park_In_An_Error_Runs_At_Once
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_In_An_Error_Runs_At_Once');
+arb.bError := TRUE;
+arb.bBusy := TRUE;
+arb.bPark := TRUE;
+arb.bGoto := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'emergency park');
+AssertFalse(Condition := arb.bInterruptGoto OR arb.bSetMoveAbortPending, Message := 'no interrupt in an error');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="An_Emergency_Park_Flag_Acts_Like_An_Error" Id="{d26fef3d-b6c0-45d8-b3c7-2d354440426b}">
+      <Declaration><![CDATA[// The E-stop / safety park (#24 step 7 PR 6): bError is FALSE, the park still runs at once.
+METHOD PRIVATE An_Emergency_Park_Flag_Acts_Like_An_Error
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('An_Emergency_Park_Flag_Acts_Like_An_Error');
+arb.bEmergencyPark := TRUE;
+arb.bBusy := TRUE;
+arb.bPark := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'park at once');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GoHome_Interrupts_Goto_And_Slew" Id="{2bc47a22-42fd-4df9-8329-d85b8cd88bc1}">
+      <Declaration><![CDATA[METHOD PRIVATE GoHome_Interrupts_Goto_And_Slew
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('GoHome_Interrupts_Goto_And_Slew');
+Ready(arb);
+arb.bGoHome := TRUE;
+arb.bGoto := TRUE;
+arb.bSlew := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'no command in this scan');
+AssertTrue(Condition := arb.bClearGoto AND arb.bClearSlew AND arb.bClearTrack, Message := 'lower requests cleared');
+AssertTrue(Condition := arb.bInterruptGoto AND arb.bInterruptSlew, Message := 'lower stage machines reset');
+AssertTrue(Condition := arb.bSetMoveAbortPending, Message := 'pending abort');
+AssertFalse(Condition := arb.bClearGoHome OR arb.bInterruptGoHome, Message := 'gohome stays');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Goto_Interrupts_Slew_And_Clears_Track" Id="{8a324e1f-ed4a-4b8e-84f4-98039ba9cb55}">
+      <Declaration><![CDATA[METHOD PRIVATE Goto_Interrupts_Slew_And_Clears_Track
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Goto_Interrupts_Slew_And_Clears_Track');
+Ready(arb);
+arb.bGoto := TRUE;
+arb.bSlew := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'no command in this scan');
+AssertTrue(Condition := arb.bClearSlew AND arb.bInterruptSlew AND arb.bClearTrack, Message := 'slew and track dropped');
+AssertTrue(Condition := arb.bSetMoveAbortPending, Message := 'pending abort');
+AssertFalse(Condition := arb.bClearGoto, Message := 'goto stays');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Slew_Beats_Track" Id="{5f349b4f-704e-44b2-8a19-2461a4068fe2}">
+      <Declaration><![CDATA[METHOD PRIVATE Slew_Beats_Track
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Slew_Beats_Track');
+Ready(arb);
+arb.bSlew := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.slew, Message := 'slew');
+AssertTrue(Condition := arb.bClearTrack, Message := 'track dropped');
+AssertFalse(Condition := arb.bSetMoveAbortPending, Message := 'nothing to interrupt');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Outputs_Are_Valid_For_One_Scan" Id="{9102c32f-f5ac-4c3f-8a84-289a03c04373}">
+      <Declaration><![CDATA[METHOD PRIVATE Outputs_Are_Valid_For_One_Scan
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Outputs_Are_Valid_For_One_Scan');
+Ready(arb);
+arb.bStop := TRUE;
+arb.bPower := TRUE;
+arb.bPark := TRUE;
+arb();
+arb.bStop := FALSE;
+arb.bPower := FALSE;
+arb.bPark := FALSE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.no_command, Message := 'idle again');
+AssertFalse(Condition := arb.bClearPower OR arb.bClearPark OR arb.bClearGoHome OR arb.bClearGoto OR arb.bClearSlew OR arb.bClearTrack, Message := 'no clear');
+AssertFalse(Condition := arb.bInterruptPower OR arb.bInterruptPark OR arb.bInterruptGoHome OR arb.bInterruptGoto OR arb.bInterruptSlew, Message := 'no interrupt');
+AssertFalse(Condition := arb.bAbortStartup OR arb.bSetMoveAbortPending OR arb.bPowerAbortedByPark, Message := 'no abort');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Command_Changed_Is_A_One_Scan_Pulse" Id="{69202d00-0dde-48e8-ac7b-80ae27a8b805}">
+      <Declaration><![CDATA[// The caller restarts the per-command timeout on it (MONETcommon#56).
+METHOD PRIVATE Command_Changed_Is_A_One_Scan_Pulse
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Command_Changed_Is_A_One_Scan_Pulse');
+Ready(arb);
+arb();
+AssertFalse(Condition := arb.bCommandChanged, Message := 'idle stays idle');
+arb.bGoto := TRUE;
+arb();
+AssertTrue(Condition := arb.bCommandChanged, Message := 'goto starts');
+arb();
+AssertFalse(Condition := arb.bCommandChanged, Message := 'goto goes on');
+arb.bStop := TRUE;
+arb();
+AssertTrue(Condition := arb.bCommandChanged, Message := 'stop takes over');
+arb.bStop := FALSE;
+arb.bGoto := FALSE;
+arb();
+AssertTrue(Condition := arb.bCommandChanged, Message := 'back to idle');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Precedence_Order_From_Park_Down" Id="{42892c07-7c3f-4774-bab7-100fbc33d5b1}">
+      <Declaration><![CDATA[// With every request set and the telescope idle, the winner is always the highest one; each scan the winner is dropped.
+METHOD PRIVATE Precedence_Order_From_Park_Down
+VAR
+	arb	: FB_CommandArbiter;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Precedence_Order_From_Park_Down');
+Ready(arb);
+arb.bPark := TRUE;
+arb.bGoHome := TRUE;
+arb.bGoto := TRUE;
+arb.bSlew := TRUE;
+arb.bTrack := TRUE;
+arb();
+AssertTrue(Condition := arb.bClearGoHome AND arb.bClearGoto AND arb.bClearSlew, Message := 'park outranks gohome, goto, slew');
+// the caller applied the clears and the pending abort; the stop has settled
+arb.bGoHome := FALSE;
+arb.bGoto := FALSE;
+arb.bSlew := FALSE;
+arb.bTrack := FALSE;
+arb.bMoveAbortPending := TRUE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.stop, Message := 'the interrupted moves are stopped first');
+arb.bMoveAbortPending := FALSE;
+arb();
+AssertTrue(Condition := arb.eCommand = E_TCSCommand.park, Message := 'then the park');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

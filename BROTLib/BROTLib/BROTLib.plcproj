@@ -28,6 +28,9 @@
     <Compile Include="Telescope\FB_StopTransaction.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Telescope\FB_CommandArbiter.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Telescope\FB_StartupControl.TcPOU">
       <SubType>Code</SubType>
     </Compile>
