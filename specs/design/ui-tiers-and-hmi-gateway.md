@@ -143,8 +143,9 @@ roof and dome verbs are executed.
 ### 2.5 ADS/RPC
 
 No `TcRpcEnable` attribute exists in BROTLib, MONETcommon, MONETN, MONETS, IAG50cm or HalfBROT (`origin/develop`,
-grep). The BROTweb proof of concept lists `TcRpcEnable` under `IGNORED_PLC_ATTRIBUTES` in its ADS extension config.
-Whether that only affects attribute metadata or also the mapping of RPC methods is not verified (O6).
+grep). The BROTweb proof of concept lists `TcRpcEnable` under `IGNORED_PLC_ATTRIBUTES` in its ADS extension config;
+the O6 spike showed that this list has no effect on RPC (it concerns display attributes). What the spike verified is
+in section 8.
 
 ## 3. `I_Cabinet`
 
@@ -381,6 +382,24 @@ subsystems of one block, not the same interface wired twice.
 In MONETS/MONETN the call goes after `TelescopeControl(...)`/`SuspendAutomatic()` and before `CoverControl()` and the
 axis calls; in IAG50cm before `focusControl(...)`. One BROTweb build then serves every telescope.
 
+### 5.1.1 TcHMI symbol mapping and calling convention (verified in the spike)
+
+- The gateway instance is mapped once with the server function `AddSymbol`: `NAME` `PLC1.MAIN.Hmi`, `MAPPING`
+  `PLC1::MAIN::Hmi` (with `::`), `DOMAIN` `ADS`, `AUTOMAP` true. A mapping written with dots fails ("There is no runtime
+  called ..."). `PLC1` is the runtime name in the ADS extension config.
+- Sub-symbols and methods are addressed with `::` below the mapped name: `PLC1.MAIN.Hmi::stStatus` (the whole struct in
+  one read), `PLC1.MAIN.Hmi::stStatus::nHeartbeat`. The dotted form `PLC1.MAIN.Hmi.stStatus` is **not** resolved.
+- An RPC call is a write of the parameter object to the method symbol, e.g. `{"nAxis": 1, "nDirection": 1, ...}` to
+  `PLC1.MAIN.Hmi::Jog`; the method's return value comes back as the `readValue` of that write.
+- Unmapped symbols are refused with `SYMBOL_NOT_MAPPED` even with `USE_WHITELISTING` false: the mapping is required,
+  so BROTweb's committed server configuration carries it (the mapping contains no secrets).
+- The ADS target (AMS Net ID of the runtime) is a per-installation setting and must be correct in both
+  `ADS.Config.default.json` and `ADS.Config.remote.json`; a user-mode runtime has its own Net ID, not the local
+  `127.0.0.1.1.1`. No real or test Net ID is committed.
+- Not verified: whether access rights can be granted per method or sub-symbol below one mapped symbol (section 9 needs
+  that); if not, each RPC method is mapped as its own symbol. The TcHMI client library (`TcHmi.Server.writeSymbol`) was
+  not exercised, only the server websocket protocol it uses.
+
 ### 5.2 Declaration
 
 ```
@@ -416,8 +435,9 @@ END_VAR
 
 `GVL_Hmi.MAX_AXES := 6` (MONET uses 4 including focus, IAG50cm 3). Changing it changes the contract (major).
 
-The interface inputs are pointer-sized values without meaning for a client; they should be hidden from the symbol
-list (`{attribute 'hide'}` or equivalent, to verify in the O6 spike).
+The interface inputs are pointer-sized values without meaning for a client. The spike showed they are harmless: an
+interface-typed input appears in the server's type definition as its interface type and reads as `{}`, and the type
+upload works. Hiding them (`{attribute 'hide'}`) is optional tidying, not required.
 
 ### 5.3 Capabilities: derived, not maintained
 
@@ -463,7 +483,7 @@ END_STRUCT END_TYPE
 
 ### 5.4 RPC methods
 
-Every method carries `{attribute 'TcRpcEnable'}`, takes only elementary values (no interfaces, references or
+Calling convention: 5.1.1. Every method carries `{attribute 'TcRpcEnable'}`, takes only elementary values (no interfaces, references or
 pointers) and returns `E_HmiResult` immediately. The result reports the **gateway's own gates** (mode, presence,
 pendant, argument range, busy). The command is then executed in the gateway's cyclic body (5.5); its outcome
 (accepted by the implementation or not) appears in `stStatus.stLastCommand` within one cycle.
@@ -566,8 +586,12 @@ Each RPC writes its request into a one-slot mailbox of its group (telescope, per
 dome, filter/Nasmyth) and returns. The cyclic body takes each filled slot once, calls the interface, writes
 `stLastCommand` and frees the slot. Reasons:
 
-- It does not depend on the thread in which TwinCAT executes an RPC call (O6): interface methods, `FB_EventLog` and
-  the comm's log queue (`I_Comm.PublishLog`, documented as not task-safe) are only touched from the PLC task.
+- It does not depend on the thread in which TwinCAT executes an RPC call: interface methods, `FB_EventLog` and the
+  comm's log queue (`I_Comm.PublishLog`, documented as not task-safe) are only touched from the cyclic body. On the
+  tested server version the mailbox was **not needed** for thread safety: RPCs ran in the same PLC task as the body and
+  never concurrently with it (0 overlaps in 1883 calls, section 8). The rule stays for clean separation (RPC validates
+  and queues, the cycle executes) and because other server or TwinCAT versions are not tested. A mailbox written by a
+  symbol write was also executed exactly once in the spike.
 - One command per group per cycle, in a defined order: stop first, then reset, then motion.
 - `Stop()` does not wait in a mailbox behind a motion command: it has its own slot and is executed first.
 
@@ -759,8 +783,16 @@ a jog the panel started.
 - Call period 150 ms: fast enough that a lost call is noticed well within a fraction of a second, slow enough for a
   door-panel browser and the TcHMI server (about 7 RPCs per second for one held button).
 - Timeout 400 ms: more than two call periods (300 ms), so one lost or late call does not stop the axis; the 100 ms
-  margin covers the browser-server-ADS latency. Rule: `tJogTimeout >= 2 x period + worst observed round trip`; tune
-  only after measuring the round trip on the door panel (verification step in the plan).
+  margin covers the browser-server-ADS latency. Rule: `tJogTimeout >= 2 x period + worst observed round trip`.
+- Measured in the spike (loopback, one websocket, 10 ms task cycle): RPC round trip median 8 ms, p95 9.9 ms, p99
+  13.7 ms, max 15.3 ms (n = 200, sequential), i.e. about one PLC cycle. With a 150 ms heartbeat (client spacing
+  149-151 ms) the PLC saw a worst gap of 150 ms; the dead-man expired 410 ms after the last call (41 cycles); after an
+  abrupt websocket close the jog level dropped 372 ms later. The 150/400 ms values hold with large margin. Still to be
+  measured on real hardware over the real network: door panel -> TcHMI server -> PLC (K7 in BROTweb).
+- Traffic assumption: one status read per subscription tick and, while jogging, one RPC per 150 ms per client. The
+  server limits requests per connection: after about 500 pipelined requests on one connection it answered
+  `TOO_MANY_CONNECTIONS` / "Too many requests" (code 4108). The HMI traffic is far below that; clients must not send
+  bursts and must handle that error with back-off (BROTweb design).
 - Measured in the PLC with a `TON` on task time, never with client time stamps.
 - Hidden browser tabs throttle timers to about one call per second or less, so a jog started in a tab that goes to the
   background stops within 400 ms. This is intended.
@@ -770,7 +802,7 @@ a jog the panel started.
 Travel after the last valid call, worst case (release lost): `s = v_jog x (tJogTimeout + t_cycle) + v_jog^2 / (2 a)`,
 with `v_jog` and `a` the NC manual parameters of the axis (slow mode by default). Example only, not a project value:
 at 0.5 deg/s the timeout part is 0.2 deg. The real `v_jog` per axis is O7; the release by `nDirection := 0` on
-pointer-up normally stops after one round trip.
+pointer-up normally stops after one round trip (about 8-15 ms measured on loopback, 7.3).
 
 ### 7.5 Failure analysis
 
@@ -807,17 +839,32 @@ instantiates `MAIN.Hmi`:
   interface. All gateway methods follow that.
 - Properties are not ADS-readable without `{attribute 'monitoring' := 'call'}`; the gateway therefore publishes a
   plain output struct instead of properties.
-- To verify in a spike before implementation (O6): RPC methods of an FB that lives in a **library** are callable;
-  TcHMI (Engineering 1.12.762.60, the pinned version) maps them as server symbols and passes typed arguments; the thread context of the call
-  (the mailbox makes the design independent of it); effect of `TcRpcEnable` in the ADS extension's
-  `IGNORED_PLC_ATTRIBUTES`.
+- Verified in the O6 spike, pass 1 (2026-11-04): TcHMI Engineering 1.12.762.60 with its engineering server, TwinCAT 3.1.4024.66 user-mode runtime, PLC task cycle 10 ms, test FB in the **application** project, driven through the server's websocket protocol:
+  - RPC methods of an application FB appear in the server's type definition with typed parameters and are callable;
+    a protected helper without the attribute stays hidden.
+  - Types: DINT, LREAL (12.3456789012 exact), STRING with umlauts, a struct as input and as output (enum, LREAL, STRING
+    members) echoed exactly; an enum return value arrives as its number.
+  - Call context: RPCs ran in the same PLC task as the cyclic body and never during it (0 of 1883 calls, including
+    pipelined bursts of 500+).
+  - `TcRpcEnable` in `IGNORED_PLC_ATTRIBUTES` has no effect on RPC.
+  - An interface-typed FB input is harmless (5.2).
+  - Jog dead-man 150/400 ms including connection loss, and round-trip times: 7.3.
+  - Not exercised: the TcHMI client library (the server protocol it uses was), per-method access rights (5.1.1).
+- **Still open (O6, remaining part Q1a):** RPC on a method of an FB that lives in a **library** (pass 2: the same test
+  FB moved into a library project and instantiated in the application). Outcome decides where `FB_HmiGateway` lives:
+  - works: `FB_HmiGateway` with its `TcRpcEnable` methods stays in BROTLib, as designed (X10);
+  - does not work: BROTLib keeps the gateway logic (status, gates, mailbox, dead-man) in a library FB without RPC, and
+    each project adds a thin application-side wrapper FB at `MAIN.Hmi` that carries the `TcRpcEnable` methods and
+    forwards each call to the library FB. The symbol path, method names and signatures stay the same, so BROTweb is
+    not affected; the wrapper is a few lines per method and must be kept in step with the library (contract version).
 - BROTweb writes no PLC variable. Every state change goes through an RPC.
 
 ## 9. Roles and access (PLC view)
 
 The PLC cannot see the HMI user or the client's address. The physical switch is the authority: the Local/Remote
 gate in the gateway applies to every client. On top of it, motion needs the **maintainer** role (decided, former
-O15). Roles are checked in the TcHMI server: each RPC symbol is mapped with the access rights of the user groups, so a
+O15). Roles are checked in the TcHMI server: each RPC symbol is mapped with the access rights of the user groups (rights
+per method below one mapped symbol are not verified yet; otherwise each method is mapped on its own, 5.1.1), so a
 crafted request cannot bypass them.
 
 | RPCs | viewer | maintainer |
@@ -851,7 +898,7 @@ write of TRUE does nothing. IAG50cm names its instance `telescopeControl` and th
 | `sState` | `fReadyState`, `nBlockers` |
 
 All 26 mappings are removed from the TcHMI server configuration in the rewrite; BROTweb then maps only
-`MAIN.Hmi.stStatus` and the `MAIN.Hmi` RPC methods.
+the gateway instance (`PLC1.MAIN.Hmi`, 5.1.1) and uses its `::stStatus` and its RPC methods.
 
 ## 11. Decided
 
@@ -914,7 +961,7 @@ numbers are not reused. Still open:
 
 | # | Question | Notes |
 |---|---|---|
-| O6 | ADS/TcHMI spike | RPC in a library FB, TcHMI Engineering 1.12.762.60 (server 19.0.224) mapping of RPC methods, call thread, `IGNORED_PLC_ATTRIBUTES`, hiding interface inputs. |
+| O6 | ADS/TcHMI spike: remaining part Q1a | Answered for an application FB (section 8, pass 1). Open: RPC on a method of a library FB (pass 2); the outcome decides between the gateway in BROTLib and a thin application-side wrapper (section 8). |
 | O7 | Jog speeds | NC slow/fast manual velocities per axis (MONETS, MONETN, IAG50cm); is the slow mode slow enough for a touch screen; `Jog_Slow` extension of `FB_Axis` (2.2). |
 | O10 | Focus and axis enable in MONET manual mode | MONET focus homing is `bManualHome` (not in `I_Focus`); behaviour of `Focus.Position` writes in manual; whether the HMI may switch axis enables (MONET elevation depends on the brake key). |
 | O16 | IAG50cm switch polarity | `bIMode` TRUE = Local per the comment; check on site. |
@@ -946,6 +993,6 @@ Not changed: `I_Telescope`, `I_AltAzTelescope`, `I_Axis`, `I_Focus`, `I_Hydrauli
 installed BROTLib: check its build after the release.
 
 **Release grouping:** all interface rows (X1-X9) go into **one** BROTLib release, so every implementer is touched once
-and pins move once. `FB_HmiGateway` (X10) is additive and can ship in the same release if the RPC spike (O6) is done
-in time, otherwise in the next minor; it does not change any interface again. Order after the BROTLib release: HalfBROT (X7 pass-through) -> MONETcommon (X1-X4 implementations, X3 cleanup) -> MONETS, MONETN (X9,
+and pins move once. `FB_HmiGateway` (X10) is additive and can ship in the same release if pass 2 of the RPC spike (O6, library FB) is done
+in time and positive; if negative, BROTLib ships the gateway logic without RPC and the projects add the wrapper (section 8), otherwise in the next minor; it does not change any interface again. Order after the BROTLib release: HalfBROT (X7 pass-through) -> MONETcommon (X1-X4 implementations, X3 cleanup) -> MONETS, MONETN (X9,
 X10 wiring); IAG50cm in parallel with HalfBROT/MONETcommon (X1, X5, X6/X8 mocks, X7, X9, X10; X2 later).
