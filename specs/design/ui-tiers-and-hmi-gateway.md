@@ -178,6 +178,96 @@ derived in MONET `MAIN` from `KeyLocal`. MONET keeps deriving it; `ControlMode =
 | `FB_CabinetControl IMPLEMENTS I_Cabinet` | IAG50cm | `ControlMode` from `bIMode` (TRUE = Local per its comment; polarity to be checked on site, O16); `EstopActive`, `SafetyAckPending` from its existing inputs `bEstop`, `bSafetyAckPending`; `SafetyError` new input from `FB_SafetyHandling`; `PendantActive` from a new output of IAG's `FB_PendantControl` (none exists yet, 4.3; FALSE until then). The instance moves from `FB_TelescopeControl` to `MAIN` (passed to the telescope as `I_Cabinet` or `REFERENCE TO`), so the gateway and the comm can reach it. |
 | `FB_FixedCabinet IMPLEMENTS I_Cabinet` | BROTLib | for machines without a switch. `ControlMode` from a constant input `eMode` set in the project's `MAIN` declaration (the per-project policy); `SwitchPresent` FALSE; safety members from inputs (default FALSE); `PendantActive` from an input (default FALSE). The policy value is a project constant, never an ADS-writable variable (it must not become a software ownership switch). |
 
+### 3.1 `I_TelescopeStatus` (decided, former O11)
+
+New optional interface in BROTLib, separate from the `I_Telescope` hierarchy (it does not extend `I_Telescope`, so
+an implementation that does not provide it is not forced to). Read-only properties:
+
+```
+INTERFACE I_TelescopeStatus
+PROPERTY Error                 : BOOL           // a component of the telescope is in error
+PROPERTY ErrorID               : UDINT
+PROPERTY Busy                  : BOOL           // a command sequence is running (power-on, park, slew, goto, home, stop)
+PROPERTY IsParked              : BOOL
+PROPERTY Suspended             : BOOL           // the telescope state machine does not run (MONET manual mode)
+PROPERTY LastRejectedCommand   : E_TCSCommand
+PROPERTY LastRejectReason      : E_CommandRejectReason
+PROPERTY RejectCount           : UDINT          // +1 per rejected command; the HMI detects a new rejection by the change
+PROPERTY CurrentRightAscension : LREAL          // deg, ICRS, current position (not the target)
+PROPERTY CurrentDeclination    : LREAL          // deg, ICRS
+```
+
+- The gateway takes it as a separate optional input `ipTelescopeStatus`. It is wired to the same telescope object as
+  `ipAltAz`/`ipRaDec`; that is unavoidable without `IQueryInterface` (2.1), because it is a different interface, not
+  a sub-interface. Unassigned: the gateway publishes `bStatusPresent := FALSE` and BROTweb's why-not-ready view
+  degrades to `ReadyState` plus the blocker set.
+- With it assigned, `bTelescopeCommands` uses `NOT Suspended` instead of the project constant
+  `bTelescopeRunsInLocal` (5.3).
+- Implementers: MONETcommon `FB_MonetTelescopeControl` first (it already has `bError`, `nErrorID`, `bBusy`,
+  `bIsParked`, `eLastRejectedCommand`, `eLastRejectReason`, `nCommandRejectCount`, the suspend state and the current
+  ICRS position it publishes as telemetry); IAG50cm `FB_TelescopeControl` later (its refusals are event texts today;
+  it maps them to `not_ready` and the other existing reasons).
+- **`E_CommandRejectReason` mismatch:** BROTLib's enum ends at `gohome_active`; MONETcommon keeps its own copy with
+  `init_required` appended (#72). Resolution: append `init_required` to BROTLib's enum (same position, non-breaking)
+  and drop MONETcommon's local copies of `E_CommandRejectReason`, `E_CommandDecision` and `ST_CommandState` in favour
+  of BROTLib's, so `LastRejectReason` has one type across the fleet.
+
+### 3.2 `I_SafetyDiagnostics` (decided, former O14)
+
+New optional interface in BROTLib for the read-only Safety page, which is part of the first version. It exposes what
+the safety handling blocks already decode with BROTLib's `FB_InfoGroup`, `FB_InfoEStop` and `FB_InfoConnection`
+(raw TwinSAFE map state/diag bytes, decoded texts, the four channel bits of a connection):
+
+```
+TYPE E_SafetyItemKind : (group := 0, estop, connection_in, connection_out, other); END_TYPE
+
+TYPE ST_SafetyItem : STRUCT
+    sName      : STRING(31);       // localization key, e.g. 'safety.group1', 'safety.estop1', 'safety.el2904'
+    eKind      : E_SafetyItemKind;
+    bOk        : BOOL;             // the item reports its normal running/data state and no diagnosis
+    nMapState  : USINT;            // raw TwinSAFE map state
+    nMapDiag   : USINT;            // raw diagnosis byte
+    sState     : STRING(31);       // decoded state text of the FB_Info* block (English, for the technician)
+    sDiag      : STRING(80);       // decoded diagnosis text
+    nChannels  : BYTE;             // connections: bit 0..3 = channel 1..4; 0 otherwise
+END_STRUCT END_TYPE
+
+TYPE ST_SafetyItems : STRUCT
+    nCount : USINT;
+    aItem  : ARRAY[1..8] OF ST_SafetyItem;
+END_STRUCT END_TYPE
+
+INTERFACE I_SafetyDiagnostics
+PROPERTY StoActive      : BOOL            // drives held torque-free by the safety circuit
+PROPERTY RestartPending : BOOL            // the safety group waits for restart / error acknowledge
+PROPERTY Items          : ST_SafetyItems
+```
+
+- Which state values count as `bOk` is decided by the implementation from the decoding `FB_InfoConnection`/
+  `FB_InfoGroup`/`FB_InfoEStop` already do; the gateway and BROTweb only show `bOk`, the texts and the raw bytes.
+- Implementers: MONETcommon `FB_MonetSafetyHandling` (group 1, E-stop 1, EL1904 inputs, EL2904 outputs; STO from its
+  STO reset outputs and the group state) and IAG50cm `FB_SafetyHandling` (group 1, E-stop 1, EL2904; its EL1918
+  local inputs have no connection info, so no input item). The E-stop/acknowledge booleans of `I_Cabinet` stay as
+  they are; `I_SafetyDiagnostics` adds the detail.
+- The gateway takes it as optional input `ipSafety` and copies it to `stStatus.stSafety`; absent, the Safety page
+  shows the `I_Cabinet` booleans only.
+
+### 3.3 Extensions of existing interfaces (decided)
+
+- `I_RaDecTelescope.SlewHaDec(fHourAngle, fDeclination : LREAL) : BOOL` (former O2): a native move to apparent HA/Dec
+  in degrees, without tracking, through the telescope's own state machine and checks. IAG50cm implements it with its
+  existing HA/Dec machinery (`FB_RaDecCoordinates` and its slew stage); BROTLib's abstract `FB_RaDecTelescopeControl`
+  declares it `ABSTRACT`. No alt-az telescope implements `I_RaDecTelescope` (checked: only BROTLib
+  `FB_RaDecTelescopeControl` and IAG50cm `FB_TelescopeControl`; no test mock), so MONET is not affected.
+- `I_MirrorCovers.Stop() : BOOL` (former O9): HalfBROT `FB_CoverControl` and IAG50cm `FB_CoverControl` already have
+  a `METHOD Stop : BOOL` with no inputs, so they satisfy it unchanged; MONET uses HalfBROT's block. The only other
+  implementer is IAG50cmTests `FB_CoversMock`, which must add it. MONETcommon can then drop its concrete
+  `REFERENCE TO HalfBROT.FB_CoverControl` where it only needed `Stop()`.
+- `I_BaseAxis.JogSlow` and `FB_Axis.Jog_Slow` (2.2).
+- `E_CommandRejectReason.init_required` appended (3.1).
+
+The consolidated list with implementers and release consequences is section 13.
+
 ## 4. Command sources and Local/Remote enforcement
 
 Authority is the physical switch, not a software ownership protocol (decided). Enforcement is in the PLC; BROTweb
@@ -198,7 +288,7 @@ hiding a button is a convenience, never the protection.
 | Source | Remote | Local | Enforced in |
 |---|---|---|---|
 | MQTT (pybrotlib: pyobs-brot, BROTgui) | as today | motion verbs refused with one WARN log line each (`MQTT <verb> refused: cabinet switch on Local`); `reset` refused too (decided); `stop` and the other stop-direction verbs and the data fields pass in both modes (decided); telemetry and log keep flowing | `FB_Comm_MQTT_Influx._ApplyField` (4.4) |
-| HMI (BROTweb, any browser) | read-only: every motion RPC, `Reset*` included, returns `rejected_remote`; only `Stop()` is allowed (decided) | axis-level RPCs (jog, home, enable, go-to-position, reset) and subsystem RPCs allowed; telescope-level RPCs only where `bTelescopeCommands` is TRUE (5.3, i.e. IAG50cm); everything subject to pendant priority (4.3) and to the checks of the implementation behind the interface | `FB_HmiGateway` (section 5); roles in the TcHMI server (section 9) |
+| HMI (BROTweb, any browser) | only the stop-direction RPCs `Stop()`, `CoversStop()`, `RoofStop()`, `DomeStop()` are allowed (decided); every other RPC, axis disable and `Reset*` included, returns `rejected_remote` | axis-level RPCs (jog, home, enable, go-to-position, reset) and subsystem RPCs allowed; telescope-level RPCs only where `bTelescopeCommands` is TRUE (5.3, i.e. IAG50cm); everything subject to pendant priority (4.3), to the maintainer role (9) and to the checks of the implementation behind the interface | `FB_HmiGateway` (section 5); roles in the TcHMI server (section 9) |
 | Pendant (MONET `FB_MonetPendantControl`, IAG50cm `FB_PendantControl`) | not active (new: reads `I_Cabinet.ControlMode` itself) | active; priority over the HMI (decided, 4.3) | the pendant block itself |
 | VISU (developer tier) | unchanged, not gated | unchanged | none: access to the VISU is the developer's |
 | Cabinet buttons (Start/Stop/Reset, brake key) | unchanged | unchanged | `MAIN` |
@@ -235,7 +325,7 @@ Source of `PendantActive` per project (former O5, as far as the code allows):
 
 | Project | Signal | State of the code |
 |---|---|---|
-| MONETS, MONETN | `FB_MonetPendantControl.bEnable` (existing output, equal to the pendant's enable key `IbEnableKey`) | available today; conservative: the pendant counts as active whenever its key is on, whether or not a function is selected. A finer signal (key on and a function owned, or a cover hold-to-run) would need a new output; not needed for the rule. `MAIN` wires it into the new `bPendantActive` input of `FB_MonetCabinetControl`. |
+| MONETS, MONETN | `FB_MonetPendantControl.bEnable` (existing output, equal to the pendant's enable key `IbEnableKey`) | **decided** for now; available today; conservative: the pendant counts as active whenever its key is on, whether or not a function is selected. A finer signal (key on and a function owned, or a cover hold-to-run) would need a new output; it stays an optional later refinement. `MAIN` wires it into the new `bPendantActive` input of `FB_MonetCabinetControl`. |
 | IAG50cm | IAG `FB_PendantControl` (serial pendant, state blocks behind `I_PendantState`) | **no signal exists**: the current state `ipState` is private and there is no output. Needs a new output (active = state is one of the set states `SetHA`/`SetDEC`/`SetFocus`, open to confirm). Until then `PendantActive` is FALSE on IAG50cm and the priority rule is not enforced there. |
 | fixed implementation | input of `FB_FixedCabinet`, default FALSE | - |
 
@@ -310,6 +400,8 @@ VAR_INPUT
     ipDome         : I_Dome;
     ipFilter       : I_Filter;
     ipNasmyth      : I_Nasmyth;
+    ipTelescopeStatus : I_TelescopeStatus;   // optional, same object as ipAltAz/ipRaDec (3.1)
+    ipSafety       : I_SafetyDiagnostics; // optional (3.2)
     bTelescopeRunsInLocal : BOOL;        // project constant: TRUE where the telescope control runs with the switch on
                                          //   Local (IAG50cm), FALSE where Local suspends it (MONETS, MONETN); 5.3
     tJogTimeout    : TIME := T#400MS;    // dead-man timeout, section 7
@@ -343,10 +435,9 @@ list (`{attribute 'hide'}` or equivalent, to verify in the O6 spike).
   `fMin`/`fMax` are taken from `I_Focus.MinPosition`/`MaxPosition` every cycle instead of the descriptor.
 - **Telescope-level commands available** (`stStatus.bTelescopeCommands`, decided with former O1): TRUE when a
   telescope is wired (mount type not `none`), the switch is on Local, no pendant is active, `ipCabinet` is assigned
-  and `bTelescopeRunsInLocal` is TRUE. All terms but the last are derived from the actual state each cycle. The last
-  one is a per-project constant because no interface reports whether a telescope state machine runs in Local
-  (MONETcommon suspends it in manual, IAG50cm does not); it can become a derived value once a telescope status
-  interface exists (O11). The gateway rejects telescope-level RPCs with `rejected_no_telescope` while it is FALSE, and
+  and the telescope state machine runs in Local. All terms are derived from the actual state each cycle; the last
+  one is `NOT ipTelescopeStatus.Suspended` where `I_TelescopeStatus` is wired (3.1), otherwise the per-project
+  constant `bTelescopeRunsInLocal` (MONETcommon suspends the state machine in manual, IAG50cm does not). The gateway rejects telescope-level RPCs with `rejected_no_telescope` while it is FALSE, and
   BROTweb shows the telescope-level pointing controls only while it is TRUE.
 - **Subsystem kinds** are a fixed vocabulary: telescope, axis (incl. focus), covers, hydraulics, brake, roof, dome,
   filter, Nasmyth, cabinet/safety. A new kind is one new interface input, one status sub-struct, one RPC group and one
@@ -359,12 +450,14 @@ TYPE ST_HmiAxisInfo : STRUCT
     sName     : STRING(31);      // localization key for the HMI, e.g. 'axis.azimuth'
     eRole     : E_HmiAxisRole;   // native-coordinate role; the pointing page reads the axes by role
     sUnit     : STRING(7);       // 'deg', 'mm', ...
-    fMin      : LREAL;           // display/entry range (soft limits of the project), not a safety limit
+    fMin      : LREAL;           // the only limit of HMI axis-level moves (Jog, MoveAxisTo) and the entry range;
+                                 //   set conservatively per project, reviewed and verified on site (section 6)
     fMax      : LREAL;
     bCanJog   : BOOL;
     bCanHome  : BOOL;
     bCanEnable: BOOL;            // the HMI may switch the axis enable (MONET manual mode; see O10)
     bCanMoveTo: BOOL;            // the HMI may command a go-to-position (MoveAxisTo) within fMin..fMax
+    fMaintVelocity : LREAL;      // unit/s, slow velocity of MoveAxisTo (5.4.1); 0 = use the axis's current velocity
 END_STRUCT END_TYPE
 ```
 
@@ -396,28 +489,30 @@ TYPE E_HmiResult : (
 | Telescope | `Init(bOpenCovers : BOOL)` | `CoverAutoOpen := bOpenCovers; Init()` (as MQTT `power=1/2`) | Local + `bTelescopeCommands` | |
 | | `Park()`, `Home()` | `Park()`, `Home()` | Local + `bTelescopeCommands` | |
 | | `Slew(fAzimuth, fAltitude : LREAL)` | `Slew(az, alt)` | Local + `bTelescopeCommands` | degrees; alt-az native pointing. Range check as MQTT (`-360..360`, `-90..90`). |
+| | `SlewHaDec(fHourAngle, fDeclination : LREAL)` | `ipRaDec.SlewHaDec(ha, dec)` (3.3) | Local + `bTelescopeCommands`, mount `radec` only | degrees, apparent; no tracking. |
 | | `Track(fRightAscension, fDeclination : LREAL)` | `Track(ra, dec)` | Local + `bTelescopeCommands` | degrees, ICRS (as `FB_BaseTelescopeControl`); HMI converts from h:m:s. |
-| | `Stop()` | `Stop()`, focus `Stop()`, releases any HMI jog, `StopAxis` edge on an axis with a running HMI `MoveAxisTo` | always, also in Remote and while the pendant is active (decided) | the only HMI command in Remote |
-| | `Reset()` | `Reset()` | Local + `bTelescopeCommands` (decided: reset counts as motion); role maintainer (proposed, 9) | IAG50cm: also the safety acknowledge path. |
+| | `Stop()` | `Stop()`, focus `Stop()`, releases any HMI jog, `StopAxis` edge on an axis with a running HMI `MoveAxisTo` | always, also in Remote and while the pendant is active (decided) | with `RoofStop()`/`DomeStop()` the only HMI commands in Remote |
+| | `Reset()` | `Reset()` | Local + `bTelescopeCommands` (decided: reset counts as motion) | IAG50cm: also the safety acknowledge path. |
 | Axes | `Jog(nAxis : USINT; nDirection : SINT; bSlow : BOOL; nToken : UDINT)` | `MovePos`/`MoveNeg` (+ `JogSlow`) | Local | section 7; `nDirection` -1/0/+1, 0 = release. |
 | | `HomeAxis(nAxis : USINT)` | `HomeAxis := TRUE` (rising edge) | Local | focus on MONET: O10. |
 | | `EnableAxis(nAxis : USINT; bEnable : BOOL)` | `Enable := bEnable` | Local | only if `bCanEnable`. |
 | | `MoveAxisTo(nAxis : USINT; fPosition : LREAL)` | `Position := f`, then `MoveAxis := FALSE; MoveAxis := TRUE` (5.4.1) | Local | only if `bCanMoveTo`; not for the focus slot (`MoveFocus`). |
-| | `ResetAxis(nAxis : USINT)` | `Reset()` | Local (decided); role maintainer (proposed, 9) | |
+| | `ResetAxis(nAxis : USINT)` | `Reset()` | Local (decided) | |
 | | `MoveFocus(fPosition : LREAL)` | `ipFocus.Position := f` after the `MinPosition..MaxPosition` check (as MQTT `focus`) | Local | MONET focus in manual mode: O10. |
-| Covers | `CoversOpen()`, `CoversClose()`, `CoversReset()` | `Open()`, `Close()`, `Reset()` | Local | no stop: O9. |
-| Hydraulics | `HydraulicsEnable(bEnable : BOOL)`, `HydraulicsReset()` | `Enable := b`, `Reset()` | Local | `ManualStartSuction`/`ManualStopPump` not exposed (O13). |
-| Brake | - | - | - | status only (O12). |
+| Covers | `CoversOpen()`, `CoversClose()`, `CoversStop()`, `CoversReset()` | `Open()`, `Close()`, `Stop()`, `Reset()` | stop always (stop direction); rest Local | `I_MirrorCovers.Stop` (3.3). |
+| Hydraulics | `HydraulicsEnable(bEnable : BOOL)`, `HydraulicsReset()` | `Enable := b`, `Reset()` | Local | `ManualStartSuction`/`ManualStopPump` not exposed in the first version (decided). |
+| Brake | - | - | - | status only (decided: MONET `MAIN` drives the brake from the cabinet brake key in manual). |
 | Roof | `RoofOpen()`, `RoofClose()`, `RoofStop()`, `RoofReset()` | `I_Roof` | stop always; open, close, reset Local | |
 | Dome | `DomeOpen()`, `DomeClose()`, `DomePark()`, `DomeStop()`, `DomeReset()` | `I_Dome` | stop always; rest (incl. reset) Local | dome tracking stays in the top tier. |
 | Filter, Nasmyth | `SetFilter(nPos : USINT)`, `SetNasmyth(nPort : INT)` | `I_Filter`, `I_Nasmyth` | Local | no implementation exists yet. |
 
 Not exposed (top tier): pointing offsets, derotator offset, `Dut1`, weather, dome tracking, `Goto` without tracking.
-A native HA/Dec move for equatorial mounts has no telescope interface method (O2); `MoveAxisTo` on the HA and Dec
-axes is an axis-level positioning without tracking, not a pointing command.
+The native HA/Dec telescope move is `SlewHaDec` (3.3); `MoveAxisTo` on the HA and Dec axes is an axis-level
+positioning without the telescope's checks, not a pointing command.
 
-"Stop always" means: in both modes, for every authenticated user, and while the pendant is active. Every other HMI
-command, `Reset*` included, needs Local and no active pendant (decided).
+"Stop always" (decided) covers exactly the stop-direction RPCs `Stop()`, `CoversStop()`, `RoofStop()` and `DomeStop()`: allowed in
+both modes, while the pendant is active, and for every authenticated user. Every other HMI command, axis disable
+(`EnableAxis(..., FALSE)`) and `Reset*` included, needs Local, no active pendant and the maintainer role (9).
 
 #### 5.4.1 `MoveAxisTo` (decided with former O1)
 
@@ -429,7 +524,8 @@ a position move of an `I_Axis`. The gateway does not rely on the PLC clearing th
 `MoveAxis := FALSE` and then `MoveAxis := TRUE` in the same execution, so each request is an edge of its own.
 
 Gates, in addition to Local, no pendant and `ipCabinet` assigned: slot present and `bCanMoveTo`; `fPosition` finite
-and within the descriptor's `fMin..fMax` (else `rejected_argument`; NC soft limits and limit switches still apply);
+and within the descriptor's `fMin..fMax` (else `rejected_argument`; this is the only limit the gateway applies, see
+section 6; NC soft limits and limit switches remain the backstop);
 axis `Ready`, `Calibrated` and not `Error` (else `rejected_not_allowed`); axis not `Busy`, not `isTracking`, no move
 pending (`MoveAxis` reads TRUE) and no HMI jog on it (else `rejected_axis_busy`). The pending check matters because
 writing `MoveAxis := FALSE` drops a move another writer has requested but that has not started.
@@ -443,10 +539,23 @@ confirmation). It is stopped by `Stop()`, by the switch going to Remote, by the 
 safety error (the gateway writes one `StopAxis` edge; the E-stop cuts the drives anyway), and by the axis itself on
 error or limit. The gateway follows "its" move until `MoveDone`, `StopDone` or an error.
 
-Velocity: the gateway does not write `I_BaseAxis.Velocity`; the move runs at the axis's current move velocity. On
-MONET `FB_MonetTelescopeControl` writes the velocities before each of its own moves (from `stMotion`), so in manual
-mode the last automatic value applies; on IAG50cm the axis block's own value. Whether maintenance moves need their
-own slower velocity is open (O17).
+Velocity (decided, former O17): the descriptor's `fMaintVelocity` is applied by **write-and-restore inside the
+gateway**, with no interface extension. What the code allows: `I_BaseAxis.Velocity` is get/set; the axis blocks pass
+it to `FB_Axis.Velocity`, which is wired every cycle into the two `MC_MoveAbsolute`/`MC_MoveModulo` instances; the NC
+takes the velocity of a move at the rising edge of `Execute` (Tc2_MC2 behaviour, to be confirmed in the on-site
+`MoveAxisTo` test). Sequence:
+
+1. save `fSaved := Velocity`, write `Velocity := fMaintVelocity`, then the `MoveAxis` edge;
+2. restore `Velocity := fSaved` once the axis reports the move started (`Busy`), or immediately when the move is
+   rejected or not started within 1 s;
+3. never restore over a value someone else wrote meanwhile (restore only if `Velocity` still equals
+   `fMaintVelocity`).
+
+The window between 1 and 2 is one or two cycles. A move another writer starts on that axis within it would run at the
+slow velocity, which is the harmless direction; on MONET in Local nothing else commands the axes, and
+`FB_MonetTelescopeControl` writes its own velocities before each of its moves anyway. An extension (a velocity
+argument to a move method of `I_Axis`) was not chosen: `I_Axis` has no move method, adding one breaks every axis
+implementer, and the existing property suffices. `fMaintVelocity = 0` keeps the axis's current velocity.
 
 The focus keeps its own RPC `MoveFocus` (`I_Focus.Position`; the focus follower moves it). On MONET in manual mode
 the follower is inactive (O10).
@@ -469,7 +578,8 @@ to the button.
 
 The `BOOL` return value of the `I_*` methods is not uniform today: MONETcommon's `Slew`/`Track`/`Home` return FALSE on
 rejection, `Stop` and IAG50cm's `Park`/`Home` return nothing meaningful. `bAccepted` is therefore informational; the
-status fields (`fReadyState`, axis states) are what the HMI shows as the result (O11).
+status fields (`fReadyState`, axis states, and `I_TelescopeStatus` where present, 3.1) are what the HMI shows as the
+result.
 
 ### 5.6 Status struct
 
@@ -502,6 +612,8 @@ TYPE ST_HmiStatus : STRUCT
     fTargetRA        : LREAL;         // deg, commanded target where the implementation provides it (2.1)
     fTargetDec       : LREAL;         // deg
     stLastCommand    : ST_HmiCommandRecord;
+    stTelescopeStatus: ST_HmiTelescopeStatus;  // bStatusPresent, bError, nErrorID, bBusy, bIsParked, bSuspended,
+                                               // eLastRejectedCommand, eLastRejectReason, nRejectCount, fCurrentRA, fCurrentDec (3.1)
     // axes (slots 1..nAxisCount; focus is one of them, role focus)
     nAxisCount       : USINT;
     aAxis            : ARRAY[1..GVL_Hmi.MAX_AXES] OF ST_HmiAxisStatus;
@@ -513,6 +625,11 @@ TYPE ST_HmiStatus : STRUCT
     stDome           : ST_HmiDomeStatus;        // bPresent, fPosition, eRotState, eShutterState, bParked, bTracking, bError, nErrorID, nCapabilities
     bFilter          : BOOL;
     bNasmyth         : BOOL;
+    // safety detail (I_SafetyDiagnostics, 3.2)
+    bSafetyDiagPresent : BOOL;
+    bStoActive       : BOOL;
+    bRestartPending  : BOOL;
+    stSafety         : ST_SafetyItems;
 END_STRUCT END_TYPE
 
 TYPE ST_HmiAxisStatus : STRUCT
@@ -559,7 +676,7 @@ its own de/en texts and lists the active ones in the header and on the errors pa
 | 0 | `estop` | `I_Cabinet.EstopActive` |
 | 1 | `safety_error` | `I_Cabinet.SafetyError` |
 | 2 | `safety_ack_pending` | `I_Cabinet.SafetyAckPending` |
-| 3 | `telescope_error` | `ReadyState = -1` |
+| 3 | `telescope_error` | `ReadyState = -1`, or `I_TelescopeStatus.Error` where present |
 | 4 | `not_online` | `ReadyState <> 1` (with the READY_STATE value shown) |
 | 5 | `axis_error` | any `aAxis[i].bError` |
 | 6 | `axis_not_calibrated` | any present axis with `bCanHome` and NOT `Calibrated` |
@@ -573,20 +690,36 @@ its own de/en texts and lists the active ones in the header and on the errors pa
 | 14 | `no_cabinet` | `ipCabinet = 0` |
 | 15 | `config_error` | both `ipAltAz` and `ipRaDec` assigned, duplicate axis roles, or `nAxisCount` > `MAX_AXES` |
 | 16 | `telescope_suspended_local` | Local AND telescope present AND NOT `bTelescopeRunsInLocal` (MONET manual: axis-level only; information, not an error) |
+| 17 | `safety_item_not_ok` | any `I_SafetyDiagnostics` item with `bOk` FALSE, or `StoActive` |
 
 Per-axis `nErrorID` is shown with its number; BROTweb may translate NC error numbers the way BROTLib's
 `NCError_TO_STRING` does. The implementation's own reject reason (MONETcommon `eLastRejectReason`) and refusal texts
-(MONETcommon `sInitRefusedReason`, IAG50cm `TCScommandRefusedEvent`) are not reachable through `I_Telescope` (O11).
+(MONETcommon `sInitRefusedReason`, IAG50cm `TCScommandRefusedEvent`) are not reachable through `I_Telescope`; with
+`I_TelescopeStatus` (3.1) the last rejected command and its `E_CommandRejectReason` are shown, otherwise BROTweb
+shows `ReadyState` and the blocker set only.
 
 ## 6. Relation to existing safety
 
 - The gateway only calls `I_*` methods and properties. It cannot do anything an MQTT client or the pendant cannot do
   through the same interface, and every implementation check applies.
 - Axis-level commands (jog, home, enable, `MoveAxisTo`) bypass the telescope state machine by nature, exactly as the
-  pendant and the VISU do today. That is why they are Local only, subject to pendant priority, and jog is slow and
-  dead-man protected. Horizon/elevation windows of the telescope state machine do not apply to jog or `MoveAxisTo`
-  (as for the pendant), so the descriptor range `fMin..fMax` of each axis must be set conservatively per project; NC soft limits,
-  limit switches and the `Enable_Positive`/`Enable_Negative` gating in `FB_Axis` do.
+  pendant and the VISU do today. That is why they are Local only, subject to pendant priority and the maintainer
+  role, and jog is slow and dead-man protected.
+- **Limits of axis-level moves (decided):** `Jog` and `MoveAxisTo` are limited only by the per-axis `fMin..fMax` of
+  the gateway descriptors. The gateway does not reuse the telescope control's horizon or pole checks and is not coupled
+  to any project-specific horizon logic. Reasons: on MONET in Local the automatic control is suspended and the pendant
+  jogs the axes with nothing but axis limits and end switches, so an HMI jog is equivalent to the pendant; reusing the
+  horizon guard would fight maintenance moves (it would home the telescope in the middle of a service); and the
+  gateway stays generic across projects.
+- **Residual risk, stated plainly:** there is no horizon protection for axis-level moves. Between the descriptor
+  limits, an operator can move the tube to any attitude the axes allow. The backstop is the NC soft limits, the limit
+  switches and the `Enable_Positive`/`Enable_Negative` gating in `FB_Axis`, plus the E-stop. The descriptor limits are
+  therefore a **required, reviewed per-project item** (MONETS/MONETN and IAG50cm `MAIN`): chosen conservatively,
+  reviewed with the project owner, and verified on site by moving each axis with `MoveAxisTo` to a target just outside
+  `fMin`/`fMax` (must be rejected) and by jogging towards each limit (must stop at it) before the HMI is released for
+  maintenance.
+- Telescope-level commands keep all checks of the telescope control: where it runs in Local (`bTelescopeCommands`,
+  IAG50cm) they go through it like MQTT commands.
 - E-stop and TwinSAFE are not touched: the safety circuit cuts the drives (STO) regardless of any PLC software. The
   gateway reads the safety state; it has no acknowledge RPC of its own (IAG50cm acknowledges through `Reset()`).
 - MONETcommon's automatisms (watchdog park, over-temperature park, roof close on error) are unchanged.
@@ -606,7 +739,7 @@ while the jog is valid and releases them when any of the following holds:
 | `ControlMode` becomes `remote` | each cycle |
 | `PendantActive` becomes TRUE | each cycle |
 | `EstopActive` or `SafetyError` | each cycle |
-| axis `Error`, or the axis reports the limit in the jog direction | each cycle |
+| axis `Error`, the axis reports the limit switch in the jog direction, or `fPosition` reaches the descriptor's `fMax` (jog +) or `fMin` (jog -) | each cycle; a jog towards a descriptor limit the axis is already at is rejected |
 | `Stop()` RPC (allowed in every mode) | the call |
 | another axis or direction requested | the call (the old one is released first; a direction reversal needs a release) |
 
@@ -650,13 +783,20 @@ pointer-up normally stops after one round trip.
 | two clients | second token rejected | - |
 | switch to Remote, pendant takes over, E-stop | release in the gateway cycle (E-stop: STO anyway) | one cycle |
 | axis at a limit switch | `FB_Axis` gates the direction | NC |
-| gateway body no longer called (MAIN edit, exception) | **the last level stays TRUE** | not covered by the gateway |
+| gateway body no longer called (MAIN edit, exception) | **the last level stays TRUE** | not covered by the gateway: accepted with review (below) |
 | PLC stopped | NC stops the axes | NC |
 
-The last-but-one row is the residual risk of a dead-man that lives outside the axis. Mitigation in this design: the
-gateway call in `MAIN` is unconditional and reviewed like the axis calls. A stronger option is a level watchdog in
-`FB_BaseAxis` (the level must be rewritten every cycle); the pendant does that, but the MONET VISU writes the level
-once per press, so it would break VISU jog. O8.
+The last-but-one row is the residual risk of a dead-man that lives outside the axis. Decided (former O8): accepted
+with review. **The gateway must be called once in every cycle of the cyclic task that runs the axis blocks,
+unconditionally** (not inside an `IF`, not in a slower task, not skipped in manual mode), before the axis calls. No
+level watchdog in `FB_BaseAxis` and no change to the VISU jog. Review/test checklist for every project that
+instantiates `MAIN.Hmi`:
+
+- [ ] `Hmi(...)` is called unconditionally in `MAIN` in the same task as the axis blocks, before them.
+- [ ] No `RETURN`, `JMP` or mode branch in `MAIN` can skip it.
+- [ ] `stStatus.nHeartbeat` advances by one per cycle in both Local and Remote (checked once on site; BROTweb shows a
+  stale heartbeat).
+- [ ] An HMI jog started and then interrupted by pulling the panel's network cable stops within the timeout (7.3).
 
 ## 8. ADS and TcRpcEnable constraints
 
@@ -675,12 +815,20 @@ once per press, so it would break VISU jog. O8.
 
 ## 9. Roles and access (PLC view)
 
-The PLC cannot see the HMI user. Motion is not role-gated: the Local/Remote gate in the gateway applies to every user
-and every client (decided). Roles decide only non-motion rights, checked in the TcHMI server: each RPC symbol is
-mapped with the access rights of the user groups, so a crafted request cannot bypass them. Proposed mapping: every
-authenticated user may call `Stop` and the motion RPCs (which the PLC then gates); the `Reset*` RPCs, which the PLC
-gates like motion (Local only, decided), are additionally limited to the maintainer group, as is HMI configuration. Consequence: in Local, any logged-in user on a laptop has the same
-motion rights as the door panel (O15).
+The PLC cannot see the HMI user or the client's address. The physical switch is the authority: the Local/Remote
+gate in the gateway applies to every client. On top of it, motion needs the **maintainer** role (decided, former
+O15). Roles are checked in the TcHMI server: each RPC symbol is mapped with the access rights of the user groups, so a
+crafted request cannot bypass them.
+
+| RPCs | viewer | maintainer |
+|---|---|---|
+| status read | yes | yes |
+| `Stop()`, `CoversStop()`, `RoofStop()`, `DomeStop()` | yes | yes |
+| every other RPC (motion, enable, `MoveAxisTo`, jog, `Reset*`, subsystem commands) | no | yes (then gated by the PLC: Local, pendant, implementation checks) |
+| HMI configuration | no | yes |
+
+In Local the door panel and a laptop have equal motion rights for a maintainer (decided). There is no restriction by
+client address or device.
 
 ## 10. Migration of the BROTweb proof of concept
 
@@ -719,7 +867,7 @@ All 26 mappings are removed from the TcHMI server configuration in the rewrite; 
    constant.
 6. Authority is the physical switch. Remote: MQTT may move, HMI is read-only for motion. Local: HMI and pendant may
    move, MQTT motion verbs are refused, status keeps flowing. Enforced in the PLC (gateway + comm), never only in the
-   HMI. Login roles decide only non-motion rights.
+   HMI. (The original wording "login roles decide only non-motion rights" is superseded by item 14.)
 7. The pendant reads `I_Cabinet.ControlMode` itself and is not routed through the gateway.
 8. Jog is a PLC-enforced dead-man: keep-alive calls about every 150 ms, PLC timeout about 400 ms, slow fixed speed (two
    selectable at most), Local only.
@@ -731,29 +879,73 @@ All 26 mappings are removed from the TcHMI server configuration in the rewrite; 
    only where the telescope control runs in Local (IAG50cm), published as `bTelescopeCommands` (5.3) and enforced by
    the gateway. Telescope-level pointing on MONET stays with BROTgui/pyobs in Remote. (former O1)
 11. The pendant wins in Local: while it is active the gateway rejects new HMI motion and stops HMI jog and
-   `MoveAxisTo`. `PendantActive` is MONET's `FB_MonetPendantControl.bEnable`; IAG50cm needs a new pendant output
-   (4.3). (former O3, O5)
-12. HMI `Stop()` is always allowed, also in Remote. Every other HMI command, `Reset*` included, needs Local. MQTT
-   `reset` is refused in Local; MQTT `stop` is allowed in both modes. (former O4)
-13. BROTLib and BROTweb are public: no hostnames, AMS NetIDs, IP addresses, credentials, licence or deployment details
+   `MoveAxisTo`. `PendantActive` is MONET's `FB_MonetPendantControl.bEnable` (enable key, conservative; a finer
+   signal is an optional later refinement); IAG50cm needs a new pendant output (4.3). (former O3, O5)
+12. The HMI stop-direction RPCs (`Stop()`, `CoversStop()`, `RoofStop()`, `DomeStop()`) are always allowed, also in Remote. Every other
+   HMI command, axis disable and `Reset*` included, needs Local. MQTT `reset` is refused in Local; MQTT `stop` is
+   allowed in both modes. (former O4)
+13. HMI axis-level moves (`Jog`, `MoveAxisTo`) are limited only by the per-axis descriptor `fMin..fMax`, set
+   conservatively, reviewed and verified on site per project; no reuse of the telescope control's horizon/pole checks
+   (section 6).
+14. Motion from the HMI needs the maintainer role; stop-direction RPCs are open to every authenticated user. In Local
+   the door panel and a laptop have equal rights; no client-address restriction (section 9). (former O15)
+15. BROTLib and BROTweb are public: no hostnames, AMS NetIDs, IP addresses, credentials, licence or deployment details
    in their docs or default configs.
+
+
+16. `I_RaDecTelescope.SlewHaDec(ha, dec)` is added; IAG50cm implements it; the IAG50cm pointing page offers HA/Dec
+   target entry besides RA/Dec (3.3). (former O2)
+17. The jog dead-man stays in the gateway; the gateway must be called every cycle in the cyclic task, checked by the
+   review checklist of 7.5; no `FB_BaseAxis` watchdog, no VISU change. (former O8)
+18. `I_MirrorCovers.Stop()` is added (3.3); `CoversStop()` is a stop-direction RPC. (former O9)
+19. Optional `I_TelescopeStatus` with a separate gateway input; MONETcommon first, IAG50cm later; BROTweb degrades to
+   `ReadyState` + blockers where absent; `E_CommandRejectReason.init_required` moves into BROTLib (3.1). (former O11)
+20. The brake is status only on the HMI. (former O12)
+21. No manual hydraulics (suction/pump) in the first version. (former O13)
+22. `I_SafetyDiagnostics` is defined now (3.2) and implemented in MONET and IAG50cm safety handling; the Safety page is
+   part of the first version. (former O14)
+23. `MoveAxisTo` uses the descriptor's `fMaintVelocity` by write-and-restore of `I_BaseAxis.Velocity` inside the
+   gateway; no interface extension (5.4.1). (former O17)
 
 ## 12. Open questions
 
-O1, O3, O4 and O5 were decided on 2026-11-04 (section 11, items 10-12); the numbers are not reused.
+O1, O2, O3, O4, O5, O8, O9, O11, O12, O13, O14, O15 and O17 were decided on 2026-11-04 (section 11, items 10-23); the
+numbers are not reused. Still open:
 
 | # | Question | Notes |
 |---|---|---|
-| O2 | Native HA/Dec move for equatorial mounts | `I_RaDecTelescope` has none; `Slew` takes Az/Alt on IAG50cm too. Options: add `SlewHaDec(ha, dec)` to `I_RaDecTelescope` (IAG50cm implements it with `FB_RaDecCoordinates`); or the pointing page offers RA/Dec only. |
 | O6 | ADS/TcHMI spike | RPC in a library FB, TcHMI 1.12 mapping of RPC methods, call thread, `IGNORED_PLC_ATTRIBUTES`, hiding interface inputs. |
 | O7 | Jog speeds | NC slow/fast manual velocities per axis (MONETS, MONETN, IAG50cm); is the slow mode slow enough for a touch screen; `Jog_Slow` extension of `FB_Axis` (2.2). |
-| O8 | Gateway not called leaves the jog level TRUE | accept with review, or add a level watchdog in `FB_BaseAxis` and change the MONET VISU jog to refresh the level. |
-| O9 | Covers stop | `I_MirrorCovers` has no `Stop()`; adding it touches HalfBROT and IAG50cm `FB_CoverControl` and the mocks. |
 | O10 | Focus and axis enable in MONET manual mode | MONET focus homing is `bManualHome` (not in `I_Focus`); behaviour of `Focus.Position` writes in manual; whether the HMI may switch axis enables (MONET elevation depends on the brake key). |
-| O11 | Telescope status beyond `ReadyState` | no error/busy/parked/reject reason/current RA-Dec in `I_Telescope`; proposal: an optional `I_TelescopeStatus` (separate input, implemented incrementally) with `Error`, `ErrorID`, `Busy`, `IsParked`, `LastRejectReason`, current RA/Dec. BROTLib's `E_CommandRejectReason` lacks MONETcommon's `init_required`. Uniform method return values. |
-| O12 | Brake from the HMI | MONET `MAIN` overwrites `bOpenBrake` every scan from the cabinet brake key in manual; proposed: status only. |
-| O13 | Hydraulics manual suction/pump | level properties with unclear ownership; not exposed in the first version. |
-| O14 | Safety diagnostics | EL1904/EL2904 connection states exist only inside `FB_MonetSafetyHandling`/`FB_SafetyHandling`; an optional `I_SafetyDiagnostics` would be needed for the read-only safety page. |
-| O15 | Client restriction | the PLC cannot tell the door panel from a laptop; accept (decided authority model) or restrict motion RPCs to the panel's TcHMI user group. |
-| O17 | Velocity of `MoveAxisTo` | the gateway uses the axis's current move velocity (5.4.1); a separate slow maintenance velocity would need the gateway to write `Velocity` and restore it, or a descriptor field. |
 | O16 | IAG50cm switch polarity | `bIMode` TRUE = Local per the comment; check on site. |
+
+## 13. Interface additions and changes (consolidated)
+
+All library changes this design needs, verified against `origin/develop` of every repo on 2026-11-04 (implementers
+found by grep over the `IMPLEMENTS` clauses, test projects included). "Breaking" means an existing implementer no
+longer compiles until it is changed. BROTLib is 0.18.0 on `develop`; consumers pin released versions
+(`Name, x.y.z (BROT)` references, release flow in [custom-library-versioning.md](custom-library-versioning.md)), so a change reaches a consumer only when that
+consumer bumps its pin, and the bump PR must contain the consumer's own changes from this table.
+
+| # | Change | Interface / block | Must implement or adapt | Breaking for existing implementers? | Version / pin consequence |
+|---|---|---|---|---|---|
+| X1 | new `E_ControlMode`, `I_Cabinet`, `FB_FixedCabinet` (3) | new | MONETcommon `FB_MonetCabinetControl`; IAG50cm `FB_CabinetControl`; BROTLibTests stub `FB_CabinetStub` (new) | no (new interface) | BROTLib minor; MONETcommon and IAG50cm implement after their pin bump |
+| X2 | new `I_TelescopeStatus` (3.1) | new | MONETcommon `FB_MonetTelescopeControl` (first); IAG50cm `FB_TelescopeControl` (later); BROTLibTests stub | no (optional, separate interface) | BROTLib minor; implementers adopt at their own pace |
+| X3 | `E_CommandRejectReason.init_required` appended (3.1) | BROTLib enum | MONETcommon drops its local copies (`E_CommandRejectReason`, `E_CommandDecision`, `ST_CommandState`) and uses BROTLib's | no (append); MONETcommon's removal is its own change | BROTLib minor; MONETcommon change in its pin-bump PR |
+| X4 | new `E_SafetyItemKind`, `ST_SafetyItem`, `ST_SafetyItems`, `I_SafetyDiagnostics` (3.2) | new | MONETcommon `FB_MonetSafetyHandling`; IAG50cm `FB_SafetyHandling`; BROTLibTests stub | no (new) | BROTLib minor |
+| X5 | `SlewHaDec(fHourAngle, fDeclination)` (3.3) | `I_RaDecTelescope` | BROTLib `FB_RaDecTelescopeControl` (declares it `ABSTRACT`, in the same PR); IAG50cm `FB_TelescopeControl` (implements); no alt-az implementer, no mock | **yes** for IAG50cm `FB_TelescopeControl` (and any future subclass of `FB_RaDecTelescopeControl`) | BROTLib minor (0.x: minor carries breaking changes); IAG50cm must implement it in the PR that bumps its BROTLib pin |
+| X6 | `Stop()` (3.3) | `I_MirrorCovers` | HalfBROT `FB_CoverControl` and IAG50cm `FB_CoverControl`: already have `METHOD Stop : BOOL`, nothing to do; IAG50cmTests `FB_CoversMock` adds it | **yes** for IAG50cmTests `FB_CoversMock` only | BROTLib minor; IAG50cmTests change in IAG50cm's pin-bump PR; HalfBROT compiles unchanged |
+| X7 | `Jog_Slow` input (2.2) | `FB_Axis` | HalfBROT `FB_AzimuthControl`, `FB_ElevationControl`, `FB_DerotatorControl`, `FB_FocusControl` and IAG50cm `FB_HourAngleControl`, `FB_DeclinationControl`, `FB_FocusControl` pass `Jog_Slow := bJogSlow` | no (input with default FALSE) | BROTLib minor; HalfBROT and IAG50cm pass it through when they bump (functional, not a compile break) |
+| X8 | `JogSlow` property (2.2) | `I_BaseAxis` | BROTLib `FB_BaseAxis` (implements it once, so every `FB_AxisControl`/`FB_FocusControl` extending it is covered); IAG50cmTests `FB_FocusMock` (implements `I_Focus` directly) adds it; BROTLibTests `FB_FocusStub` extends `FB_BaseAxis`, covered | **yes** for IAG50cmTests `FB_FocusMock` only | as X6 |
+| X9 | `Cabinet : I_Cabinet` input, `F_MqttVerbIsMotion` (4.4) | `FB_Comm_MQTT`, `FB_Comm_MQTT_Influx` | MONETS, MONETN, IAG50cm `MAIN` wire it | no (optional input) | BROTLib minor; wiring in each application's pin-bump PR |
+| X10 | `FB_HmiGateway`, `GVL_Hmi`, all `ST_Hmi*`/`E_Hmi*` (5) | new | MONETS, MONETN, IAG50cm `MAIN` instantiate `MAIN.Hmi` with reviewed descriptors (S2/I2) | no (new) | BROTLib minor; first release sets contract 1.0 (5.7) |
+
+Not changed: `I_Telescope`, `I_AltAzTelescope`, `I_Axis`, `I_Focus`, `I_Hydraulics`, `I_Brake`, `I_Roof`, `I_Dome`,
+`I_Filter`, `I_Nasmyth`, `I_Comm`. No interface gets `__System.IQueryInterface` (2.1). MONETRoof implements only
+`I_Roof` and is not affected by any row, but its hard `BROTLib,newest` reference makes it compile against the newest
+installed BROTLib: check its build after the release.
+
+**Release grouping:** all interface rows (X1-X9) go into **one** BROTLib release, so every implementer is touched once
+and pins move once. `FB_HmiGateway` (X10) is additive and can ship in the same release if the RPC spike (O6) is done
+in time, otherwise in the next minor; it does not change any interface again. Order after the BROTLib release: HalfBROT (X7 pass-through) -> MONETcommon (X1-X4 implementations, X3 cleanup) -> MONETS, MONETN (X9,
+X10 wiring); IAG50cm in parallel with HalfBROT/MONETcommon (X1, X5, X6/X8 mocks, X7, X9, X10; X2 later).

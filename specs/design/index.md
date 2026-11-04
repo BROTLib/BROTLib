@@ -67,7 +67,9 @@ no IAG-private infrastructure/credential/incident details — those stay in IAG'
 - [ui-tiers-and-hmi-gateway.md](ui-tiers-and-hmi-gateway.md) — the three UI tiers (VISU, BROTweb, MQTT clients),
   new `I_Cabinet` (Local/Remote switch, E-stop, safety, pendant), Local/Remote enforcement per command source, and
   `FB_HmiGateway` at `MAIN.Hmi`: RPC methods, flat status struct, contract version, jog dead-man, why-not-ready bits.
-  Verified state of jog modelling and of where the switch is read today. *proposed, not implemented* (2026-11-04)
+  New optional `I_TelescopeStatus` and `I_SafetyDiagnostics`, `I_RaDecTelescope.SlewHaDec`, `I_MirrorCovers.Stop`,
+  `JogSlow`; one consolidated table of all interface changes with implementers and release consequences. Verified
+  state of jog modelling and of where the switch is read today. *proposed, not implemented* (2026-11-04)
   (Repos: BROTLib, MONETcommon, MONETN, MONETS, IAG50cm, HalfBROT, BROTweb)
 
 - [telescope-ready-state.md](telescope-ready-state.md) — completed startup semantics of READY_STATE, calibration state 0.8, and the hardware-free readiness latch. (Repos: BROTLib, MONETcommon, IAG50cm, pyBROT, pyobs-brot)
