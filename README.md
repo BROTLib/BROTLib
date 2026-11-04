@@ -118,6 +118,16 @@ organised into four layers:
    | `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics` | Telescope infrastructure |
    | `I_Comm` | Telemetry/log publishing (`Publish`, `PublishLog`) |
 
+   **Which interface for which job.** The `I_*` interfaces are the one contract for what a telescope can do; every
+   command source reaches them in its own way. Observing clients (pyobs-brot, BROTgui via pybrotlib) send MQTT verbs
+   that `FB_Comm_MQTT_Influx` turns into `I_Telescope`/`I_Focus`/`I_Dome`/... calls. The maintenance HMI (BROTweb)
+   cannot call interfaces over ADS, so it uses the proposed adapter `FB_HmiGateway` at `MAIN.Hmi` (RPC methods and one
+   status struct over the same interfaces), and the proposed `I_Cabinet` carries the physical Local/Remote switch that
+   decides which of the two may move the telescope. The pendant and the TwinCAT VISU act on the axis blocks directly.
+   Application code that coordinates subsystems (a telescope state machine, a watchdog) takes interface references,
+   never concrete blocks, where the interface has what it needs. Design, enforcement rules and the open gaps of the
+   interfaces: [specs/design/ui-tiers-and-hmi-gateway.md](specs/design/ui-tiers-and-hmi-gateway.md).
+
 2. **Telescope control** — base classes for the command/state layer. The
    state machine itself is not in the library (see below):
 
