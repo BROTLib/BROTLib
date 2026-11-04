@@ -210,7 +210,7 @@
         </Parameter>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFTESTSFOREACHTESTSUITE</Key>
-          <Value>64</Value>
+          <Value>40</Value>
         </Parameter>
         <Parameter ListName="GVL_PARAM_TCUNIT" xmlns="">
           <Key>MAXNUMBEROFASSERTSFOREACHTESTSUITE</Key>
