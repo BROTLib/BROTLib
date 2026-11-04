@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="StopLoop_Sim_Tests" Id="{2fb5c8b3-a801-4aa1-9ff0-bf6187138c18}" SpecialFunc="None">
+    <Declaration><![CDATA[// Scan-level simulation of the stop of MONETcommon#96 / IAG50cm#108 without hardware: FB_StopRig runs the 0.9.0 rule and
+// FB_StopTransaction against three FB_MockStopAxis (real FB_AxisCommand, MC_Stop model). The expected numbers
+// come from a Python model of the same scan order (azimuth and elevation moving, Done after 3 and 5 scans: the 0.9.0 rule
+// restarts MC_Stop 7 and 5 times and releases the stop after 35 scans; the transaction sends one stop each and settles after 9).
+// The model ends the old rule at the first scan in which all axes are at rest, so it shows the restarts and the delay, not
+// an endless hang; the hang on MONET/S needs Done times that never line up, which a fixed model cannot show.
+FUNCTION_BLOCK StopLoop_Sim_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Sim_v090_Rule_Restarts_With_Skewed_Done();
+Sim_v090_Rule_Settles_With_Equal_Done();
+Sim_Transaction_One_Edge_Per_Axis();
+Sim_Transaction_Latched_StopAxis();
+Sim_Transaction_Done_Skew_10_Scans();
+Sim_Transaction_Continues_After_Driver_Change();
+]]></ST>
+    </Implementation>
+    <Method Name="Sim_v090_Rule_Restarts_With_Skewed_Done" Id="{e967bb6a-b5a4-4282-b92d-f46bf3133a7d}">
+      <Declaration><![CDATA[// Characterization of the 0.9.0 rule. If this test fails, the mock does not reproduce the restart and is wrong.
+METHOD PRIVATE Sim_v090_Rule_Restarts_With_Skewed_Done
+VAR
+	rig	: FB_StopRig;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sim_v090_Rule_Restarts_With_Skewed_Done');
+rig.Setup(nAzDoneScans := 3, nElDoneScans := 5);
+FOR n := 1 TO 300 DO
+	rig.ScanOld();
+END_FOR
+AssertTrue(Condition := rig.bFirstStopped, Message := 'the old rule does get to rest in the model');
+AssertTrue(Condition := rig.nAzEdgesAtStop > 3, Message := 'azimuth: MC_Stop restarted several times');
+AssertTrue(Condition := rig.nElEdgesAtStop > 3, Message := 'elevation: MC_Stop restarted several times');
+AssertTrue(Condition := rig.nFirstStoppedScan > 20, Message := 'and the stop is released late');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sim_v090_Rule_Settles_With_Equal_Done" Id="{0d72d516-39da-48f1-97de-85715efbc2a8}">
+      <Declaration><![CDATA[// With equal Done times the old rule happens to end at once, which is why the stop passed in some runs.
+METHOD PRIVATE Sim_v090_Rule_Settles_With_Equal_Done
+VAR
+	rig	: FB_StopRig;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sim_v090_Rule_Settles_With_Equal_Done');
+rig.Setup(nAzDoneScans := 3, nElDoneScans := 3);
+FOR n := 1 TO 300 DO
+	rig.ScanOld();
+END_FOR
+AssertTrue(Condition := rig.bFirstStopped, Message := 'at rest');
+AssertTrue(Condition := rig.nFirstStoppedScan <= 8, Message := 'quickly');
+AssertEquals_UINT(Expected := 1, Actual := rig.nAzEdgesAtStop, Message := 'azimuth: one MC_Stop');
+AssertEquals_UINT(Expected := 1, Actual := rig.nElEdgesAtStop, Message := 'elevation: one MC_Stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sim_Transaction_One_Edge_Per_Axis" Id="{5285767c-a9ae-4502-bf9f-c93d4443dc2c}">
+      <Declaration><![CDATA[// The same skewed Done times with FB_StopTransaction: one MC_Stop per moving axis, none for the resting derotator.
+METHOD PRIVATE Sim_Transaction_One_Edge_Per_Axis
+VAR
+	rig	: FB_StopRig;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sim_Transaction_One_Edge_Per_Axis');
+rig.Setup(nAzDoneScans := 3, nElDoneScans := 5);
+FOR n := 1 TO 100 DO
+	rig.ScanNew();
+END_FOR
+AssertTrue(Condition := rig.bSettled, Message := 'settled');
+AssertTrue(Condition := rig.nSettledScan <= 14, Message := 'within max(Done scans) + 6');
+AssertEquals_UINT(Expected := 1, Actual := rig.Az.nExecuteEdges, Message := 'azimuth: one MC_Stop');
+AssertEquals_UINT(Expected := 1, Actual := rig.El.nExecuteEdges, Message := 'elevation: one MC_Stop');
+AssertEquals_UINT(Expected := 0, Actual := rig.Dr.nExecuteEdges, Message := 'derotator at rest: none');
+AssertTrue(Condition := rig.bStoppedAfterSettle, Message := 'the axes stay at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sim_Transaction_Latched_StopAxis" Id="{1518d0ea-67ff-4102-9cb8-48b3c9f99127}">
+      <Declaration><![CDATA[// A StopAxis level left TRUE from an earlier stop: one scan low, then exactly one edge.
+METHOD PRIVATE Sim_Transaction_Latched_StopAxis
+VAR
+	rig	: FB_StopRig;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sim_Transaction_Latched_StopAxis');
+rig.Setup(nAzDoneScans := 3, nElDoneScans := 3);
+rig.Az.LatchLevel();
+FOR n := 1 TO 100 DO
+	rig.ScanNew();
+END_FOR
+AssertTrue(Condition := rig.bSettled, Message := 'settled');
+AssertEquals_UINT(Expected := 1, Actual := rig.Az.nStopCalls, Message := 'azimuth: one Stop() call');
+AssertEquals_UINT(Expected := 1, Actual := rig.Az.nExecuteEdges, Message := 'azimuth: one MC_Stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sim_Transaction_Done_Skew_10_Scans" Id="{a6e38f74-e7b4-4cb3-ba2b-01aa40a98a82}">
+      <Declaration><![CDATA[// The elevation reports Done 10 scans after the azimuth: the stop settles only after the elevation, one MC_Stop each.
+METHOD PRIVATE Sim_Transaction_Done_Skew_10_Scans
+VAR
+	rig	: FB_StopRig;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sim_Transaction_Done_Skew_10_Scans');
+rig.Setup(nAzDoneScans := 3, nElDoneScans := 13);
+FOR n := 1 TO 100 DO
+	rig.ScanNew();
+END_FOR
+AssertTrue(Condition := rig.bSettled, Message := 'settled');
+AssertTrue(Condition := rig.nSettledScan >= 13, Message := 'not before the elevation is done');
+AssertTrue(Condition := rig.nSettledScan <= 19, Message := 'and soon after');
+AssertEquals_UINT(Expected := 1, Actual := rig.Az.nExecuteEdges, Message := 'azimuth: one MC_Stop');
+AssertEquals_UINT(Expected := 1, Actual := rig.El.nExecuteEdges, Message := 'elevation: one MC_Stop');
+AssertTrue(Condition := rig.bStoppedAfterSettle, Message := 'the axes stay at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sim_Transaction_Continues_After_Driver_Change" Id="{c3d4e5f6-0118-4a56-8a01-000000000008}">
+      <Declaration><![CDATA[// #118: the switch to manual (SuspendAutomatic) and the return to automatic (the body) drive the same transaction. The rig has
+// one call path, so this documents the rule at the transaction level: after the first scans nothing begins again.
+METHOD PRIVATE Sim_Transaction_Continues_After_Driver_Change
+VAR
+	rig	: FB_StopRig;
+	n	: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sim_Transaction_Continues_After_Driver_Change');
+rig.Setup(nAzDoneScans := 4, nElDoneScans := 6);
+FOR n := 1 TO 3 DO
+	rig.ScanNew();
+END_FOR
+AssertFalse(Condition := rig.bSettled, Message := 'still stopping after 3 scans');
+FOR n := 1 TO 100 DO
+	rig.ScanNew();
+END_FOR
+AssertTrue(Condition := rig.bSettled, Message := 'settled');
+AssertEquals_UINT(Expected := 1, Actual := rig.Az.nExecuteEdges, Message := 'azimuth: one MC_Stop in total');
+AssertEquals_UINT(Expected := 1, Actual := rig.El.nExecuteEdges, Message := 'elevation: one MC_Stop in total');
+AssertTrue(Condition := rig.bStoppedAfterSettle, Message := 'the axes stay at rest');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

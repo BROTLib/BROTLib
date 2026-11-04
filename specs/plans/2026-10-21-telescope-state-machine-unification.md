@@ -1,6 +1,6 @@
 # Telescope state machine: pin it with tests, then unify it in BROTLib (BROTLib#25)
 
-**Status: proposed, 2026-10-21.** Plan only, no PLC code changed. Base commits: BROTLib `c42312e` (`develop`, last
+**Status: proposed 2026-10-21, steps 0-3 and 4.1 done, status refreshed 2026-11-04 (see "Status 2026-11-04").** Original text below describes the 2026-10-21 base. Base commits: BROTLib `c42312e` (`develop`, last
 release v0.9.0, #93/#92 merged but not released), MONETcommon `d9d7a6c` (0.9.3), HalfBROT `60453e2` (0.5.7), IAG50cm
 `2e09ab4` (0.4.0), MONETS `3f3e40d`, MONETN `da8fea5`. Related: BROTLib#25 (state machine copied), BROTLib#67 (SoE
 reset copies), MONETcommon#36 (TcUnit for `FB_MonetTelescopeControl`), MONETcommon#24 (design finding D), the
@@ -12,6 +12,40 @@ Marking: **[verified]** = read in the code at the commits above on 2026-10-21, w
 `.TcPOU` file, XML wrapper included); **[unverified]** = my reading of TwinCAT/CODESYS behaviour or an assumption, to
 be confirmed by a spike, CI or on site. Short names: **M** = `MONETcommon/MONETcommon/MONETcommon/FB_MonetTelescopeControl.TcPOU`,
 **I** = `IAG50cm/IAG50cm/POUs/FB_TelescopeControl.TcPOU`, **B** = `BROTLib/BROTLib/BROTLib/Telescope/FB_BaseTelescopeControl.TcPOU`.
+
+## Status 2026-11-04
+
+Checked against `origin/develop` on 2026-11-04: BROTLib `c7b7f07` (0.17.1), HalfBROT `781044c`, MONETcommon `d029ffc`
+(0.15.1, pins BROTLib 0.17.1 / HalfBROT 0.11.1 / AstroBROT 0.5.0), IAG50cm `5b5b71d` (pins BROTLib 0.17.0). MONETcommon
+steps below were written by another agent under MONETcommon#24
+(`MONETcommon/specs/plans/2026-11-02-reference-implementation-issue-24.md`); that plan says its code is not compiled
+or run on a PLC. Tim reported the test run as good on 2026-11-04 (not independently verified by me).
+
+**Done since 2026-10-21 (all [verified] by git log / file listing):**
+
+- 4.1 pure units in BROTLib (BROTLib#126), 4.2 generic `FB_StopTransaction` (BROTLib#155). MONETcommon now calls BROTLib's copies (#24 step 6, MONETcommon#200).
+  Still local in MONETcommon: `F_CommandAcceptance` and `FB_MonetStopTransaction` (check why the former stayed).
+- #24 step 3: `E_StageMachine`, `F_StageAbort` (policy table of the stage-machine guards, with `F_StageAbort_Tests`).
+  This is the dropped 3.5 of step 3 below, done as a table. It is the input shape step 5.1 should take over.
+- #24 step 4a/4b: `FB_MonetTelescopeTelemetry`, `_ComputeTargets()` (the D3 hook name).
+- #24 step 5 (MONETcommon#199): the command inputs `bPower`, `bGoHome`, `bPark`, `bTrack`, `bGoto`, `bSlew`, `bStop`,
+  `bReset` are read-only and edge-triggered in `FB_MonetTelescopeControl`; request state is read from `b*Active`.
+  Step 5.1/5.4 must build on this request model, not on the level flags described in D3 and the tables above.
+- #24 step 7 (safe-state fixes): E-stop stops the covers, cabinet over-temperature requests roof close, others per its plan.
+- `ST_TelescopeConfig` clash (5.3 blocker) **resolved**: IAG50cm uses BROTLib's struct (IAG50cm#210); BROTLib's struct
+  carries `houranglePark`, `declinationPark`, `hourangleHome`, `declinationHome`.
+- `FB_RaDecTelescopeControl` finished (71743dc, IAG50cm#17). `FB_TelescopeControl` in IAG50cm still has no base class
+  (`IMPLEMENTS I_RaDecTelescope, I_Telescope`, 3317 lines).
+- The MONETN copy is gone; two copies remain (BROTLib#25 text updated 2026-11-02).
+
+**Open, and what blocks it now:** nothing of the MONETcommon#24 work blocks the rest. 4.2 and 5.1 are pure BROTLib
+work. 4.3 shrinks to deleting `FB_MonetStopTransaction` (and its suite) after 4.2. 5.2 and 5.4 touch
+`FB_MonetTelescopeControl`; MONETcommon has no open PRs, so they can start once develop's CI is green. 5.3 is an
+IAG50cm change on the new struct. IAG50cm still needs its on-site and step-2 checks; none done for MONET/N and IAG50cm.
+
+**Decisions 1 and 2 confirmed by Tim, 2026-11-04** (reply "yes" to "confirm base class in BROTLib; go to 5.4 with 5.3 as
+a checkpoint"): base class stays in BROTLib; arbiter plus template body, stopping after 5.3 if 5.4 costs more than it
+saves. Decisions 5 and 6 still open.
 
 ## Agreed approach (Tim, 2026-10-21)
 
@@ -344,6 +378,8 @@ latched-level write-low (M), `Restart` (M), `bForced`/`bStuck` (M), motion-lock 
 after 3 scans. Test suite `FB_StopTransaction_Tests` = both existing suites (`FB_MonetStopTransaction_Tests`, IAG's
 `FB_StopTransaction_Tests`) re-expressed against the new block, plus `StopLoop_Sim_Tests`. Same BROTLib release as
 4.1 or the next.
+**Done 2026-11-04 (BROTLib#155, on develop, not released; CI build and BROTLibTests green, not run on a PLC):** `Telescope/FB_StopTransaction.TcPOU`, 4 axes, union of both blocks. Unified rules, to check at 4.3/4.4: a disabled axis is never sent a stop (MONET #150; IAG sent it before), a StopDone in the issue scan is a leftover (MONET), the transaction needs `nSettleScans` scans at rest as well as without a lock (IAG had only the lock count), the internal 30 s timeout of IAG is `tTimeout` (`bTimedOut`, `abNoDone`, `bForced` = IAG `bReleasedByTimeout`). Suites `FB_StopTransaction_Tests` (MONET's 14 tests plus the IAG cases the MONET block lacked), `StopLoop_Sim_Tests`, `FB_StopRig` and `FB_MockStopAxis` moved to BROTLibTests. IAG50cm has a local `FB_StopTransaction` with the same name; whether the local one shadows the library one is [unverified], so IAG adopts by deleting the local block in 4.4(a).
+
 
 **4.3 MONETcommon adopts:** pin the new BROTLib (`MONETcommon.plcproj:125`, tests `:110`) and HalfBROT if the chain
 needs it (below), delete the moved POUs and `FB_MonetStopTransaction`, remove the moved suites from MONETcommonTests.
@@ -411,6 +447,8 @@ MONETS/MONETN, as the #122 plan does. One CI check would settle it.
 policies as inputs. `FB_CommandArbiter_Tests` in BROTLibTests: the arbitration rows of both telescopes as tables
 (stop beats all; park vs power-on per policy input; abort stop before the next command; latest move wins; idle clears
 axis commands; per-command timeout restart). Release: BROTLib minor, additive.
+
+**Written 2026-11-04 (branch `feat/command-arbiter`, CI is the first compile):** `Telescope/FB_CommandArbiter.TcPOU` and `FB_CommandArbiter_Tests` (22 tests). Inputs are the request flags (`bStop`, `bPower`, `bInitializing`, `bPark`, `bGoHome`, `bGoto`, `bSlew`, `bTrack`), the state (`bError`, `bEmergencyPark`, `bReady`, `bBusy`, `bStopped`, `bMoveAbortPending`) and one policy input `bParkWinsOverPowerOn` (TRUE = MONET #87, FALSE = IAG today). Outputs are `eCommand` plus what the caller applies: `bClear*` (drop a request), `bInterrupt*` (run that stage machine once with `bInterrupted`), `bAbortStartup`, `bSetMoveAbortPending`, `bPowerAbortedByPark`, `bCommandChanged`. It reproduces the order of `FB_MonetTelescopeControl` (MONETcommon `d029ffc`, lines 764-880) and keeps the request flags, the acceptance (`F_CommandAcceptance`), the supersede logic, the emergency-park requests and the per-command timer in the caller. The automatic-stop rule of IAG (#27) is the caller passing `bStop` only for a user stop; IAG's "stop clears only the first flag" is not reproduced (decision 3: MONET's fix wins). `F_StageAbort` stays in MONETcommon for now: it is a policy per stage machine, used inside the stage machines, not by the arbiter. Not in 5.1: the stop transaction call, the per-command timeout timer. 5.2 puts MONETcommon on it.
 
 **5.2 MONETcommon on the arbiter.** M's arbitration block replaced by the arbiter call; stage machines unchanged.
 Acceptance: every step-1 suite green without edits. Release: MONETcommon minor, on-site full check (MONETcommon#63/#64
