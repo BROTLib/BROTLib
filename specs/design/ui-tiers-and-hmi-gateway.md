@@ -808,7 +808,7 @@ instantiates `MAIN.Hmi`:
 - Properties are not ADS-readable without `{attribute 'monitoring' := 'call'}`; the gateway therefore publishes a
   plain output struct instead of properties.
 - To verify in a spike before implementation (O6): RPC methods of an FB that lives in a **library** are callable;
-  TcHMI (the PoC uses 1.12) maps them as server symbols and passes typed arguments; the thread context of the call
+  TcHMI (Engineering 1.12.762.60, the pinned version) maps them as server symbols and passes typed arguments; the thread context of the call
   (the mailbox makes the design independent of it); effect of `TcRpcEnable` in the ADS extension's
   `IGNORED_PLC_ATTRIBUTES`.
 - BROTweb writes no PLC variable. Every state change goes through an RPC.
@@ -914,7 +914,7 @@ numbers are not reused. Still open:
 
 | # | Question | Notes |
 |---|---|---|
-| O6 | ADS/TcHMI spike | RPC in a library FB, TcHMI Engineering 14.3.221.1 (server 22.x) mapping of RPC methods, call thread, `IGNORED_PLC_ATTRIBUTES`, hiding interface inputs. |
+| O6 | ADS/TcHMI spike | RPC in a library FB, TcHMI Engineering 1.12.762.60 (server 19.0.224) mapping of RPC methods, call thread, `IGNORED_PLC_ATTRIBUTES`, hiding interface inputs. |
 | O7 | Jog speeds | NC slow/fast manual velocities per axis (MONETS, MONETN, IAG50cm); is the slow mode slow enough for a touch screen; `Jog_Slow` extension of `FB_Axis` (2.2). |
 | O10 | Focus and axis enable in MONET manual mode | MONET focus homing is `bManualHome` (not in `I_Focus`); behaviour of `Focus.Position` writes in manual; whether the HMI may switch axis enables (MONET elevation depends on the brake key). |
 | O16 | IAG50cm switch polarity | `bIMode` TRUE = Local per the comment; check on site. |
