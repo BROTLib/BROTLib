@@ -48,7 +48,7 @@ or run on a PLC. Tim reported the test run as good on 2026-11-04 (not independen
   per-command timer and the stop transaction calls stay in `FB_MonetTelescopeControl`. A waiting command still keeps the last `TCS_command`;
   the idle scan is derived in the telescope (`bRequestIdle`), because the arbiter says `no_command` for both. The stage machines are interrupted
   in one fixed order. The MONETcommon rig suites ran unedited (CI), that is the only check so far.
-- Released as **MONETcommon 0.16.0**. Re-pin PRs open: MONETS#89 and MONETN#68 (MONETcommon 0.16.0, BROTLib 0.18.0), not merged, not activated.
+- Released as **MONETcommon 0.16.0**. Re-pin PRs MONETS#89 and MONETN#68 (MONETcommon 0.16.0, BROTLib 0.18.0) merged into `develop` on 2026-11-04, not released, not activated on either telescope.
 - On-site checks for this build: IAG repo, `specs/plans/2026-10-12-monet-telescope-test-plan.md`, test T18 (MONET/S first, then a compact run on MONET/N).
 
 Note for the arbiter and for 5.3/5.4: `no_command` means "nothing to dispatch in this scan"; a caller that wants the old behaviour (keep the
