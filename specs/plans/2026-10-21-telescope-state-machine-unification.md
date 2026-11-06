@@ -1,6 +1,6 @@
 # Telescope state machine: pin it with tests, then unify it in BROTLib (BROTLib#25)
 
-**Status: in progress. Steps 0-3, 4.1, 4.2, 4.3, 5.1 and 5.2 done and released; 4.4, 5.3 and 5.4 open. Status refreshed 2026-11-04 (see "Status 2026-11-04").** Original text below describes the 2026-10-21 base. Base commits: BROTLib `c42312e` (`develop`, last
+**Status: in progress. Steps 0-3, 4.1, 4.2, 4.3, 5.1, 5.2 and the neutral half of 5.3 done; 4.4, the arbiter half of 5.3 and 5.4 open. Status refreshed 2026-11-06 (see "Remaining work 2026-11-06").** Original text below describes the 2026-10-21 base. Base commits: BROTLib `c42312e` (`develop`, last
 release v0.9.0, #93/#92 merged but not released), MONETcommon `d9d7a6c` (0.9.3), HalfBROT `60453e2` (0.5.7), IAG50cm
 `2e09ab4` (0.4.0), MONETS `3f3e40d`, MONETN `da8fea5`. Related: BROTLib#25 (state machine copied), BROTLib#67 (SoE
 reset copies), MONETcommon#36 (TcUnit for `FB_MonetTelescopeControl`), MONETcommon#24 (design finding D), the
@@ -67,6 +67,27 @@ The IAG50cm test net (plan step 2) and an on-site check on IAG50cm come first. 5
 **Decisions 1 and 2 confirmed by Tim, 2026-11-04** (reply "yes" to "confirm base class in BROTLib; go to 5.4 with 5.3 as
 a checkpoint"): base class stays in BROTLib; arbiter plus template body, stopping after 5.3 if 5.4 costs more than it
 saves. Decisions 5 and 6 still open.
+
+## Remaining work 2026-11-06
+
+Checked against merged PRs on 2026-11-06. Correction to the notes above: the neutral half of 5.3 is **done** (IAG50cm#213, merged
+2026-11-04: `FB_TelescopeControl EXTENDS FB_RaDecTelescopeControl`, 74 base declarations deleted, body and methods unchanged; CI
+compile and IAG50cmTests were its only check, not run on a PLC). The "still has no base class" bullet in the 2026-11-04 status
+is out of date. Nothing below has been run on a PLC or telescope.
+
+| Step | What | Needs first |
+|---|---|---|
+| 4.4 | IAG50cm adopts the BROTLib command units (`F_CommandAcceptance`, `F_ErrorParkRequest`, `F_ResetMoveAbort`, ...) and `FB_StopTransaction`, one unit per PR | Tim's decision per unit where IAG's behaviour changes (decision 3); IAG50cm step-2 suites green |
+| 5.3b | IAG50cm on `FB_CommandArbiter` with `bParkWinsOverPowerOn := FALSE`, `bStop` only for a user stop | the IAG50cm owner confirms park vs power-on; 4.4 for the stop transaction |
+| 5.4 | template body with abstract hooks in `FB_BaseTelescopeControl` (breaking) | checkpoint: decide after 5.3b whether it pays (decision 2); closes BROTLib#25 and MONETcommon#24 item 2 |
+| 6 | on-site checks for the released builds | T18 of IAG's `specs/plans/2026-10-12-monet-telescope-test-plan.md`, MONET/S first, then MONET/N compact; IAG50cm checklist |
+
+Release chain if 5.4 is done: BROTLib minor, HalfBROT re-pin and release (`FB_PendantControl` references the base), MONETcommon
+minor, MONETS/MONETN re-pin, IAG50cm; on-site check on all three telescopes. Keep it a separate release from 5.1-5.3 (decision 6).
+
+Small leftovers: delete the copy of `F_CommandAcceptance` still compiled in MONETcommon; optional `bIdle` output on
+`FB_CommandArbiter` (additive, see the note under 5.2). Open decisions: 5 (IAG cabinet in tests) and 6 (version numbers); park vs
+power-on for IAG still needs the IAG50cm owner. No dates or estimates are set; the order is 4.4, 5.3b, checkpoint, 5.4.
 
 ## Agreed approach (Tim, 2026-10-21)
 
