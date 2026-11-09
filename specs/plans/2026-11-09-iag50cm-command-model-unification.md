@@ -191,7 +191,8 @@ Survey result (2026-11-09, repos on the build PC) [verified for what is in the r
 - [ ] The IAG50cm control PC (scripts, XAE watch lists, a Visu outside the repo): not visible from the repos. **Ask Tim.**
 - [ ] pyBROT / pyobs-brot / brotgui: no code of them on the build PC; MC 4c says MQTT verbs only. **Ask Tim** whether the IAG deployment
   uses the same clients.
-- [ ] Visu `Safety.TcVIS`: only the grep done earlier. **Tim** opens it once in XAE or greps the XML for `telescopeControl`.
+- [x] Visu: Tim (2026-11-09): IAG50cm has no Visu in use. The `Safety.TcVIS` binding question is closed for now. A later Visu will be
+  the same as MONET's and must use the methods or the MONETS#72 helper-bit pattern, never write the eight inputs directly.
 - [x] Readers: the live IAG ADS tools `Ads-Watch.ps1` and `Ads-Capture.ps1` now also read the `b*Active` latches
   ([IAG#18](https://github.com/BROTLib/IAG/pull/18), merge with the release). The dated copies (`Ads-Watch-t21/-t36`, `docs/data`) stay.
 - [x] Writers in procedures: only the two runbook lines named above (`bPower := TRUE`, `bReset := TRUE` over ADS); both are one-shot
