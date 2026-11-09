@@ -182,14 +182,20 @@ case-insensitive grep). Found readers: the IAG repo ADS tools read `MAIN.telesco
 not code): `IAG/specs/plans/2026-10-06-iag50cm-cold-start-test-on-new-libraries.md:22` (`bPower := TRUE` over ADS) and
 `2026-10-09-iag50cm-telescope-test-plan.md:94` (`bReset := TRUE` over ADS).
 
-To do in step 0 [unverified so far]:
-- [ ] BROTweb / HMI gateway (`BROTweb`, `BROTLib-wt-hmitier`, `HmiSpike`): MC 4c found `ADS.PLC1.MAIN.TelescopeControl.bPark/bSlew/bTrack`
-  writes for MONET (`MONETcommon/specs/plans/2026-11-02-step-4c-client-check.md:78`); check whether any configuration routes to the
-  IAG50cm PLC (`MAIN.telescopeControl`, lower case) and whether it is deployed.
-- [ ] The IAG50cm control PC: scripts, XAE watch lists or a Visu project outside the repo that write the inputs (ask Tim).
-- [ ] pyBROT / pyobs-brot / brotgui: MC 4c says MQTT verbs only; confirm the IAG deployment uses the same clients.
-- [ ] Visu: open `Safety.TcVIS` once in XAE (Tim) or grep the XML for `telescopeControl` in every attribute, to rule out a binding the
-  grep missed.
+Survey result (2026-11-09, repos on the build PC) [verified for what is in the repos; the items marked "ask Tim" are not]:
+- [x] BROTweb / HMI gateway: no configuration routes to the IAG50cm PLC. A grep of `BROTweb` (without `Packages`), `HmiSpike`,
+  `BROTLib-wt-hmitier` and `AstroBROT` finds no `telescopeControl.b(Power|Park|GoHome|Goto|Slew|Track|Stop|Reset)`; the server configs
+  hold no such symbol. `BROTweb/docs/design.md:175` states that the 26 old `MAIN.TelescopeControl.*` mappings (direct writes of
+  `bInit`/`bPark`/`bSlew`/`bTrack`) are not carried over, and `docs/m1/symbols.md:63` excludes the internal flags. The middle tier uses
+  the methods. **No writer.**
+- [ ] The IAG50cm control PC (scripts, XAE watch lists, a Visu outside the repo): not visible from the repos. **Ask Tim.**
+- [ ] pyBROT / pyobs-brot / brotgui: no code of them on the build PC; MC 4c says MQTT verbs only. **Ask Tim** whether the IAG deployment
+  uses the same clients.
+- [ ] Visu `Safety.TcVIS`: only the grep done earlier. **Tim** opens it once in XAE or greps the XML for `telescopeControl`.
+- [x] Readers: the live IAG ADS tools `Ads-Watch.ps1` and `Ads-Capture.ps1` now also read the `b*Active` latches
+  ([IAG#18](https://github.com/BROTLib/IAG/pull/18), merge with the release). The dated copies (`Ads-Watch-t21/-t36`, `docs/data`) stay.
+- [x] Writers in procedures: only the two runbook lines named above (`bPower := TRUE`, `bReset := TRUE` over ADS); both are one-shot
+  writes, so the procedure note applies: an ADS write is a one-shot edge, write FALSE before the next TRUE, prefer the MQTT verb.
 
 Outcome per finding: **no writer** -> step 1 as written. **Reader** (ADS tools) -> change it to `b*Active` in an IAG repo PR merged with
 the step-1 release. **Writer that relies on the block clearing the flag** (button/TOGGLE pattern) -> change it to the MQTT verb or to a
