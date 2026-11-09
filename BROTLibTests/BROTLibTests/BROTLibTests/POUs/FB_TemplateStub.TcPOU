@@ -31,6 +31,22 @@ END_VAR
       <ST><![CDATA[SUPER^();
 ]]></ST>
     </Implementation>
+    <Method Name="Seed" Id="{8b1d6a33-7a18-48c6-820f-933dbc847cec}">
+      <Declaration><![CDATA[// Test seam: sets requests of the base block that the tests cannot write from outside.
+METHOD Seed
+VAR_INPUT
+	bSlew, bGoto, bGoHome, bAbort, bSupersede	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSlewActive := bSlew;
+bGotoActive := bGoto;
+bGoHomeActive := bGoHome;
+bMoveAbortPending := bAbort;
+bSupersedeRequest := bSupersede;
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="_ReadInputs" Id="{078c48cb-3190-40db-99f8-d69a9aea4844}">
       <Declaration><![CDATA[METHOD PROTECTED _ReadInputs
 ]]></Declaration>

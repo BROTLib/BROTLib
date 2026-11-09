@@ -25,7 +25,7 @@ Edge_Memory_Follows_The_Inputs_At_The_End_Of_The_Scan();
       <Declaration><![CDATA[// A held bSlew is one command: _AcceptMove runs on the rising edge only (BROTLib#25 step 5.4).
 METHOD PRIVATE Held_Move_Input_Is_Decided_Once
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 	i	: INT;
 END_VAR
 ]]></Declaration>
@@ -46,7 +46,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// Slew() and a rising bSlew before the next scan are one command.
 METHOD PRIVATE Method_And_Input_Edge_In_One_Scan_Count_Once
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -66,7 +66,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// A move the hook rejects sets no request and runs no accepted-edge hook.
 METHOD PRIVATE Rejected_Move_Sets_No_Request
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -85,17 +85,13 @@ TEST_FINISHED();
       <Declaration><![CDATA[// In an error the move requests, the supersede request and the abort stop are dropped.
 METHOD PRIVATE Error_Clears_The_Moves_And_The_Abort_Stop
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Error_Clears_The_Moves_And_The_Abort_Stop');
 tel.bRaiseError := TRUE;
-tel.bSlewActive := TRUE;
-tel.bGotoActive := TRUE;
-tel.bGoHomeActive := TRUE;
-tel.bMoveAbortPending := TRUE;
-tel.bSupersedeRequest := TRUE;
+tel.Seed(bSlew := TRUE, bGoto := TRUE, bGoHome := TRUE, bAbort := TRUE, bSupersede := TRUE);
 tel();
 AssertTrue(Condition := tel.bError, Message := 'the hook set the error');
 AssertFalse(Condition := tel.bSlewActive OR tel.bGotoActive OR tel.bTrackActive OR tel.bGoHomeActive, Message := 'moves dropped');
@@ -109,13 +105,13 @@ TEST_FINISHED();
       <Declaration><![CDATA[// An accepted goto replaces the running slew: the slew request goes, the goto stays, the timeout restarts, the axes are stopped first.
 METHOD PRIVATE Supersede_Keeps_The_Latest_Move
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[TEST('Supersede_Keeps_The_Latest_Move');
 tel.bReplaceOnGoto := TRUE;
-tel.bSlewActive := TRUE;
+tel.Seed(bSlew := TRUE);
 tel.bGoto := TRUE;
 tel();
 AssertFalse(Condition := tel.bSlewActive, Message := 'the replaced slew is dropped');
@@ -132,7 +128,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// Park() during a stop is queued; the release of the stop frees it.
 METHOD PRIVATE Park_Sent_During_A_Stop_Runs_When_The_Stop_Settles
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -156,7 +152,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// The stop reaches _DoStop, and the timeout of the command is asked for that command.
 METHOD PRIVATE Stop_Is_Dispatched_With_Its_Timeout
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -174,7 +170,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// While _ParkPreStep says TRUE the park is not given to the arbiter.
 METHOD PRIVATE Park_Pre_Step_Holds_The_Park_Back
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -196,7 +192,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// The order of the hooks within a scan is the template order.
 METHOD PRIVATE Hooks_Run_In_The_Order_Of_The_Template
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -220,7 +216,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// The telemetry is sent through the hook, with the period the hook gives.
 METHOD PRIVATE Telemetry_Hook_Runs_On_Its_Period
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 	i	: INT;
 END_VAR
 ]]></Declaration>
@@ -238,7 +234,7 @@ TEST_FINISHED();
       <Declaration><![CDATA[// The b*Checked memory is the input of the last scan; a released input can start a new command.
 METHOD PRIVATE Edge_Memory_Follows_The_Inputs_At_The_End_Of_The_Scan
 VAR
-	tel	: FB_TemplateStub;
+	tel	: FB_TemplateStub(comm := 0);
 END_VAR
 ]]></Declaration>
       <Implementation>
