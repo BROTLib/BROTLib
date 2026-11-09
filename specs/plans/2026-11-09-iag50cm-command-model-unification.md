@@ -189,8 +189,8 @@ Survey result (2026-11-09, repos on the build PC) [verified for what is in the r
   `bInit`/`bPark`/`bSlew`/`bTrack`) are not carried over, and `docs/m1/symbols.md:63` excludes the internal flags. The middle tier uses
   the methods. **No writer.**
 - [ ] The IAG50cm control PC (scripts, XAE watch lists, a Visu outside the repo): not visible from the repos. **Ask Tim.**
-- [ ] pyBROT / pyobs-brot / brotgui: no code of them on the build PC; MC 4c says MQTT verbs only. **Ask Tim** whether the IAG deployment
-  uses the same clients.
+- [x] pyBROT / pyobs-brot / brotgui: Tim (2026-11-09): the IAG deployment uses only MQTT, like MONET. The clients use the verbs, not the
+  inputs. **No writer.**
 - [x] Visu: Tim (2026-11-09): IAG50cm has no Visu in use. The `Safety.TcVIS` binding question is closed for now. A later Visu will be
   the same as MONET's and must use the methods or the MONETS#72 helper-bit pattern, never write the eight inputs directly.
 - [x] Readers: the live IAG ADS tools `Ads-Watch.ps1` and `Ads-Capture.ps1` now also read the `b*Active` latches
