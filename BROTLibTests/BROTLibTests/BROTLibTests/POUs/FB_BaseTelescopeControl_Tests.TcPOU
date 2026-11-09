@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_BaseTelescopeControl_Tests" Id="{0f9b4f46-c7a2-4e49-9d50-45ca3ca3eec1}" SpecialFunc="None">
+    <Declaration><![CDATA[// Tests for the template body of BROTLib.FB_BaseTelescopeControl (BROTLib#25 step 5.4): the command edges, the supersede, the error and the
+// stop release, and the order of the hooks, with FB_TemplateStub (a telescope whose hooks are counters).
+FUNCTION_BLOCK FB_BaseTelescopeControl_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Held_Move_Input_Is_Decided_Once();
+Method_And_Input_Edge_In_One_Scan_Count_Once();
+Rejected_Move_Sets_No_Request();
+Error_Clears_The_Moves_And_The_Abort_Stop();
+Supersede_Keeps_The_Latest_Move();
+Park_Sent_During_A_Stop_Runs_When_The_Stop_Settles();
+Stop_Is_Dispatched_With_Its_Timeout();
+Park_Pre_Step_Holds_The_Park_Back();
+Hooks_Run_In_The_Order_Of_The_Template();
+Telemetry_Hook_Runs_On_Its_Period();
+Edge_Memory_Follows_The_Inputs_At_The_End_Of_The_Scan();
+]]></ST>
+    </Implementation>
+    <Method Name="Held_Move_Input_Is_Decided_Once" Id="{aedb19cb-b59a-4ac6-8357-b678f55621e4}">
+      <Declaration><![CDATA[// A held bSlew is one command: _AcceptMove runs on the rising edge only (BROTLib#25 step 5.4).
+METHOD PRIVATE Held_Move_Input_Is_Decided_Once
+VAR
+	tel	: FB_TemplateStub;
+	i	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Held_Move_Input_Is_Decided_Once');
+tel.bSlew := TRUE;
+FOR i := 1 TO 5 DO
+	tel();
+END_FOR
+AssertEquals_UINT(Expected := 1, Actual := tel.nAcceptMove, Message := 'decided once');
+AssertTrue(Condition := tel.bSlewActive, Message := 'the request is latched');
+AssertEquals_UINT(Expected := 1, Actual := tel.nMoveEdgeAccepted, Message := 'accepted once');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Method_And_Input_Edge_In_One_Scan_Count_Once" Id="{bd749bf4-8761-4044-b037-849896fa2223}">
+      <Declaration><![CDATA[// Slew() and a rising bSlew before the next scan are one command.
+METHOD PRIVATE Method_And_Input_Edge_In_One_Scan_Count_Once
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Method_And_Input_Edge_In_One_Scan_Count_Once');
+tel();
+tel.Slew(fAzimuth := 10.0, fAltitude := 45.0);
+tel.bSlew := TRUE;
+tel();
+AssertEquals_UINT(Expected := 1, Actual := tel.nAcceptMove, Message := 'the method decided it, the edge did not decide it again');
+AssertTrue(Condition := tel.bSlewActive, Message := 'latched');
+AssertEquals_LREAL(Expected := 45.0, Actual := tel.fElevation, Delta := 0.0001, Message := 'target written by the method');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Rejected_Move_Sets_No_Request" Id="{58f820e5-1928-4853-acb0-cf0f4518af3f}">
+      <Declaration><![CDATA[// A move the hook rejects sets no request and runs no accepted-edge hook.
+METHOD PRIVATE Rejected_Move_Sets_No_Request
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Rejected_Move_Sets_No_Request');
+tel.bAcceptMoves := FALSE;
+tel.bGoto := TRUE;
+tel();
+AssertEquals_UINT(Expected := 1, Actual := tel.nAcceptMove, Message := 'asked');
+AssertFalse(Condition := tel.bGotoActive, Message := 'no request');
+AssertEquals_UINT(Expected := 0, Actual := tel.nMoveEdgeAccepted, Message := 'no accepted-edge hook');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Error_Clears_The_Moves_And_The_Abort_Stop" Id="{256b5446-8f77-4813-8d59-49adc35aea3d}">
+      <Declaration><![CDATA[// In an error the move requests, the supersede request and the abort stop are dropped.
+METHOD PRIVATE Error_Clears_The_Moves_And_The_Abort_Stop
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Error_Clears_The_Moves_And_The_Abort_Stop');
+tel.bRaiseError := TRUE;
+tel.bSlewActive := TRUE;
+tel.bGotoActive := TRUE;
+tel.bGoHomeActive := TRUE;
+tel.bMoveAbortPending := TRUE;
+tel.bSupersedeRequest := TRUE;
+tel();
+AssertTrue(Condition := tel.bError, Message := 'the hook set the error');
+AssertFalse(Condition := tel.bSlewActive OR tel.bGotoActive OR tel.bTrackActive OR tel.bGoHomeActive, Message := 'moves dropped');
+AssertFalse(Condition := tel.bMoveAbortPending, Message := 'abort stop dropped');
+AssertFalse(Condition := tel.bSupersedeRequest, Message := 'supersede request dropped');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Supersede_Keeps_The_Latest_Move" Id="{42fff124-2c40-4dd6-9015-61aba7af37ad}">
+      <Declaration><![CDATA[// An accepted goto replaces the running slew: the slew request goes, the goto stays, the timeout restarts, the axes are stopped first.
+METHOD PRIVATE Supersede_Keeps_The_Latest_Move
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Supersede_Keeps_The_Latest_Move');
+tel.bReplaceOnGoto := TRUE;
+tel.bSlewActive := TRUE;
+tel.bGoto := TRUE;
+tel();
+AssertFalse(Condition := tel.bSlewActive, Message := 'the replaced slew is dropped');
+AssertTrue(Condition := tel.bGotoActive OR tel.TCS_command = E_TCSCommand.goto, Message := 'the goto stays');
+AssertEquals_UINT(Expected := 1, Actual := tel.nRestartMoveTimeout, Message := 'timeout restarted once');
+AssertTrue(Condition := tel.eRestartKeep = E_TCSCommand.goto, Message := 'for the kept command');
+AssertTrue(Condition := tel.bMoveAbortPending, Message := 'the axes are stopped before the goto starts');
+AssertFalse(Condition := tel.bSupersedeRequest, Message := 'the request is consumed');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Sent_During_A_Stop_Runs_When_The_Stop_Settles" Id="{d9e41a03-4212-4d8a-a075-951637b6b863}">
+      <Declaration><![CDATA[// Park() during a stop is queued; the release of the stop frees it.
+METHOD PRIVATE Park_Sent_During_A_Stop_Runs_When_The_Stop_Settles
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Sent_During_A_Stop_Runs_When_The_Stop_Settles');
+tel.Stop();
+tel.Park();
+AssertTrue(Condition := tel.bParkAfterStop, Message := 'queued behind the stop');
+AssertFalse(Condition := tel.bParkActive, Message := 'not yet requested');
+tel();
+AssertTrue(Condition := tel.bStopActive, Message := 'the stop runs while it has not settled');
+tel.bSettled := TRUE;
+tel();
+AssertFalse(Condition := tel.bStopActive, Message := 'the stop is released');
+AssertTrue(Condition := tel.bParkActive, Message := 'the queued park is requested');
+AssertFalse(Condition := tel.bParkAfterStop, Message := 'queue empty');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Is_Dispatched_With_Its_Timeout" Id="{c37cc323-ddc4-49bb-9936-453acd46469d}">
+      <Declaration><![CDATA[// The stop reaches _DoStop, and the timeout of the command is asked for that command.
+METHOD PRIVATE Stop_Is_Dispatched_With_Its_Timeout
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Is_Dispatched_With_Its_Timeout');
+tel.Stop();
+tel();
+AssertTrue(Condition := tel.TCS_command = E_TCSCommand.stop, Message := 'command stop');
+AssertTrue(Condition := tel.nDoStop >= 1, Message := '_DoStop called');
+AssertTrue(Condition := tel.eTimeoutAsked = E_TCSCommand.stop, Message := 'timeout of the stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Park_Pre_Step_Holds_The_Park_Back" Id="{a0be8c79-098c-4036-9039-ceaeb2555a2d}">
+      <Declaration><![CDATA[// While _ParkPreStep says TRUE the park is not given to the arbiter.
+METHOD PRIVATE Park_Pre_Step_Holds_The_Park_Back
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Park_Pre_Step_Holds_The_Park_Back');
+tel.bParkWaits := TRUE;
+tel.Park();
+tel();
+AssertTrue(Condition := tel.bParkHeld, Message := 'held');
+AssertTrue(Condition := tel.TCS_command <> E_TCSCommand.park, Message := 'not dispatched');
+AssertTrue(Condition := tel.bParkActive, Message := 'the request stays');
+tel.bParkWaits := FALSE;
+tel();
+AssertFalse(Condition := tel.bParkHeld, Message := 'released');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Hooks_Run_In_The_Order_Of_The_Template" Id="{0efdb16f-ac45-4873-8db4-268ed91f66ae}">
+      <Declaration><![CDATA[// The order of the hooks within a scan is the template order.
+METHOD PRIVATE Hooks_Run_In_The_Order_Of_The_Template
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Hooks_Run_In_The_Order_Of_The_Template');
+tel();
+AssertTrue(Condition := tel.nAtReadInputs < tel.nAtHandleReset, Message := 'inputs before reset');
+AssertTrue(Condition := tel.nAtHandleReset < tel.nAtReadErrors, Message := 'reset before errors');
+AssertTrue(Condition := tel.nAtReadErrors < tel.nAtErrorReaction, Message := 'errors before their reaction');
+AssertTrue(Condition := tel.nAtErrorReaction < tel.nAtComputeTargets, Message := 'reaction before targets');
+AssertTrue(Condition := tel.nAtComputeTargets < tel.nAtTimers, Message := 'targets before timers');
+AssertTrue(Condition := tel.nAtTimers < tel.nAtParkRequests, Message := 'timers before the automatic parks');
+AssertTrue(Condition := tel.nAtParkRequests < tel.nAtUpdateStatus, Message := 'parks before the status');
+AssertTrue(Condition := tel.nAtUpdateStatus < tel.nAtReleaseReset, Message := 'status before the release of the reset');
+AssertTrue(Condition := tel.nAtReleaseReset < tel.nAtSafeStateEndOfScan, Message := 'reset before the safe state');
+AssertTrue(Condition := tel.nAtSafeStateEndOfScan < tel.nAtEndOfScan, Message := 'safe state before the end of the scan');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Telemetry_Hook_Runs_On_Its_Period" Id="{88148052-401d-4bc0-9810-7efa982d3adc}">
+      <Declaration><![CDATA[// The telemetry is sent through the hook, with the period the hook gives.
+METHOD PRIVATE Telemetry_Hook_Runs_On_Its_Period
+VAR
+	tel	: FB_TemplateStub;
+	i	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Telemetry_Hook_Runs_On_Its_Period');
+FOR i := 1 TO 3 DO
+	tel();
+END_FOR
+AssertTrue(Condition := tel.nSendTelemetry >= 1, Message := '_SendTelemetry called with a zero period');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Edge_Memory_Follows_The_Inputs_At_The_End_Of_The_Scan" Id="{67d34596-2993-4b73-87e7-cc7160fb500c}">
+      <Declaration><![CDATA[// The b*Checked memory is the input of the last scan; a released input can start a new command.
+METHOD PRIVATE Edge_Memory_Follows_The_Inputs_At_The_End_Of_The_Scan
+VAR
+	tel	: FB_TemplateStub;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Edge_Memory_Follows_The_Inputs_At_The_End_Of_The_Scan');
+tel.bTrack := TRUE;
+tel();
+tel.bTrack := FALSE;
+tel();
+tel.bTrack := TRUE;
+tel();
+AssertEquals_UINT(Expected := 2, Actual := tel.nAcceptMove, Message := 'a second rising edge is a second command');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
