@@ -111,7 +111,7 @@ END_VAR
       <Implementation>
         <ST><![CDATA[TEST('Supersede_Keeps_The_Latest_Move');
 tel.bReplaceOnGoto := TRUE;
-tel.Seed(bSlew := TRUE);
+tel.Seed(bSlew := TRUE, bGoto := FALSE, bGoHome := FALSE, bAbort := FALSE, bSupersede := FALSE);
 tel.bGoto := TRUE;
 tel();
 AssertFalse(Condition := tel.bSlewActive, Message := 'the replaced slew is dropped');
