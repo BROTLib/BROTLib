@@ -119,12 +119,16 @@ organised into four layers:
    | `I_Comm` | Telemetry/log publishing (`Publish`, `PublishLog`) |
 
 2. **Telescope control** — base classes for the command/state layer. The
-   state machine itself is not in the library (see below):
+   cyclic body of the command model is in the base (since 0.20.0, #25), the
+   telescope-specific actions are in the derived blocks:
 
    - `FB_BaseTelescopeControl` — abstract base: the TCS command inputs and
-     `I_Telescope` methods, the variables the derived state machines share
-     (timers, events, and `fJd`/`fLst`, which the derived block must set), and
-     the MQTT telemetry (`_PublishTelemetry`).
+     `I_Telescope` methods, the cyclic body of the command model (request
+     latches, edge memory, `FB_CommandArbiter`, supersede, abort stop, park,
+     `FB_StopTransaction`) with 45 `PROTECTED` hook methods that a derived
+     block overrides (24 `ABSTRACT`, 21 with a default), the variables the
+     derived blocks share (timers, events, and `fJd`/`fLst`, which the derived
+     block must set), and the MQTT telemetry (`_PublishTelemetry`).
    - `FB_AltAzTelescopeControl` — Alt-Az extension: offset, derotator and DUT1
      inputs (`I_AltAzTelescope`) and their telemetry. The coordinate transforms
      and the pointing model are called by the derived block.
@@ -135,11 +139,12 @@ organised into four layers:
    **Command model** — the library defines the command enumeration
    `E_TCSCommand` (`no_command`, `gohome`, `park`, `track`, `goto`, `stop`,
    `slew`, `poweron`). The command-priority dispatching (`power > stop > park >
-   gohome > goto > slew > track > no_command`) and the stage-based sub-state
-   machines (`CASE nStage`) live in the concrete implementations, each with its
-   own copy (#25): MONETcommon's `FB_MonetTelescopeControl` (MONET/S and
-   MONET/N, derived from `FB_AltAzTelescopeControl`) and IAG50cm's standalone
-   `FB_TelescopeControl`. They report `fReadyState` (0 shutdown … 1 ready, −1
+   gohome > goto > slew > track > no_command`) is in the base body; the
+   stage-based sub-state machines (`CASE nStage`) of the commands are in the
+   hooks of the concrete implementations: MONETcommon's `FB_MonetTelescopeControl`
+   (MONET/S and MONET/N, derived from `FB_AltAzTelescopeControl`) and IAG50cm's
+   `FB_TelescopeControl`. Until those two move onto the base body (#25, steps
+   S6 and S8) they keep their own copy. They report `fReadyState` (0 shutdown … 1 ready, −1
    error), `nMotionState` (0 stopped / 1 moving / 8 tracking) and per-command
    timeouts as telemetry.
 
@@ -176,9 +181,9 @@ organised into four layers:
 - **`FB_BaseTelescopeControl`** — abstract base class for all telescope types.
   Provides the command interface (`E_TCSCommand`: e.g. `GoHome`, `GoTo`,
   `Track`, `Slew`, `Park`, `Stop`, `PowerOn`), coordinate handling and MQTT
-  telemetry publishing. The command state machine itself is not here — it's
-  a stage-based `CASE nStage` in each concrete implementation (see the note
-  below).
+  telemetry publishing, and the cyclic body of the command model; the
+  telescope-specific actions are `PROTECTED` hook methods of the derived
+  block (breaking in 0.20.0: a derived block implements the 24 abstract hooks).
 - **`FB_AltAzTelescopeControl`** — Alt-Az extension: offset, derotator and
   DUT1 inputs and their telemetry. MONETcommon's `FB_MonetTelescopeControl`
   derives from it and calls the pointing model
