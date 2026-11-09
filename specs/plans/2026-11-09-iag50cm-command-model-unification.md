@@ -188,7 +188,7 @@ Survey result (2026-11-09, repos on the build PC) [verified for what is in the r
   hold no such symbol. `BROTweb/docs/design.md:175` states that the 26 old `MAIN.TelescopeControl.*` mappings (direct writes of
   `bInit`/`bPark`/`bSlew`/`bTrack`) are not carried over, and `docs/m1/symbols.md:63` excludes the internal flags. The middle tier uses
   the methods. **No writer.**
-- [ ] The IAG50cm control PC (scripts, XAE watch lists, a Visu outside the repo): not visible from the repos. **Ask Tim.**
+- [x] The IAG50cm control PC: Tim (2026-11-09): nothing runs on the control PCs that is not in the repos. **No writer.**
 - [x] pyBROT / pyobs-brot / brotgui: Tim (2026-11-09): the IAG deployment uses only MQTT, like MONET. The clients use the verbs, not the
   inputs. **No writer.**
 - [x] Visu: Tim (2026-11-09): IAG50cm has no Visu in use. The `Safety.TcVIS` binding question is closed for now. A later Visu will be
