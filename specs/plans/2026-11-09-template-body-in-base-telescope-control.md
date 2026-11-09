@@ -1,6 +1,6 @@
 # Template body in `FB_BaseTelescopeControl` (BROTLib#25 step 5.4, IAG plan step 4)
 
-**Status: proposed, nothing implemented, compiled or run.** Written 2026-11-09 from the code only. It is the plan for the step that
+**Status 2026-11-09: S1-S8 are implemented, merged and released; compiled and tested by CI only, nothing run on a telescope yet.** BROTLib 0.20.0 (S4, #164), MONETcommon 0.19.0 (S2, S6: #238, #243; pins HalfBROT 0.13.0 because HalfBROT 0.14.0 needs `stOut` in the test mocks), IAG50cm 0.10.0 (S1, S3, S8; 0.9.0 was never released), HalfBROT and MONETS/MONETN re-pinned without a release (HalfBROT#170, MONETS#99, MONETN#75; Q4 and the MONETS/MONETN patch releases are open). Deviations found in the build: 44 hooks in MONETcommon (45 in the base), `_DoPowerOn` in IAG50cm is split into `_PowerOnStage` and a void hook, IAG50cm's `Park` returned FALSE where the base returns TRUE (unused). Open: the on-site checks (full download expected, note the installed versions first). Written from the code only. It is the plan for the step that
 `2026-11-09-iag50cm-command-model-unification.md` keeps as "Step 4 (checkpoint)" and `2026-10-21-telescope-state-machine-unification.md`
 calls 5.4: the shared command body of the two telescope controls moves into `FB_BaseTelescopeControl` as a template body with hooks,
 and MONETcommon's `FB_MonetTelescopeControl` (AltAz) and IAG50cm's `FB_TelescopeControl` (RaDec) implement only what differs.
