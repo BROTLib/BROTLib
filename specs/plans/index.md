@@ -87,3 +87,10 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   single runner per wave. Main saving: `release.yml` posts the `build` status on the version-only bump commit instead of
   dispatching a rebuild (17 -> 10), plus pin-PR automation in wave order and batching. Workflows of all eight repos.
   **proposed**, nothing changed
+- [2026-11-09-iag50cm-command-model-unification.md](2026-11-09-iag50cm-command-model-unification.md) —
+  IAG50cm's `FB_TelescopeControl` on MONETcommon's command model (Tim, 2026-11-09: MONET wins where they differ): read-only
+  edge-triggered inputs with `b*Active` latches, acceptance at arrival, supersede, abort stop, stop release on settle, reset abort,
+  `FB_CommandArbiter` with `bParkWinsOverPowerOn := TRUE`; IAG-specific park/sweep/limit logic as a park pre-step and post-hooks;
+  divergence table, steps 0-3 one PR each, template body (5.4) as a go/no-go checkpoint. **proposed**, nothing implemented; open:
+  reset scope without an error, pending park on a limit stop, power-on during the in-place park, release cadence, stuck-stop reset
+  (BROTLib#25)
