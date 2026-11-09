@@ -622,16 +622,25 @@ METHOD PROTECTED _AutoStop
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The feedback of this scan (axes and the like).
 METHOD PROTECTED ABSTRACT _ReadInputs
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_HandleReset" Id="{fe2f59b2-8063-4b40-bbd0-53baf9cd8b14}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The reset request of this scan.
 METHOD PROTECTED ABSTRACT _HandleReset
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_ReadErrors" Id="{b0d25ee2-c93a-4c6c-b05d-518912b4a42a}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Error ID, slew time and the error flags of this scan.
 METHOD PROTECTED ABSTRACT _ReadErrors
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_ErrorReaction" Id="{c4b7e5e3-5fad-4fa8-9c82-fcb6cf798581}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). What the telescope does about the errors of this scan.
@@ -649,6 +658,9 @@ VAR_INPUT
 	eExcludeOwn	: E_TCSCommand;
 END_VAR
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_OnMoveEdgeAccepted" Id="{1ec565aa-c790-4d71-9617-848781d6b42c}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). A move input edge was accepted.
@@ -665,11 +677,17 @@ END_VAR
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). What an error does to the axes.
 METHOD PROTECTED ABSTRACT _ApplyError
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_ComputeTargets" Id="{d5c58aeb-4ed5-4671-9816-cd69385fc589}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The target of this scan and the reported position.
 METHOD PROTECTED ABSTRACT _ComputeTargets
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_Guards" Id="{f3e88a9d-2bca-4bfd-906b-53e1d818a428}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Guards that raise requests (horizon, poles, limits).
@@ -683,6 +701,9 @@ METHOD PROTECTED _Guards
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The timers of the state machines.
 METHOD PROTECTED ABSTRACT _Timers
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_RestartMoveTimeout" Id="{46eb2ca8-59a0-4e5a-b556-092200e795f1}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The replacement of a move gets its own timeout.
@@ -691,6 +712,9 @@ VAR_INPUT
 	eKeep	: E_TCSCommand;
 END_VAR
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_ParkRequests" Id="{72dd201a-a72a-4b24-b162-e1612ae1a5b3}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The automatic parks (error park, cover error, E-stop / safety error).
@@ -776,6 +800,9 @@ METHOD PROTECTED _AfterArbiter
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). No request: drop the commands to the axes.
 METHOD PROTECTED ABSTRACT _DropAxisCommands
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_OnCommandChanged" Id="{bc2292c1-e94f-4c4c-a9a5-3d7ef75ec361}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). TCS_command changed.
@@ -789,36 +816,57 @@ METHOD PROTECTED _OnCommandChanged
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the power-on.
 METHOD PROTECTED ABSTRACT _DoPowerOn
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_DoPark" Id="{3cb7ccb1-0f79-46da-a43a-ed74d674b4f1}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the park.
 METHOD PROTECTED ABSTRACT _DoPark
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_DoGoHome" Id="{a9781b43-b787-4aae-921c-8f3bd558868b}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the home move.
 METHOD PROTECTED ABSTRACT _DoGoHome
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_DoGoto" Id="{023abf2f-6cd4-4d36-b3f4-ddf72ec28059}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the goto.
 METHOD PROTECTED ABSTRACT _DoGoto
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_DoSlew" Id="{6566ca35-5fa3-4b4f-92f8-ab635d187a3c}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the slew.
 METHOD PROTECTED ABSTRACT _DoSlew
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_DoTrack" Id="{b0e64787-bf1f-4e74-b677-a9a549fb4e74}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the track.
 METHOD PROTECTED ABSTRACT _DoTrack
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_DoStop" Id="{04e70cd6-c407-4a36-a857-3470c8d371fa}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Calls the stage machine of the stop.
 METHOD PROTECTED ABSTRACT _DoStop
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_CommandTimeout" Id="{2a8cf878-2468-4f5f-ba0d-ee92df968bc7}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The timeout of a command.
@@ -827,6 +875,9 @@ VAR_INPUT
 	eCommand	: E_TCSCommand;
 END_VAR
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_AfterDispatch" Id="{797f4dae-575c-4ab6-9cd2-9ab21cac26f4}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). After the dispatch of the command.
@@ -840,6 +891,9 @@ METHOD PROTECTED _AfterDispatch
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The status outputs (bReady, bTracking, bStopped, ...).
 METHOD PROTECTED ABSTRACT _UpdateStatus
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_ReadyStateParking" Id="{ace8e091-9ab7-4f69-a6e8-75c7912a9184}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The Parking input of the READY_STATE.
@@ -861,6 +915,9 @@ METHOD PROTECTED _IsSlewing : BOOL
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The stop has settled: bStop may be released.
 METHOD PROTECTED ABSTRACT _StopSettled : BOOL
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_OnAbortStopReleased" Id="{96bf4d90-78cd-4b96-8893-c13b14519d1b}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The abort stop has been released.
@@ -874,26 +931,41 @@ METHOD PROTECTED _OnAbortStopReleased
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Release of the reset request.
 METHOD PROTECTED ABSTRACT _ReleaseReset
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_SafeStateEndOfScan" Id="{a2d5a54b-3669-4f03-87db-c10efc816d60}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The safe-state handling at the end of the scan.
 METHOD PROTECTED ABSTRACT _SafeStateEndOfScan
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_TelemetryPeriod" Id="{bf21a4d2-9c18-44bc-99e8-15aec81af10a}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The period of the telemetry.
 METHOD PROTECTED ABSTRACT _TelemetryPeriod : TIME
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_SendTelemetry" Id="{afe55b2b-9ed7-4fe3-9678-323035a8e91a}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). Sends the telemetry.
 METHOD PROTECTED ABSTRACT _SendTelemetry : BOOL
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_LogEvents" Id="{8e86cd0b-e91d-430a-8a49-bfe56732ef9e}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). The log events of this scan.
 METHOD PROTECTED ABSTRACT _LogEvents
 ]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
     </Method>
     <Method Name="_EndOfScan" Id="{42545af6-a788-4a74-85c7-9dd599ed4a79}" FolderPath="template hooks\">
       <Declaration><![CDATA[// Hook of the template body (BROTLib#25 step 5.4). End of the scan, before the edge snapshot.
