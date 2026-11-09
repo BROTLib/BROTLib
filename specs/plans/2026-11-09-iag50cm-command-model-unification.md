@@ -422,15 +422,20 @@ PLC is Tim's. One IAG50cm release per step (1, 2, 3A+3B, 3C), so an on-site regr
    running power-on and mark the startup aborted (MONET: `MarkAborted` M:2082, `_PowerOn` guard M:1377)? (c) also request the safety
    acknowledge and run the axis reset passes (IAG today only with an error or a pending acknowledge, IAG#36/#59)?
    **Recommendation:** (b) yes, as MONET; (c) no, keep it gated: it pulses the safety relay for nothing.
+   **Decided (Tim, 2026-11-09): recommendation taken.** (b) yes, a reset without an error also aborts a running power-on; (c) no, the safety acknowledge and axis reset passes stay gated.
 2. **Q2 A pending park and an automatic limit stop.** MONET drops a pending park when its horizon guard stops (stop branch, A:84-102);
    IAG keeps it and homes out of the limit first (IAG#84). **Recommendation:** keep IAG's (park is the safe direction; via
    `bParkAfterStop`, 3B.1), and propose it to MONET later.
+   **Decided (Tim, 2026-11-09): recommendation taken.** Keep IAG's rule (IAG#84); propose it to MONET later.
 3. **Q3 `power=1` during the in-place park** (`bSafeParked`, up to 120 s, `stop` is ignored there, IAG#196). Today the power-on ends
    it (IAG#110). **Recommendation:** refuse it like a park in progress, reason "in-place park in progress, ends within 120 s".
+   **Decided (Tim, 2026-11-09): recommendation taken.** Refuse `power=1` during the in-place park, reason "in-place park in progress, ends within 120 s".
 4. **Q4 Release cadence.** One release per step (1, 2, 3A+3B, 3C) with a visit each, or 1+2 together. **Recommendation:** per step;
    step 1 only gets the short smoke check.
+   **Decided (Tim, 2026-11-09): recommendation taken.** One release per step.
 5. **Q5 Stuck-stop recovery by reset (3B.5)** resets an axis that hangs in Stopping at rest; IAG has the 30 s forced release
    (IAG#120). **Recommendation:** add it (MONET rule, faster exit), mock-tested; no provoked on-site check.
+   **Decided (Tim, 2026-11-09): recommendation taken.** Add stuck-stop recovery by reset (3B.5), mock-tested.
 
 ## 10. Not verified
 
