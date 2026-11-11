@@ -16,6 +16,8 @@ ActualPosition_Modulo_Reads_ModuloActPos();
 IsTracking_Envelope();
 IsTracking_Requires_Tracking();
 IsTracking_Modulo_Wrap_Known_Limitation();
+Feed_Velocity_Is_The_Fixed_Value_By_Default();
+Feed_Velocity_Follows_The_Fed_Position();
 Move_Is_Ignored_Without_Calibration();
 Home_Request_Is_Kept_While_Not_Homed();
 HomeActive_Is_Low_While_Idle();
@@ -300,6 +302,74 @@ fbAxis.Stop();
 fbAxis.MoveTo();
 fbAxis.Stop();
 AssertFalse(Condition := fbAxis.MovePending, Message := 'the ignored Stop() cancelled the pending move');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Feed_Velocity_Is_The_Fixed_Value_By_Default" Id="{9823a9cd-661e-4e32-b82b-30db852ecc76}">
+      <Declaration><![CDATA[// #167: FeedFromPosition is FALSE by default: the fed velocity is the old one (0.009 cap for 0.0 difference ramps), not the position derivative.
+METHOD PRIVATE Feed_Velocity_Is_The_Fixed_Value_By_Default
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Feed_Velocity_Is_The_Fixed_Value_By_Default');
+fbAxis.Tracking := TRUE;
+fbAxis.Position := 10.0;
+SetActPos(axisRef := axisRef, fValue := 10.0);
+fbAxis(AxisRef := axisRef);
+fbAxis.Position := 10.5;	// a 0.5 deg step in one scan would be 50 deg/s as a derivative
+fbAxis(AxisRef := axisRef);
+fbAxis(AxisRef := axisRef);
+AssertTrue(Condition := fbAxis.TrackVelocity <= 0.05, Message := 'the old fixed feed velocity (at most 0.05)');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Feed_Velocity_Follows_The_Fed_Position" Id="{a37cd07c-023c-47d6-bf50-341ae0bf6d64}">
+      <Declaration><![CDATA[// #167: with FeedFromPosition the fed velocity is the change of the fed position per CycleTime, signed by its direction, in the
+// first scan of a track request the old values are kept.
+METHOD PRIVATE Feed_Velocity_Follows_The_Fed_Position
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+	i		: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Feed_Velocity_Follows_The_Fed_Position');
+fbAxis.FeedFromPosition := TRUE;
+fbAxis.CycleTime := 0.01;
+fbAxis.Tracking := TRUE;
+SetActPos(axisRef := axisRef, fValue := 10.0);
+fbAxis.Position := 10.0;
+fbAxis(AxisRef := axisRef);
+AssertTrue(Condition := fbAxis.TrackVelocity <= 0.05, Message := 'first scan of the track request: the old value');
+// the fed position rises by 0.005 deg per scan: 0.5 deg/s
+FOR i := 1 TO 3 DO
+	fbAxis.Position := fbAxis.Position + 0.005;
+	fbAxis(AxisRef := axisRef);
+END_FOR
+AssertTrue(Condition := ABS(fbAxis.TrackVelocity - 0.5) < 1.0E-6, Message := 'velocity 0.5 deg/s');
+AssertTrue(Condition := fbAxis.Direction = 1, Message := 'direction +1');
+AssertTrue(Condition := fbAxis.TrackAcceleration < 0.0051, Message := 'constant velocity: acceleration at its floor');
+// falling
+FOR i := 1 TO 3 DO
+	fbAxis.Position := fbAxis.Position - 0.005;
+	fbAxis(AxisRef := axisRef);
+END_FOR
+AssertTrue(Condition := ABS(fbAxis.TrackVelocity - 0.5) < 1.0E-6, Message := 'speed 0.5 deg/s falling');
+AssertTrue(Condition := fbAxis.Direction = -1, Message := 'direction -1');
+// tracking ends: the next track request starts with the old values again
+fbAxis.Tracking := FALSE;
+fbAxis(AxisRef := axisRef);
+fbAxis.Tracking := TRUE;
+fbAxis.Position := fbAxis.Position + 5.0;
+fbAxis(AxisRef := axisRef);
+AssertTrue(Condition := fbAxis.TrackVelocity <= 0.05, Message := 'a new track request: the old value in its first scan');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

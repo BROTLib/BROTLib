@@ -16,6 +16,12 @@ VAR_INPUT
 	TrackVelocityRef: LREAL := 0.0;
 	// Tracking direction (-1,0,1)
 	TrackDirectionRef: INT := 0;
+	// #167: TRUE feeds MC_ExtSetPointGenFeed with the velocity and acceleration of the fed position (its change per
+	// CycleTime), signed, instead of the fixed values below that follow the position difference to the actual position.
+	// FALSE (default) keeps the old behaviour. Not used in the first scan of a track request.
+	FeedFromPosition: BOOL := FALSE;
+	// task cycle time (s) for FeedFromPosition
+	CycleTime: LREAL := 0.01;
 	// PosDiff for isTracking (arcsec)
 	TrackEnvelope: LREAL := 5.0;
 	// Enable movement in positive direction (considering limit switch)
@@ -115,6 +121,10 @@ VAR
 	TrackPosition:		LREAL;
 	TrackVelocity:		LREAL;
 	TrackAcceleration:	LREAL;
+	TrackPositionLast:	LREAL;	// fed position of the previous scan (#167)
+	TrackFeedVelocityLast:	LREAL;	// fed velocity of the previous scan (#167)
+	TrackFeedValid:		BOOL;	// TrackPositionLast is the fed position of the previous scan (#167)
+	TrackFeedVelocity:	LREAL;
 END_VAR
 
 VAR_IN_OUT
@@ -179,6 +189,25 @@ ELSE
 END_IF
 
 
+// #167: the velocity and acceleration of the fed position. The first scan of a track request has no previous position:
+// the old values are used there.
+IF FeedFromPosition AND Tracking AND TrackFeedValid AND CycleTime > 0.0 THEN
+	TrackFeedVelocity := (TrackPosition - TrackPositionLast) / CycleTime;
+	TrackVelocity := ABS(TrackFeedVelocity);
+	TrackAcceleration := MAX(ABS(TrackFeedVelocity - TrackFeedVelocityLast) / CycleTime, 0.005);
+	IF TrackFeedVelocity > 0.0 THEN
+		Direction := 1;
+	ELSIF TrackFeedVelocity < 0.0 THEN
+		Direction := -1;
+	ELSE
+		Direction := TrackDirectionRef;
+	END_IF
+ELSE
+	TrackFeedVelocity := 0.0;
+END_IF
+TrackPositionLast := TrackPosition;
+TrackFeedVelocityLast := TrackFeedVelocity;
+TrackFeedValid := Tracking;
 
 isTracking := Tracking AND ABS(Position - ActualPosition) < (TrackEnvelope/3600.0);
 // drops Execute on an error and re-arms on Reset or a new track request (#9), see F_SetpointEnableExecute
