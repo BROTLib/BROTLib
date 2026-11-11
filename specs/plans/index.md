@@ -96,7 +96,7 @@ IAG's specs 2026-09-20 (generic content, no IAG-private infrastructure/credentia
   (BROTLib#25)
 - [2026-11-09-template-body-in-base-telescope-control.md](2026-11-09-template-body-in-base-telescope-control.md) —
   BROTLib#25 step 5.4 / IAG plan step 4: the command skeleton of `FB_MonetTelescopeControl` and IAG50cm's `FB_TelescopeControl` as a
-  template body in `FB_BaseTelescopeControl` with 36 hook methods; go-condition status (3C week not yet run), side-by-side of both
+  template body in `FB_BaseTelescopeControl` with 45 hook methods (**implemented and released 2026-11-09: BROTLib 0.20.0, MONETcommon 0.19.0, IAG50cm 0.10.0; not yet run on a telescope**); go-condition status (3C week not yet run), side-by-side of both
   bodies, divergence table (gate and error-park placement moved on IAG first, `Track()` edge memory), staged go: local templates in
   each repo first (diffable), then BROTLib 0.20.0 and the pin chain; acceptance stays a hook (strict MONETcommon enums).
   **proposed**, nothing implemented; open: staged go, acceptance units, HalfBROT release, release of the local steps
