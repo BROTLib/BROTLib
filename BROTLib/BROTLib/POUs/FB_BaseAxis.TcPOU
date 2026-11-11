@@ -111,6 +111,20 @@ END_VAR
         </Implementation>
       </Get>
     </Property>
+    <Method Name="SetFeedFromPosition" Id="{3838c07d-7758-47d7-912a-96d6504599aa}">
+      <Declaration><![CDATA[// #167: sets FB_Axis.FeedFromPosition and CycleTime of the axis inside (an input of a nested block cannot be assigned from outside).
+METHOD SetFeedFromPosition
+VAR_INPUT
+	bFeedFromPosition	: BOOL;
+	fCycleTime			: LREAL;	// s
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbAxis.FeedFromPosition := bFeedFromPosition;
+fbAxis.CycleTime := fCycleTime;
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="_StartHoming" Id="{926ae9bb-4b2a-44f2-bb17-3dc0d44941f6}">
       <Declaration><![CDATA[// Start homing: call fbAxis.Home(<reference position>) (#62). Abstract, so every axis block has to say what its
 // reference is; a block that homes some other way (e.g. IAG50cm FB_LatchHome) implements it empty.
