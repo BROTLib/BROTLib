@@ -36,6 +36,16 @@ STRUCT
 	fDerotatorTrackMargin	: LREAL := 1.0;
 	fAzimuthTrackTimeCap	: LREAL := 14400.0;
 	fDerotatorTrackTimeCap	: LREAL := 14400.0;
+
+	// MONETcommon#272: the fast stop of the axes that are still healthy when another axis faults (the shared brake
+	// clamps at once): MC_Stop deceleration in deg/s^2 and jerk in deg/s^3. 0.0 (default) takes the NC axis
+	// parameters, i.e. the normal stop. Keep them within the NC DecelerationMaximum of the axis.
+	fAzimuthFastStopDeceleration	: LREAL := 0.0;
+	fAzimuthFastStopJerk			: LREAL := 0.0;
+	fElevationFastStopDeceleration	: LREAL := 0.0;
+	fElevationFastStopJerk			: LREAL := 0.0;
+	fDerotatorFastStopDeceleration	: LREAL := 0.0;
+	fDerotatorFastStopJerk			: LREAL := 0.0;
 END_STRUCT
 END_TYPE
 ]]></Declaration>

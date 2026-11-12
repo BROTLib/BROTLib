@@ -38,6 +38,10 @@ VAR_INPUT
 	// enable external setpoint generator
 	Tracking:			BOOL;
 	HomingMode:			MC_HomingMode := MC_HomingMode.MC_DefaultHoming;
+	// MONETcommon#272: deceleration (unit/s^2) and jerk (unit/s^3) of MC_Stop; 0.0 (default) takes the NC axis
+	// parameters. MC_Stop reads them at its rising Execute. Set them with FB_BaseAxis.SetStopDynamics().
+	StopDeceleration:	LREAL := 0.0;
+	StopJerk:			LREAL := 0.0;
 END_VAR
 VAR_OUTPUT
 	// Reset has been executed
@@ -340,6 +344,8 @@ StopCommand(Allowed := StopAllowed AND NOT ExtActive, Reset := Reset, Done := Ax
 Axis_Stop(
 	Axis := 	AxisRef,
 	Execute := 	StopCommand.Execute,
+	Deceleration :=	StopDeceleration,	// 0.0: NC axis parameters (MONETcommon#272)
+	Jerk :=		StopJerk,
 	Done => 	StopDone);
 // #93: a Stop() joined to a stop that was already finishing reports StopDone once the axis is at rest
 StopDone := StopDone OR StopCommand.Joined;

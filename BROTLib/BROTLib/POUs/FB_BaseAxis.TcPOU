@@ -302,6 +302,23 @@ END_VAR
         <ST><![CDATA[bReset := TRUE;]]></ST>
       </Implementation>
     </Method>
+    <Method Name="SetStopDynamics" Id="{9b2b5f91-8132-4ed9-9208-0e819d2ae605}">
+      <Declaration><![CDATA[// MONETcommon#272: the deceleration (unit/s^2) and jerk (unit/s^3) of the MC_Stop of the next stop of this axis; 0.0
+// (the default of FB_Axis) takes the value from the NC axis parameters. The values stay until the next call: call it
+// with 0.0 to return to the NC parameters. MC_Stop reads them at its rising Execute, so a stop that is already running
+// keeps its dynamics. A negative value is taken as 0.0. Returns TRUE.
+METHOD SetStopDynamics : BOOL
+VAR_INPUT
+	fDeceleration	: LREAL;
+	fJerk			: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbAxis.StopDeceleration := MAX(fDeceleration, 0.0);
+fbAxis.StopJerk := MAX(fJerk, 0.0);
+SetStopDynamics := TRUE;]]></ST>
+      </Implementation>
+    </Method>
     <Property Name="Velocity" Id="{1498ec9f-a70e-40b1-bf3c-fd598252e6f2}">
       <Declaration><![CDATA[PROPERTY Velocity : LREAL]]></Declaration>
       <Get Name="Get" Id="{566bd3aa-c6e3-4f41-889e-a7b3ad1eb487}">
@@ -389,6 +406,9 @@ END_VAR
     </LineIds>
     <LineIds Name="FB_BaseAxis.Reset">
       <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BaseAxis.SetStopDynamics">
+      <LineId Id="1" Count="2" />
     </LineIds>
     <LineIds Name="FB_BaseAxis.Velocity.Get">
       <LineId Id="1" Count="0" />
