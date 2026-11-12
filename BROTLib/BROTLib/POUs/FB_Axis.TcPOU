@@ -85,6 +85,9 @@ VAR_OUTPUT
 	ErrorID: 	UDINT;
 	// actual position of the axis
 	ActualPosition: LREAL;
+	// NC set position of the axis (NcToPlc.SetPos, ModuloSetPos on a modulo axis): where the setpoint generator or the
+	// external setpoint has put the axis; ActualPosition lags it by the following error (MONETcommon#267)
+	SetPosition: LREAL;
 	// axis is calibrated;
 	Calibrated:	BOOL := FALSE;
 
@@ -348,8 +351,10 @@ Axis_Position(
 *)
 IF isModuloAxis THEN
 	ActualPosition := AxisRef.NcToPlc.ModuloActPos; // required e.g. for Filterwheel
+	SetPosition := AxisRef.NcToPlc.ModuloSetPos;
 ELSE
 	ActualPosition := AxisRef.NcToPlc.ActPos;
+	SetPosition := AxisRef.NcToPlc.SetPos;
 END_IF
 
 IF Axis_Power.Error THEN
