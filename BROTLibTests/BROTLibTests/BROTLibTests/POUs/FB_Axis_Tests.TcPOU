@@ -27,6 +27,7 @@ Home_Call_Is_Accepted_While_Idle();
 Stop_Twice_In_One_Scan();
 Stop_Repeated_Next_Scan();
 Ignored_Stop_Still_Cancels_Move();
+Stop_Dynamics_Default_To_The_NC_Parameters();
 ]]></ST>
     </Implementation>
     <Method Name="SetActPos" Id="{2b7e4c91-8d35-4f06-a1c8-9e3d5b70f214}">
@@ -362,6 +363,22 @@ fbAxis.Stop();
 fbAxis.MoveTo();
 fbAxis.Stop();
 AssertFalse(Condition := fbAxis.MovePending, Message := 'the ignored Stop() cancelled the pending move');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Dynamics_Default_To_The_NC_Parameters" Id="{879d7cbf-b35a-4b20-8d91-9c956c9484c3}">
+      <Declaration><![CDATA[// MONETcommon#272: StopDeceleration and StopJerk are 0.0 by default, so MC_Stop takes the NC axis parameters (the stop
+// of before). The MC_Stop itself needs an NC axis and is checked on the hardware.
+METHOD PRIVATE Stop_Dynamics_Default_To_The_NC_Parameters
+VAR
+	fbAxis	: FB_Axis;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Dynamics_Default_To_The_NC_Parameters');
+AssertEquals_LREAL(Expected := 0.0, Actual := fbAxis.StopDeceleration, Delta := 0.0, Message := 'deceleration');
+AssertEquals_LREAL(Expected := 0.0, Actual := fbAxis.StopJerk, Delta := 0.0, Message := 'jerk');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

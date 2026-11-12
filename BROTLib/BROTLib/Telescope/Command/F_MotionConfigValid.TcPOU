@@ -2,7 +2,7 @@
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="F_MotionConfigValid" Id="{9430c9f0-324b-4335-880a-9242fcc4c800}" SpecialFunc="None">
     <Declaration><![CDATA[// TRUE if an ST_MotionConfig can be used (MONETcommon#24, step 2a): every move velocity > 0, every timeout > 0,
-// both elevation windows ordered (min < max), horizon and track margins >= 0, track time caps > 0. The defaults
+// both elevation windows ordered (min < max), horizon and track margins >= 0, track time caps > 0, fast-stop dynamics >= 0 (MONETcommon#272). The defaults
 // are valid. FB_MonetTelescopeControl is to refuse an invalid configuration with an error, like F_HomeBelowHorizon.
 FUNCTION F_MotionConfigValid : BOOL
 VAR_INPUT
@@ -27,7 +27,13 @@ END_VAR
 	AND stConfig.fAzimuthTrackMargin >= 0.0
 	AND stConfig.fDerotatorTrackMargin >= 0.0
 	AND stConfig.fAzimuthTrackTimeCap > 0.0
-	AND stConfig.fDerotatorTrackTimeCap > 0.0;
+	AND stConfig.fDerotatorTrackTimeCap > 0.0
+	AND stConfig.fAzimuthFastStopDeceleration >= 0.0	// MONETcommon#272: 0.0 = NC axis parameters
+	AND stConfig.fAzimuthFastStopJerk >= 0.0
+	AND stConfig.fElevationFastStopDeceleration >= 0.0
+	AND stConfig.fElevationFastStopJerk >= 0.0
+	AND stConfig.fDerotatorFastStopDeceleration >= 0.0
+	AND stConfig.fDerotatorFastStopJerk >= 0.0;
 ]]></ST>
     </Implementation>
   </POU>
