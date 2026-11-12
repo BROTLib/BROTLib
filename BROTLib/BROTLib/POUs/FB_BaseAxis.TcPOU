@@ -111,6 +111,20 @@ END_VAR
         </Implementation>
       </Get>
     </Property>
+    <Property Name="SetPosition" Id="{b91192b7-450f-433b-8da4-ef5f6778e532}">
+      <Declaration><![CDATA[// NC set position of the axis (FB_Axis.SetPosition: NcToPlc.SetPos, ModuloSetPos on a modulo axis), read-only. Differs from
+// ActualPosition by the following error; a setpoint that has to continue from where the NC is (e.g. the track start of
+// MONETcommon#267) starts here, not at the encoder.
+PROPERTY SetPosition : LREAL]]></Declaration>
+      <Get Name="Get" Id="{ccfb27cc-fdb1-495a-889a-f3660c845891}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[SetPosition := fbAxis.SetPosition;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
     <Method Name="SetFeedFromPosition" Id="{3838c07d-7758-47d7-912a-96d6504599aa}">
       <Declaration><![CDATA[// #167: sets FB_Axis.FeedFromPosition and CycleTime of the axis inside (an input of a nested block cannot be assigned from outside).
 METHOD SetFeedFromPosition

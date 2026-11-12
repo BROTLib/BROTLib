@@ -13,6 +13,8 @@ FUNCTION_BLOCK FB_Axis_Tests EXTENDS TcUnit.FB_TestSuite
     <Implementation>
       <ST><![CDATA[ActualPosition_Reads_ActPos();
 ActualPosition_Modulo_Reads_ModuloActPos();
+SetPosition_Reads_SetPos();
+SetPosition_Modulo_Reads_ModuloSetPos();
 IsTracking_Envelope();
 IsTracking_Requires_Tracking();
 IsTracking_Modulo_Wrap_Known_Limitation();
@@ -96,6 +98,64 @@ SetModuloActPos(axisRef := axisRef, fValue := 5.0);
 fbAxis.isModuloAxis := TRUE;
 fbAxis(AxisRef := axisRef);
 AssertEquals_LREAL(Expected := 5.0, Actual := fbAxis.ActualPosition, Delta := 1.0E-12, Message := 'modulo axis reports ModuloActPos');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="WriteSetPos" Id="{ade5b065-c9c9-4541-bcbd-40c3dbdbb7d9}">
+      <Declaration><![CDATA[// AXIS_REF is a function block whose NcToPlc is not writable from outside; a pointer sidesteps that.
+METHOD PRIVATE WriteSetPos
+VAR_INPUT
+	fSetPos			: LREAL;
+	fModuloSetPos	: LREAL;
+END_VAR
+VAR_IN_OUT
+	axisRef	: AXIS_REF;
+END_VAR
+VAR
+	pValue	: POINTER TO LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[pValue := ADR(axisRef.NcToPlc.SetPos);
+pValue^ := fSetPos;
+pValue := ADR(axisRef.NcToPlc.ModuloSetPos);
+pValue^ := fModuloSetPos;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetPosition_Reads_SetPos" Id="{7a2060c9-a34f-4ec4-a333-55922c401039}">
+      <Declaration><![CDATA[// MONETcommon#267: the NC set position, not the encoder; a following error (ActPos <> SetPos) must not leak into it
+METHOD PRIVATE SetPosition_Reads_SetPos
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('SetPosition_Reads_SetPos');
+SetActPos(axisRef := axisRef, fValue := 123.453);
+WriteSetPos(axisRef := axisRef, fSetPos := 123.456, fModuloSetPos := 7.0);
+fbAxis(AxisRef := axisRef);
+AssertEquals_LREAL(Expected := 123.456, Actual := fbAxis.SetPosition, Delta := 1.0E-12, Message := 'plain axis reports SetPos');
+AssertEquals_LREAL(Expected := 123.453, Actual := fbAxis.ActualPosition, Delta := 1.0E-12, Message := 'ActualPosition stays the encoder');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetPosition_Modulo_Reads_ModuloSetPos" Id="{281ec159-b8a0-467a-8024-d1250a7cb1a5}">
+      <Declaration><![CDATA[METHOD PRIVATE SetPosition_Modulo_Reads_ModuloSetPos
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('SetPosition_Modulo_Reads_ModuloSetPos');
+WriteSetPos(axisRef := axisRef, fSetPos := 725.0, fModuloSetPos := 5.0);
+fbAxis.isModuloAxis := TRUE;
+fbAxis(AxisRef := axisRef);
+AssertEquals_LREAL(Expected := 5.0, Actual := fbAxis.SetPosition, Delta := 1.0E-12, Message := 'modulo axis reports ModuloSetPos');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>
