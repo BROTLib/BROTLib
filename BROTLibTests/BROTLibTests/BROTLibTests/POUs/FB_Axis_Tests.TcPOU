@@ -28,6 +28,7 @@ Stop_Twice_In_One_Scan();
 Stop_Repeated_Next_Scan();
 Ignored_Stop_Still_Cancels_Move();
 Stop_Dynamics_Default_To_The_NC_Parameters();
+Stop_Locks_Motion_Commands();
 ]]></ST>
     </Implementation>
     <Method Name="SetActPos" Id="{2b7e4c91-8d35-4f06-a1c8-9e3d5b70f214}">
@@ -379,6 +380,32 @@ END_VAR
         <ST><![CDATA[TEST('Stop_Dynamics_Default_To_The_NC_Parameters');
 AssertEquals_LREAL(Expected := 0.0, Actual := fbAxis.StopDeceleration, Delta := 0.0, Message := 'deceleration');
 AssertEquals_LREAL(Expected := 0.0, Actual := fbAxis.StopJerk, Delta := 0.0, Message := 'jerk');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Locks_Motion_Commands" Id="{ced76145-a1bb-48fb-9bb3-b7d7d8fd7694}">
+      <Declaration><![CDATA[// MONETcommon#278: while an MC_Stop is pending or executing, StopLocked holds MoveTo(), Home() and jog (the NC would refuse them
+// with 16#4260). Without an NC axis the stop never starts (StopAllowed stays FALSE), so it stays pending until Reset.
+METHOD PRIVATE Stop_Locks_Motion_Commands
+VAR
+	fbAxis	: FB_Axis;
+	axisRef	: AXIS_REF;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Locks_Motion_Commands');
+fbAxis(AxisRef := axisRef);
+AssertFalse(Condition := fbAxis.StopLocked, Message := 'no stop, no lock');
+fbAxis.Stop();
+fbAxis(AxisRef := axisRef);
+AssertTrue(Condition := fbAxis.StopLocked, Message := 'the pending MC_Stop locks the motion commands');
+fbAxis.MoveTo();
+fbAxis(AxisRef := axisRef);
+AssertTrue(Condition := fbAxis.MovePending, Message := 'a MoveTo() during the stop waits');
+fbAxis(AxisRef := axisRef, Reset := TRUE);
+fbAxis(AxisRef := axisRef, Reset := FALSE);
+AssertFalse(Condition := fbAxis.StopLocked, Message := 'Reset drops the pending stop and the lock');
 TEST_FINISHED();
 ]]></ST>
       </Implementation>

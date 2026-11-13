@@ -56,6 +56,9 @@ VAR_OUTPUT
 	MovePending:	BOOL;
 	// a Home() is waiting to start (axis not Ready yet)
 	HomePending:	BOOL;
+	// an MC_Stop of Stop() is pending or executing: the NC locks the axis for motion commands until its Execute is released
+	// (16#4260), so MoveTo(), Home() and jog wait (MONETcommon#278)
+	StopLocked:	BOOL;
 	// the NC reports the axis as homed (a level, see Calibrated). It is set by the NC before the homing procedure has
 	// finished, so do not use it to end homing-related overrides (limit switch bypass): use HomeActive
 	HomeDone:	BOOL;
@@ -217,9 +220,11 @@ TrackFeedVelocityLast := TrackFeedVelocity;
 TrackFeedValid := Tracking;
 
 isTracking := Tracking AND ABS(Position - ActualPosition) < (TrackEnvelope/3600.0);
+// MONETcommon#278: the stop of the last cycle (Execute as the MC_Stop got it) or a Stop() since; it holds every motion command
+StopLocked := StopCommand.Execute OR StopCommand.Pending;
 // drops Execute on an error and re-arms on Reset or a new track request (#9), see F_SetpointEnableExecute
 Axis_SetpointEnable.Execute := F_SetpointEnableExecute(
-	Request :=	Tracking AND Ready AND Calibrated AND NOT StopCommand.Execute AND NOT StopCommand.Pending,
+	Request :=	Tracking AND Ready AND Calibrated AND NOT StopLocked,
 	Tracking :=	Tracking,
 	Reset :=	Reset,
 	Execute :=	Axis_SetpointEnable.Execute,
@@ -246,7 +251,7 @@ MC_ExtSetPointGenFeed(
 
 // #101: a stop request also disables the generator (a stop with Tracking still TRUE would otherwise wait for ever)
 Axis_SetpointDisable(Axis := AxisRef,
-	Execute := NOT Tracking OR StopCommand.Pending OR StopCommand.Execute);
+	Execute := NOT Tracking OR StopLocked);
 // the NC rejects stop, move and jog with 0x4257 while the generator is on: the commands wait until it is off
 ExtActive := F_ExtSetpointActive(
 	StatusEnabled :=	Axis_Status.Status.ExtSetPointGenEnabled,
@@ -269,7 +274,8 @@ FOR MoveSlot := 0 TO 1 DO
 	END_IF
 END_FOR
 // #92: Execute is released on Done or CommandAborted of the active instance
-MoveChannel(Allowed := Ready AND Calibrated AND NOT ExtActive, Reset := Reset,
+// MONETcommon#278: a MoveTo() during a stop waits for it (the NC refuses it with 16#4260 while MC_Stop holds the axis)
+MoveChannel(Allowed := Ready AND Calibrated AND NOT ExtActive AND NOT StopLocked, Reset := Reset,
 	aDone := aMoveDone, aAborted := aMoveAborted, aBusy := aMoveBusy);
 MovePending := MoveChannel.Pending;
 // HalfBROT#103: the NC ignores a rising Execute on an instance that is still Busy, so each new command goes to the
@@ -298,14 +304,14 @@ ELSE
 END_IF
 
 Axis_Jog(
-	JogForward := 	Jog_Forward AND Ready AND Enable_Positive AND NOT ExtActive,
-	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative AND NOT ExtActive,
+	JogForward := 	Jog_Forward AND Ready AND Enable_Positive AND NOT ExtActive AND NOT StopLocked,	// MONETcommon#278
+	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative AND NOT ExtActive AND NOT StopLocked,
 	Mode := 		MC_JOGMODE_STANDARD_FAST,
 	Done => 		JogDone,
 	Axis := 		AxisRef);
 
 
-HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted OR HomeStopAbort);	// #92, HalfBROT#114
+HomeCommand(Allowed := Ready AND NOT StopLocked, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted OR HomeStopAbort);	// #92, HalfBROT#114
 HomePending := HomeCommand.Pending;
 Axis_Home(
 	Axis := 			AxisRef,
