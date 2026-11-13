@@ -18,6 +18,8 @@ Margin_Negative_Is_Invalid();
 Track_Time_Cap_Not_Positive_Is_Invalid();
 Fast_Stop_Defaults_Are_The_NC_Parameters();
 Fast_Stop_Negative_Is_Invalid();
+Stop_Defaults_Are_The_NC_Parameters();
+Stop_Negative_Is_Invalid();
 ]]></ST>
     </Implementation>
     <Method Name="Defaults_Equal_Old_Literals" Id="{832aefd2-ed55-4ca7-9b6f-bcaa79ed869c}">
@@ -252,6 +254,60 @@ stConfig.fDerotatorFastStopDeceleration := -1.0;
 AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator deceleration');
 stConfig := stDefault;
 stConfig.fDerotatorFastStopJerk := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator jerk');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Defaults_Are_The_NC_Parameters" Id="{db45ffe9-c99e-4a5c-a1d3-5b1592de5a05}">
+      <Declaration><![CDATA[// MONETcommon#286: 0.0 makes MC_Stop take the NC axis parameters, so a consumer that leaves them at the default keeps
+// its stop as before. Values above 0 are valid.
+METHOD PRIVATE Stop_Defaults_Are_The_NC_Parameters
+VAR
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Defaults_Are_The_NC_Parameters');
+AssertEquals_LREAL(Expected := 0.0, Actual := stConfig.fAzimuthStopDeceleration, Delta := 0.0, Message := 'azimuth deceleration');
+AssertEquals_LREAL(Expected := 0.0, Actual := stConfig.fAzimuthStopJerk, Delta := 0.0, Message := 'azimuth jerk');
+AssertEquals_LREAL(Expected := 0.0, Actual := stConfig.fElevationStopDeceleration, Delta := 0.0, Message := 'elevation deceleration');
+AssertEquals_LREAL(Expected := 0.0, Actual := stConfig.fElevationStopJerk, Delta := 0.0, Message := 'elevation jerk');
+AssertEquals_LREAL(Expected := 0.0, Actual := stConfig.fDerotatorStopDeceleration, Delta := 0.0, Message := 'derotator deceleration');
+AssertEquals_LREAL(Expected := 0.0, Actual := stConfig.fDerotatorStopJerk, Delta := 0.0, Message := 'derotator jerk');
+stConfig.fElevationStopDeceleration := 3.0;
+stConfig.fElevationStopJerk := 20.0;
+AssertTrue(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'positive values');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop_Negative_Is_Invalid" Id="{889eea61-5950-475f-be7c-81707c213d1d}">
+      <Declaration><![CDATA[METHOD PRIVATE Stop_Negative_Is_Invalid
+VAR
+	stDefault	: BROTLib.ST_MotionConfig;
+	stConfig	: BROTLib.ST_MotionConfig;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Stop_Negative_Is_Invalid');
+stConfig := stDefault;
+stConfig.fAzimuthStopDeceleration := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'azimuth deceleration');
+stConfig := stDefault;
+stConfig.fAzimuthStopJerk := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'azimuth jerk');
+stConfig := stDefault;
+stConfig.fElevationStopDeceleration := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'elevation deceleration');
+stConfig := stDefault;
+stConfig.fElevationStopJerk := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'elevation jerk');
+stConfig := stDefault;
+stConfig.fDerotatorStopDeceleration := -1.0;
+AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator deceleration');
+stConfig := stDefault;
+stConfig.fDerotatorStopJerk := -1.0;
 AssertFalse(Condition := BROTLib.F_MotionConfigValid(stConfig), Message := 'derotator jerk');
 TEST_FINISHED();
 ]]></ST>
