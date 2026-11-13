@@ -46,6 +46,18 @@ STRUCT
 	fElevationFastStopJerk			: LREAL := 0.0;
 	fDerotatorFastStopDeceleration	: LREAL := 0.0;
 	fDerotatorFastStopJerk			: LREAL := 0.0;
+
+	// MONETcommon#286: the stop of every other stop request (stop command, the abort stop of an interrupted move, park and
+	// gohome over a move, the switch to manual under motion): MC_Stop deceleration in deg/s^2 and jerk in deg/s^3. 0.0
+	// (default) takes the NC axis parameters, as before. The NC jerk is sized for smooth moves; with it a stop at speed
+	// keeps accelerating for a while and runs on far (MONET/N 2026-11-13, NC jerk 1-2 deg/s^3: el +12 deg, az +16 deg).
+	// Keep them within the NC DecelerationMaximum of the axis.
+	fAzimuthStopDeceleration		: LREAL := 0.0;
+	fAzimuthStopJerk				: LREAL := 0.0;
+	fElevationStopDeceleration		: LREAL := 0.0;
+	fElevationStopJerk				: LREAL := 0.0;
+	fDerotatorStopDeceleration		: LREAL := 0.0;
+	fDerotatorStopJerk				: LREAL := 0.0;
 END_STRUCT
 END_TYPE
 ]]></Declaration>
