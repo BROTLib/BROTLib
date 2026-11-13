@@ -331,7 +331,9 @@ logic for focus blocks: a new target during a move restarts the move.
   literals MONETcommon's `FB_MonetTelescopeControl` had built in (MONETcommon#24, plan
   `2026-11-02-reference-implementation-issue-24.md` in MONETcommon, step 2a; pinned by
   `F_MotionConfigValid_Tests`). `F_MotionConfigValid` is TRUE when velocities, timeouts and track time caps are
-  > 0, both windows are ordered (min < max) and the margins are >= 0. Nothing in BROTLib uses it yet.
+  > 0, both windows are ordered (min < max) and the margins and stop dynamics are >= 0. Nothing in BROTLib uses it yet.
+  The MC_Stop dynamics per axis (deceleration deg/s^2, jerk deg/s^3; 0.0 = the NC axis parameters): `f*FastStop*` for the
+  stop of the healthy axes when another axis faults (MONETcommon#272), `f*Stop*` for every other stop (MONETcommon#286).
 - `ST_InfoDataConnection` / `ST_InfoDataFB` / `ST_InfoDataGroup` — debug info
   data structures used by the `FB_Info*` debug blocks.
 - `E_TCSCommand`, `E_TCSErrors`, `E_TelescopeMode` — command, error and mode

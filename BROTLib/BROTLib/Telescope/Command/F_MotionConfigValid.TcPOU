@@ -33,7 +33,13 @@ END_VAR
 	AND stConfig.fElevationFastStopDeceleration >= 0.0
 	AND stConfig.fElevationFastStopJerk >= 0.0
 	AND stConfig.fDerotatorFastStopDeceleration >= 0.0
-	AND stConfig.fDerotatorFastStopJerk >= 0.0;
+	AND stConfig.fDerotatorFastStopJerk >= 0.0
+	AND stConfig.fAzimuthStopDeceleration >= 0.0	// MONETcommon#286: 0.0 = NC axis parameters
+	AND stConfig.fAzimuthStopJerk >= 0.0
+	AND stConfig.fElevationStopDeceleration >= 0.0
+	AND stConfig.fElevationStopJerk >= 0.0
+	AND stConfig.fDerotatorStopDeceleration >= 0.0
+	AND stConfig.fDerotatorStopJerk >= 0.0;
 ]]></ST>
     </Implementation>
   </POU>
