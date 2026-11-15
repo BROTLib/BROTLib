@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiTelescopeStatus" Id="{0b106202-e993-4899-9bfb-f6c9307fafbc}">
+<Declaration><![CDATA[// I_TelescopeStatus copied into the gateway status; all fields zero and bStatusPresent FALSE where it is not wired.
+TYPE ST_HmiTelescopeStatus :
+STRUCT
+	bStatusPresent			: BOOL;
+	bError					: BOOL;
+	nErrorID				: UDINT;
+	bBusy					: BOOL;
+	bIsParked				: BOOL;
+	bSuspended				: BOOL;
+	eLastRejectedCommand	: E_TCSCommand;
+	eLastRejectReason		: E_CommandRejectReason;
+	nRejectCount			: UDINT;
+	fCurrentRA				: LREAL;	// deg, ICRS
+	fCurrentDec				: LREAL;	// deg, ICRS
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

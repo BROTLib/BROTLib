@@ -21,5 +21,15 @@
         <Declaration><![CDATA[]]></Declaration>
       </Set>
     </Property>
+<Method Name="SlewHaDec" Id="{30304f5a-96f9-4c9e-8671-58e9e8620345}">
+<Declaration><![CDATA[// Native move to an apparent hour angle / declination (degrees), without tracking, through the telescope's own state
+// machine and checks. Like Slew, which takes Az/Alt, but in the mount's own coordinates. Returns FALSE when it is refused.
+METHOD SlewHaDec : BOOL
+VAR_INPUT
+	fHourAngle		: LREAL;	// deg, apparent
+	fDeclination	: LREAL;	// deg, apparent
+END_VAR
+]]></Declaration>
+</Method>
   </Itf>
 </TcPlcObject>

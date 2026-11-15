@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="F_MqttVerbIsMotion_Tests" Id="{7809235c-0049-4774-bfee-d815c90f283a}" SpecialFunc="None">
+<Declaration><![CDATA[// Tests for BROTLib.F_MqttVerbIsMotion (HMI interface X9): the verbs the cabinet switch on Local refuses.
+FUNCTION_BLOCK F_MqttVerbIsMotion_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Motion_And_Reset_Verbs();
+Stop_Data_And_Unknown_Pass();
+]]></ST>
+</Implementation>
+<Method Name="Motion_And_Reset_Verbs" Id="{0dff58e2-4b2c-4efe-9e62-d9a4f6b68520}">
+<Declaration><![CDATA[// Every motion and reset verb of the contract (4.1) is refused in Local.
+METHOD PRIVATE Motion_And_Reset_Verbs
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Motion_And_Reset_Verbs');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('power'), Message := 'power');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('park'), Message := 'park');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('gohome'), Message := 'gohome');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('track'), Message := 'track');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('slew'), Message := 'slew');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('focus'), Message := 'focus');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('cover_open'), Message := 'cover_open');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('cover_close'), Message := 'cover_close');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('dome_open'), Message := 'dome_open');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('dome_close'), Message := 'dome_close');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('dome_park'), Message := 'dome_park');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('dome_track'), Message := 'dome_track');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('dome_reset'), Message := 'dome_reset');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('filter'), Message := 'filter');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('nasmyth'), Message := 'nasmyth');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('derotatoroffset'), Message := 'derotatoroffset');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('elevationoffset'), Message := 'elevationoffset');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('azimuthoffset'), Message := 'azimuthoffset');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('declinationoffset'), Message := 'declinationoffset');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('hourangleoffset'), Message := 'hourangleoffset');
+AssertTrue(Condition := BROTLib.F_MqttVerbIsMotion('reset'), Message := 'reset');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Stop_Data_And_Unknown_Pass" Id="{9ab0adeb-13b0-4616-be77-660658efde38}">
+<Declaration><![CDATA[// The stop direction, the data fields and anything unknown are not motion.
+METHOD PRIVATE Stop_Data_And_Unknown_Pass
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Stop_Data_And_Unknown_Pass');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('stop'), Message := 'stop');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('dome_stop'), Message := 'dome_stop');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('rightascension'), Message := 'rightascension');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('declination'), Message := 'declination');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('elevation'), Message := 'elevation');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('azimuth'), Message := 'azimuth');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('temperature'), Message := 'temperature');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('humidity'), Message := 'humidity');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('pressure'), Message := 'pressure');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('dut1'), Message := 'dut1');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion(''), Message := 'empty');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('unknown'), Message := 'unknown');
+AssertFalse(Condition := BROTLib.F_MqttVerbIsMotion('POWER'), Message := 'POWER');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

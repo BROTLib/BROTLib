@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_Comm_MQTT_Cabinet_Tests" Id="{3064ca3b-d14f-423c-ab6c-524bce7ef3bb}" SpecialFunc="None">
+<Declaration><![CDATA[// Tests for the cabinet switch of BROTLib.FB_Comm_MQTT (HMI interface X9): with the switch on Local the motion and reset verbs are
+// refused, the stop direction and the data fields pass, a refused track/slew consumes its buffers. Own suite: FB_Comm_MQTT_Influx_Tests
+// is at the TcUnit limit of tests per suite.
+FUNCTION_BLOCK FB_Comm_MQTT_Cabinet_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	fbComm	: BROTLib.FB_Comm_MQTT_Influx;
+	stub	: FB_TelescopeStub;
+	focus	: FB_FocusStub(comm := 0);
+	cabinet	: FB_CabinetStub;
+	bReady	: BOOL;
+	bLocal_Refuses_Motion_Verbs	: BOOL;
+	bRemote_Accepts_Motion_Verbs	: BOOL;
+	bLocal_Refused_Track_Consumes_The_Buffer	: BOOL;
+	bLocal_Refused_Slew_Consumes_The_Buffer	: BOOL;
+	bLocal_Passes_Data_Fields	: BOOL;
+	bNo_Cabinet_Accepts_Everything	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF NOT bReady THEN
+	bReady := TRUE;
+	fbComm.Telescope := stub;
+	fbComm.Focus := focus;
+	fbComm.Cabinet := cabinet;
+END_IF
+Local_Refuses_Motion_Verbs();
+Remote_Accepts_Motion_Verbs();
+Local_Refused_Track_Consumes_The_Buffer();
+Local_Refused_Slew_Consumes_The_Buffer();
+Local_Passes_Data_Fields();
+No_Cabinet_Accepts_Everything();
+]]></ST>
+</Implementation>
+<Method Name="ResetHandler" Id="{f6aa9209-9a66-412a-973b-4cab97479cb5}">
+<Declaration><![CDATA[// Back to a clean state: Remote, empty coordinate buffers (track and slew consume them), counters and focus reset.
+METHOD PRIVATE ResetHandler
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[cabinet.eMode := BROTLib.E_ControlMode.remote;
+fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
+fbComm._handleMQTTMessage(sPayloadRcv := 'command slew=1');
+stub.ClearCounters();
+stub.fReadyState := 1.0;
+focus.Position := 10.0;
+focus.fMinPosition := -1.0E6;
+focus.fMaxPosition := 1.0E6;
+focus.nStop := 0;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Local_Refuses_Motion_Verbs" Id="{f23157ce-8f4e-4511-8fbe-c155f8180fda}">
+<Declaration><![CDATA[// Cabinet switch on Local: power, park, gohome, reset and focus are refused with a log line; the stop passes (X9).
+METHOD PRIVATE Local_Refuses_Motion_Verbs
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Local_Refuses_Motion_Verbs');
+IF NOT bLocal_Refuses_Motion_Verbs THEN
+	bLocal_Refuses_Motion_Verbs := TRUE;
+	ResetHandler();
+	cabinet.eMode := BROTLib.E_ControlMode.local;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command power=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command park=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command gohome=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command reset=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=20');
+	AssertEquals_INT(Expected := 0, Actual := stub.nOther, Message := 'Local: power/park/gohome/reset not forwarded');
+	AssertEquals_LREAL(Expected := 10.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'Local: focus target not written');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command stop=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nOther, Message := 'Local: stop passes');
+	cabinet.eMode := BROTLib.E_ControlMode.remote;
+	TEST_FINISHED();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Remote_Accepts_Motion_Verbs" Id="{f1be7016-5c71-4b52-bbcc-f8d6206ce340}">
+<Declaration><![CDATA[// Cabinet switch on Remote: the same verbs are forwarded as without a cabinet (X9).
+METHOD PRIVATE Remote_Accepts_Motion_Verbs
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Remote_Accepts_Motion_Verbs');
+IF NOT bRemote_Accepts_Motion_Verbs THEN
+	bRemote_Accepts_Motion_Verbs := TRUE;
+	ResetHandler();
+	cabinet.eMode := BROTLib.E_ControlMode.remote;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command park=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command reset=1');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command focus=20');
+	AssertEquals_INT(Expected := 2, Actual := stub.nOther, Message := 'Remote: park and reset forwarded');
+	AssertEquals_LREAL(Expected := 20.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'Remote: focus written');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Local_Refused_Track_Consumes_The_Buffer" Id="{c1bdbef2-082f-4ef9-827f-4aac7e51e8b1}">
+<Declaration><![CDATA[// A refused track still consumes the coordinate buffer: nothing is replayed when the switch goes back to Remote (X9).
+METHOD PRIVATE Local_Refused_Track_Consumes_The_Buffer
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Local_Refused_Track_Consumes_The_Buffer');
+IF NOT bLocal_Refused_Track_Consumes_The_Buffer THEN
+	bLocal_Refused_Track_Consumes_The_Buffer := TRUE;
+	ResetHandler();
+	cabinet.eMode := BROTLib.E_ControlMode.local;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5,declination=20.5,track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'Local: track refused');
+	cabinet.eMode := BROTLib.E_ControlMode.remote;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nTrack, Message := 'Remote: the buffer was consumed, track is dropped as incomplete');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Local_Refused_Slew_Consumes_The_Buffer" Id="{d575c671-492a-4860-b265-ef9cb9b05cff}">
+<Declaration><![CDATA[// Same for slew (X9).
+METHOD PRIVATE Local_Refused_Slew_Consumes_The_Buffer
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Local_Refused_Slew_Consumes_The_Buffer');
+IF NOT bLocal_Refused_Slew_Consumes_The_Buffer THEN
+	bLocal_Refused_Slew_Consumes_The_Buffer := TRUE;
+	ResetHandler();
+	cabinet.eMode := BROTLib.E_ControlMode.local;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command azimuth=10.5,elevation=20.5,slew=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nSlew, Message := 'Local: slew refused');
+	cabinet.eMode := BROTLib.E_ControlMode.remote;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command slew=1');
+	AssertEquals_INT(Expected := 0, Actual := stub.nSlew, Message := 'Remote: the buffer was consumed, slew is dropped as incomplete');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Local_Passes_Data_Fields" Id="{5a20579a-cf9d-45cc-8e88-986907cd9540}">
+<Declaration><![CDATA[// The data fields are not refused in Local: a coordinate sent in Local is there when track comes in Remote (X9).
+METHOD PRIVATE Local_Passes_Data_Fields
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Local_Passes_Data_Fields');
+IF NOT bLocal_Passes_Data_Fields THEN
+	bLocal_Passes_Data_Fields := TRUE;
+	ResetHandler();
+	cabinet.eMode := BROTLib.E_ControlMode.local;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command rightascension=10.5');
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command declination=20.5');
+	cabinet.eMode := BROTLib.E_ControlMode.remote;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command track=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nTrack, Message := 'data accepted in Local, track runs in Remote');
+	AssertEquals_LREAL(Expected := 10.5, Actual := stub.fTrackRa, Delta := 1.0E-9, Message := 'right ascension');
+	TEST_FINISHED();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="No_Cabinet_Accepts_Everything" Id="{1138d9a4-735d-481a-9114-07562e31eb46}">
+<Declaration><![CDATA[// Cabinet unassigned keeps today's behaviour, even if a cabinet object would say Local (X9).
+METHOD PRIVATE No_Cabinet_Accepts_Everything
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('No_Cabinet_Accepts_Everything');
+IF NOT bNo_Cabinet_Accepts_Everything THEN
+	bNo_Cabinet_Accepts_Everything := TRUE;
+	ResetHandler();
+	cabinet.eMode := BROTLib.E_ControlMode.local;
+	fbComm.Cabinet := 0;
+	fbComm._handleMQTTMessage(sPayloadRcv := 'command park=1');
+	AssertEquals_INT(Expected := 1, Actual := stub.nOther, Message := 'no cabinet: park forwarded');
+	fbComm.Cabinet := cabinet;
+	cabinet.eMode := BROTLib.E_ControlMode.remote;
+	TEST_FINISHED();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

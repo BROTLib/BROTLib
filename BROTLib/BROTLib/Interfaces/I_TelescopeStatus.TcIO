@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<Itf Name="I_TelescopeStatus" Id="{e7f9a0ad-cbab-4b11-8040-faf0a9882628}">
+<Declaration><![CDATA[// Optional read-only status of a telescope control, for the HMI gateway (why not ready, last rejected command, current
+// position). Separate from the I_Telescope hierarchy on purpose: it does not extend I_Telescope, so an implementation that
+// does not provide it is not forced to. specs/design/ui-tiers-and-hmi-gateway.md, section 3.1.
+INTERFACE I_TelescopeStatus
+]]></Declaration>
+<Property Name="Error" Id="{21845583-423b-44b3-9517-82fb2eba08ec}">
+<Declaration><![CDATA[// A component of the telescope is in error.
+PROPERTY Error : BOOL]]></Declaration>
+<Get Name="Get" Id="{0ea8eda4-f9c8-4302-b77e-71d643e5c992}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="ErrorID" Id="{2f8af68d-784d-422c-95cc-78131eca57fc}">
+<Declaration><![CDATA[// Error number of that component.
+PROPERTY ErrorID : UDINT]]></Declaration>
+<Get Name="Get" Id="{8dab492c-a457-4dbd-aa5b-50bd510cc880}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="Busy" Id="{2b5c42a4-6376-45de-93bf-2b470a57603c}">
+<Declaration><![CDATA[// A command sequence is running (power-on, park, slew, goto, home, stop).
+PROPERTY Busy : BOOL]]></Declaration>
+<Get Name="Get" Id="{2e58cf32-ba06-4c4b-801d-0acc4e0fc5e9}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="IsParked" Id="{1e5508de-10dc-4883-b5d8-5097131380cc}">
+<Declaration><![CDATA[// The telescope is parked.
+PROPERTY IsParked : BOOL]]></Declaration>
+<Get Name="Get" Id="{327d1f4c-2175-4e84-bc0d-fea2eeed5c3d}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="Suspended" Id="{d22ab7f4-a5d2-4c5e-8679-c71af16710cd}">
+<Declaration><![CDATA[// The telescope state machine does not run (MONET manual mode).
+PROPERTY Suspended : BOOL]]></Declaration>
+<Get Name="Get" Id="{588a541f-bf94-46f3-8e29-5042a25edc7b}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="LastRejectedCommand" Id="{fe0da4e3-846d-43dc-8a67-d682e3ab8252}">
+<Declaration><![CDATA[// The command the telescope refused last.
+PROPERTY LastRejectedCommand : E_TCSCommand]]></Declaration>
+<Get Name="Get" Id="{550ebfee-b371-4c40-acf6-4e460e71e605}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="LastRejectReason" Id="{65c7239d-e495-4455-94b1-824a24fcce98}">
+<Declaration><![CDATA[// Why it refused it (F_CommandAcceptance).
+PROPERTY LastRejectReason : E_CommandRejectReason]]></Declaration>
+<Get Name="Get" Id="{91d0af8c-dc2f-497a-b594-19543cec9b0b}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="RejectCount" Id="{2a4c511c-4fca-4b80-800d-7804b68798f2}">
+<Declaration><![CDATA[// +1 per rejected command; a consumer detects a new rejection by the change.
+PROPERTY RejectCount : UDINT]]></Declaration>
+<Get Name="Get" Id="{a1f3f7e4-07c8-44fa-a899-e4549e8c2fa1}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="CurrentRightAscension" Id="{8d37c925-14c9-4a6f-bae5-576e82e5bd7d}">
+<Declaration><![CDATA[// deg, ICRS, current position of the axes (not the target).
+PROPERTY CurrentRightAscension : LREAL]]></Declaration>
+<Get Name="Get" Id="{293fceec-932a-4a54-aec0-e9f6ae789c26}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="CurrentDeclination" Id="{bfef482b-165b-4056-a3a6-04624ff32c20}">
+<Declaration><![CDATA[// deg, ICRS, current position of the axes (not the target).
+PROPERTY CurrentDeclination : LREAL]]></Declaration>
+<Get Name="Get" Id="{d6b937a3-b242-438a-b4ea-efe6f5099d35}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+</Itf>
+</TcPlcObject>

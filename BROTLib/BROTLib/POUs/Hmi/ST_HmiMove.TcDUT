@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiMove" Id="{499875e3-5e5c-47e3-9e72-a7479777ff29}">
+<Declaration><![CDATA[// State of an HMI MoveAxisTo on one axis slot (contract 5.4.1). Internal.
+TYPE ST_HmiMove :
+STRUCT
+	nState			: USINT;	// 0 idle, 2 waiting for the axis to report the move started, 3 running
+	fSavedVelocity	: LREAL;	// Velocity before the maintenance velocity was written
+	fMaintVelocity	: LREAL;	// the value written (0: Velocity was not touched)
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

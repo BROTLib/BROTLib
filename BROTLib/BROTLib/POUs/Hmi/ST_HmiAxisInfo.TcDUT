@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiAxisInfo" Id="{9e4bd4b0-f9fa-4c28-8f0f-aaa3c981e455}">
+<Declaration><![CDATA[// Static descriptor of one axis slot: configuration (names, units, roles, limits), not runtime capability. Set per project in
+// MAIN and reviewed with the project owner. fMin/fMax are the only limit of HMI axis-level moves (Jog, MoveAxisTo): chosen
+// conservatively and verified on site (contract section 6).
+TYPE ST_HmiAxisInfo :
+STRUCT
+	sName			: STRING(31);	// localization key for the HMI, e.g. 'axis.azimuth'
+	eRole			: E_HmiAxisRole;	// native-coordinate role
+	sUnit			: STRING(7);	// 'deg', 'mm', ...
+	fMin			: LREAL;		// lower limit of Jog and MoveAxisTo and of the entry range
+	fMax			: LREAL;		// upper limit
+	bCanJog			: BOOL;
+	bCanHome		: BOOL;
+	bCanEnable		: BOOL;			// the HMI may switch the axis enable
+	bCanMoveTo		: BOOL;			// the HMI may command a go-to-position (MoveAxisTo) within fMin..fMax
+	fMaintVelocity	: LREAL;		// unit/s, slow velocity of MoveAxisTo; 0 = use the axis's current velocity
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

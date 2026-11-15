@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiStatus" Id="{4bbee0f1-2ddb-4b08-8dde-560ee4f0d8b5}">
+<Declaration><![CDATA[// The one symbol the HMI reads (PLC1.MAIN.Hmi::stStatus). Written once per cycle at the end of the gateway body, all
+// values from the same cycle. Writes over ADS are overwritten in the next cycle. Contract 5.6.
+// Units: angles in degrees (RA too), the focus and other linear axes in the unit of their descriptor.
+TYPE ST_HmiStatus :
+STRUCT
+	// contract
+	nContractMajor		: UINT;
+	nContractMinor		: UINT;
+	sLibVersion			: STRING(23);	// from Global_Version.stLibVersion_BROTLib
+	nHeartbeat			: UDINT;		// +1 per gateway cycle; frozen = PLC/gateway not running
+	// cabinet and safety (I_Cabinet)
+	eControlMode		: E_ControlMode;
+	bSwitchPresent		: BOOL;
+	bEstop				: BOOL;
+	bSafetyError		: BOOL;
+	bSafetyAckPending	: BOOL;
+	bPendantActive		: BOOL;
+	bHmiMotionAllowed	: BOOL;			// Local AND NOT pendant AND ipCabinet assigned: enables the motion widgets
+	bTelescopeCommands	: BOOL;			// telescope-level RPCs available: shows/hides telescope-level pointing
+	nBlockers			: DWORD;		// bit set of E_HmiBlocker
+	// telescope
+	eMountType			: E_HmiMountType;
+	bTelescope			: BOOL;
+	fReadyState			: LREAL;		// I_Telescope.ReadyState
+	fAzimuth			: LREAL;		// deg, current, without pointing correction
+	fAltitude			: LREAL;
+	fTargetRA			: LREAL;		// deg, commanded target where the implementation provides it
+	fTargetDec			: LREAL;
+	stLastCommand		: ST_HmiCommandRecord;
+	stTelescopeStatus	: ST_HmiTelescopeStatus;
+	// axes (slots 1..nAxisCount; the focus is one of them, role focus)
+	nAxisCount			: USINT;
+	aAxis				: ARRAY[1..GVL_Hmi.MAX_AXES] OF ST_HmiAxisStatus;
+	// subsystems
+	stCovers			: ST_HmiCoversStatus;
+	stHydraulics		: ST_HmiHydraulicsStatus;
+	stBrake				: ST_HmiBrakeStatus;
+	stRoof				: ST_HmiRoofStatus;
+	stDome				: ST_HmiDomeStatus;
+	bFilter				: BOOL;
+	bNasmyth			: BOOL;
+	// safety detail (I_SafetyDiagnostics)
+	bSafetyDiagPresent	: BOOL;
+	bStoActive			: BOOL;
+	bRestartPending		: BOOL;
+	stSafety			: ST_SafetyItems;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

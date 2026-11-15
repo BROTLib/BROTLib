@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_HmiAxisRole" Id="{25ec848a-6add-4e29-8811-a8d6e582b4e3}">
+<Declaration><![CDATA[// What an axis is, in native coordinates; the pointing page reads the axes by role.
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_HmiAxisRole :
+(
+	other := 0,
+	azimuth,
+	altitude,
+	derotator,
+	hour_angle,
+	declination,
+	focus
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

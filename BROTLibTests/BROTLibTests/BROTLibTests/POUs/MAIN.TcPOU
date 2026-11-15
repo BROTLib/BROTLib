@@ -41,6 +41,11 @@ VAR
 	fbStopLoopSimTests		: StopLoop_Sim_Tests;
 	fbCommandArbiterTests	: FB_CommandArbiter_Tests;
 	fbBaseTelescopeControlTests	: FB_BaseTelescopeControl_Tests;
+	fbFixedCabinetTests		: FB_FixedCabinet_Tests;
+	fbBaseAxisTests		: FB_BaseAxis_Tests;
+	fbMqttCabinetTests	: FB_Comm_MQTT_Cabinet_Tests;
+	fbHmiGatewayTests		: FB_HmiGateway_Tests;
+	fbMqttVerbIsMotionTests	: F_MqttVerbIsMotion_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

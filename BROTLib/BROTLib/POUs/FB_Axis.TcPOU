@@ -32,6 +32,9 @@ VAR_INPUT
 	Jog_Forward:		BOOL := FALSE;
 	// jog backward while TRUE (a level, read only)
 	Jog_Backwards:		BOOL := FALSE;
+	// jog at the slow manual velocity of the NC axis (MC_JOGMODE_STANDARD_SLOW) instead of the fast one; read each cycle, so it
+	// can change while jogging. FALSE (the default) keeps the fast jog of the pendant and the VISU.
+	Jog_Slow:			BOOL := FALSE;
 	// calibration input for homing
 	bCalibrationCam:	BOOL;
 	isModuloAxis:		BOOL := FALSE;
@@ -306,7 +309,7 @@ END_IF
 Axis_Jog(
 	JogForward := 	Jog_Forward AND Ready AND Enable_Positive AND NOT ExtActive AND NOT StopLocked,	// MONETcommon#278
 	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative AND NOT ExtActive AND NOT StopLocked,
-	Mode := 		MC_JOGMODE_STANDARD_FAST,
+	Mode := 		SEL(Jog_Slow, MC_JOGMODE_STANDARD_FAST, MC_JOGMODE_STANDARD_SLOW),
 	Done => 		JogDone,
 	Axis := 		AxisRef);
 

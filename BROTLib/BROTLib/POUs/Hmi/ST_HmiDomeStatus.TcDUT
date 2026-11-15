@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiDomeStatus" Id="{8955ec08-a318-434a-b01b-261dba4994d2}">
+<Declaration><![CDATA[TYPE ST_HmiDomeStatus :
+STRUCT
+	bPresent		: BOOL;
+	fPosition		: LREAL;
+	eRotState		: E_DomeRotationState;
+	eShutterState	: E_RoofState;
+	bParked			: BOOL;
+	bTracking		: BOOL;
+	bError			: BOOL;
+	nErrorID		: UDINT;
+	nCapabilities	: INT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_FixedCabinet_Tests" Id="{d727e7ac-8ce4-4228-bf9c-76c0a19f2691}" SpecialFunc="None">
+<Declaration><![CDATA[// Tests for BROTLib.FB_FixedCabinet (HMI interface X1): the properties report the policy and the inputs.
+FUNCTION_BLOCK FB_FixedCabinet_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Default_Is_Remote_Without_Switch();
+Policy_Local_Is_Reported();
+Inputs_Are_Reported();
+Stub_Follows_Its_Inputs();
+]]></ST>
+</Implementation>
+<Method Name="Default_Is_Remote_Without_Switch" Id="{f80e2199-f894-4f64-9ca6-60b915e9fb7d}">
+<Declaration><![CDATA[// A fresh block: Remote, no switch, nothing active.
+METHOD PRIVATE Default_Is_Remote_Without_Switch
+VAR
+	fbCabinet	: BROTLib.FB_FixedCabinet;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Default_Is_Remote_Without_Switch');
+AssertTrue(Condition := fbCabinet.ControlMode = BROTLib.E_ControlMode.remote, Message := 'default policy is remote');
+AssertFalse(Condition := fbCabinet.SwitchPresent, Message := 'a fixed cabinet has no switch');
+AssertFalse(Condition := fbCabinet.EstopActive OR fbCabinet.SafetyError OR fbCabinet.SafetyAckPending OR fbCabinet.PendantActive, Message := 'nothing active by default');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Policy_Local_Is_Reported" Id="{d1f381af-87c6-490f-b013-fce5b5ed9dad}">
+<Declaration><![CDATA[// The project policy local comes out of ControlMode; SwitchPresent stays FALSE.
+METHOD PRIVATE Policy_Local_Is_Reported
+VAR
+	fbCabinet	: BROTLib.FB_FixedCabinet := (eMode := BROTLib.E_ControlMode.local);
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Policy_Local_Is_Reported');
+AssertTrue(Condition := fbCabinet.ControlMode = BROTLib.E_ControlMode.local, Message := 'policy local');
+AssertFalse(Condition := fbCabinet.SwitchPresent, Message := 'still no physical switch');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Inputs_Are_Reported" Id="{bacd4326-4da6-4ba1-adcf-e4296dff1acd}">
+<Declaration><![CDATA[// Each safety and pendant input shows up in its own property and in no other.
+METHOD PRIVATE Inputs_Are_Reported
+VAR
+	fbCabinet	: BROTLib.FB_FixedCabinet;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Inputs_Are_Reported');
+fbCabinet.bEstop := TRUE;
+AssertTrue(Condition := fbCabinet.EstopActive, Message := 'estop');
+AssertFalse(Condition := fbCabinet.SafetyError OR fbCabinet.SafetyAckPending OR fbCabinet.PendantActive, Message := 'estop only');
+fbCabinet.bEstop := FALSE;
+fbCabinet.bSafetyError := TRUE;
+AssertTrue(Condition := fbCabinet.SafetyError, Message := 'safety error');
+fbCabinet.bSafetyError := FALSE;
+fbCabinet.bSafetyAckPending := TRUE;
+AssertTrue(Condition := fbCabinet.SafetyAckPending, Message := 'ack pending');
+fbCabinet.bSafetyAckPending := FALSE;
+fbCabinet.bPendantActive := TRUE;
+AssertTrue(Condition := fbCabinet.PendantActive, Message := 'pendant');
+AssertFalse(Condition := fbCabinet.EstopActive OR fbCabinet.SafetyError OR fbCabinet.SafetyAckPending, Message := 'pendant only');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Stub_Follows_Its_Inputs" Id="{47bb5b6d-d407-4b93-b085-ac6ab4777135}">
+<Declaration><![CDATA[// FB_CabinetStub (used by the gateway tests) reports its inputs through the interface.
+METHOD PRIVATE Stub_Follows_Its_Inputs
+VAR
+	fbStub	: FB_CabinetStub;
+	ipCabinet	: BROTLib.I_Cabinet;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Stub_Follows_Its_Inputs');
+ipCabinet := fbStub;
+AssertTrue(Condition := ipCabinet.SwitchPresent, Message := 'stub has a switch by default');
+fbStub.eMode := BROTLib.E_ControlMode.local;
+fbStub.bPendantActive := TRUE;
+AssertTrue(Condition := ipCabinet.ControlMode = BROTLib.E_ControlMode.local, Message := 'mode through the interface');
+AssertTrue(Condition := ipCabinet.PendantActive, Message := 'pendant through the interface');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

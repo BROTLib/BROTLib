@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiRequest" Id="{2a20c3c9-5f9f-437f-803c-12b489192909}">
+<Declaration><![CDATA[// One slot of the gateway's mailbox: a command that passed the RPC gates and waits for the cyclic body (contract 5.5). Internal.
+TYPE ST_HmiRequest :
+STRUCT
+	bFull		: BOOL;
+	eCommand	: E_HmiCommand;
+	nId			: UDINT;
+	nAxis		: USINT;		// axis slot
+	fA			: LREAL;
+	fB			: LREAL;
+	bFlag		: BOOL;
+	nValue		: DINT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

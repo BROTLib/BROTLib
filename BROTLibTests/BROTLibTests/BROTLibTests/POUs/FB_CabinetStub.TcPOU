@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_CabinetStub" Id="{7412d990-3bb3-4ab6-959b-4980d7167a44}" SpecialFunc="None">
+<Declaration><![CDATA[// Settable I_Cabinet for tests of consumers (HMI gateway, MQTT comm layer): the properties return the inputs.
+FUNCTION_BLOCK FB_CabinetStub IMPLEMENTS BROTLib.I_Cabinet
+VAR_INPUT
+	eMode				: BROTLib.E_ControlMode := BROTLib.E_ControlMode.remote;
+	bSwitchPresent		: BOOL := TRUE;
+	bEstop				: BOOL;
+	bSafetyError		: BOOL;
+	bSafetyAckPending	: BOOL;
+	bPendantActive		: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+<Property Name="ControlMode" Id="{ec16e9dd-b09c-43b5-a973-5b22eac251ee}">
+<Declaration><![CDATA[PROPERTY ControlMode : BROTLib.E_ControlMode]]></Declaration>
+<Get Name="Get" Id="{7916b25b-08e3-46ca-ae39-622a1c958a8f}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[ControlMode := eMode;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SwitchPresent" Id="{f4ee8dda-3464-4282-b553-065640738bec}">
+<Declaration><![CDATA[PROPERTY SwitchPresent : BOOL]]></Declaration>
+<Get Name="Get" Id="{dcfe3ce5-68c0-43a9-acd4-b0e785f610b6}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SwitchPresent := bSwitchPresent;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="EstopActive" Id="{aaf02aa5-ae3f-44d1-82df-ac39283ae1c4}">
+<Declaration><![CDATA[PROPERTY EstopActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{bb5d2207-54d9-4a2c-9b89-4fd50b7807b1}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[EstopActive := bEstop;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SafetyError" Id="{703c7f82-f5ff-40ae-939d-3e65b523bc6e}">
+<Declaration><![CDATA[PROPERTY SafetyError : BOOL]]></Declaration>
+<Get Name="Get" Id="{6b37f8f0-1fe3-42e7-8274-10ed95601d57}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SafetyError := bSafetyError;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SafetyAckPending" Id="{f54cc28e-c7fc-462a-a2a3-a143953d27ea}">
+<Declaration><![CDATA[PROPERTY SafetyAckPending : BOOL]]></Declaration>
+<Get Name="Get" Id="{32d4a729-5c75-4581-b19d-858950bfcac9}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SafetyAckPending := bSafetyAckPending;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="PendantActive" Id="{a24685b8-07aa-477d-ba06-7a92e30aeae5}">
+<Declaration><![CDATA[PROPERTY PendantActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{4d8b3c1f-695b-4423-9fa7-66e2de7c3fbf}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[PendantActive := bPendantActive;]]></ST>
+</Implementation>
+</Get>
+</Property>
+</POU>
+</TcPlcObject>

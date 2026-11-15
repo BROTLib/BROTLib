@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_HmiResult" Id="{8c356300-dbc4-4fb4-9ed7-5f7f2a413b5d}">
+<Declaration><![CDATA[// Result of an HMI RPC: the gateway's own gates (mode, presence, pendant, argument range, busy). The outcome in the
+// implementation behind the interface shows up in ST_HmiStatus.stLastCommand. Values are only ever appended (contract 5.7).
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_HmiResult :
+(
+	queued := 0,			// passed the gateway gates, runs in the next cycle; outcome in stLastCommand
+	rejected_remote,		// switch on Remote: no HMI motion
+	rejected_pendant,		// pendant active (4.3)
+	rejected_no_cabinet,	// ipCabinet not assigned
+	rejected_absent,		// subsystem/axis slot not present
+	rejected_argument,		// NaN, out of range, unknown index or direction
+	rejected_busy,			// previous command of this group not yet executed
+	rejected_not_allowed,	// capability not offered (descriptor flag FALSE, axis not ready/calibrated, E-stop, at a limit)
+	rejected_jog_owner,		// another client holds the jog (7.2)
+	rejected_axis_busy,		// axis moved by another source (homing, telescope move, pending move) or by the other HMI motion
+	rejected_no_telescope	// telescope-level command while bTelescopeCommands is FALSE (MONET in Local)
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>
