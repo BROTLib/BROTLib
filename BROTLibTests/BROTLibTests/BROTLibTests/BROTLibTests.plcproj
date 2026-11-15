@@ -61,6 +61,27 @@
     <Compile Include="POUs\FB_FocusStub.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_AxisStub.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_HmiGateway_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_CabinetStub.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_TelescopeStatusStub.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_SafetyDiagnosticsStub.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_FixedCabinet_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_BaseAxis_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_CommStub.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -74,6 +95,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_Comm_MQTT_Influx_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_Comm_MQTT_Cabinet_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_BlinkTimingProbe.TcPOU">
@@ -149,6 +173,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\F_MotionConfigValid_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\F_MqttVerbIsMotion_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\FB_InfoConnection_Tests.TcPOU">

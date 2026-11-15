@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_BaseAxis_Tests" Id="{37ea6b7a-2cbd-48a8-81fa-c81d6a7f801f}" SpecialFunc="None">
+<Declaration><![CDATA[// Tests for the jog speed level of FB_BaseAxis (HMI interface X7/X8): JogSlow is stored once for every axis block. That
+// FB_Axis maps it to MC_JOGMODE_STANDARD_SLOW needs an NC axis and is checked on the hardware.
+FUNCTION_BLOCK FB_BaseAxis_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[JogSlow_Defaults_To_Fast_And_Is_Stored();
+]]></ST>
+</Implementation>
+<Method Name="JogSlow_Defaults_To_Fast_And_Is_Stored" Id="{315594e4-6f31-436f-90f3-b207d9249b92}">
+<Declaration><![CDATA[// A fresh axis jogs fast; the level is kept through the interface and does not touch MovePos/MoveNeg.
+METHOD PRIVATE JogSlow_Defaults_To_Fast_And_Is_Stored
+VAR
+	fbFocus	: FB_FocusStub(comm := 0);
+	ipAxis	: BROTLib.I_BaseAxis;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('JogSlow_Defaults_To_Fast_And_Is_Stored');
+ipAxis := fbFocus;
+AssertFalse(Condition := ipAxis.JogSlow, Message := 'default is the fast jog');
+ipAxis.JogSlow := TRUE;
+AssertTrue(Condition := ipAxis.JogSlow, Message := 'slow is kept');
+AssertTrue(Condition := fbFocus.bJogSlow, Message := 'the input that the axis block passes as Jog_Slow');
+AssertFalse(Condition := ipAxis.MovePos OR ipAxis.MoveNeg, Message := 'no jog started by it');
+ipAxis.JogSlow := FALSE;
+AssertFalse(Condition := fbFocus.bJogSlow, Message := 'back to fast');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

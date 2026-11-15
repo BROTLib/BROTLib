@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<Itf Name="I_SafetyDiagnostics" Id="{28df302e-7e3b-4b56-b203-a03a82f7adad}">
+<Declaration><![CDATA[// Optional read-only safety detail for the HMI Safety page: STO state, restart/acknowledge pending and the decoded
+// TwinSAFE items. Which state counts as bOk is decided by the implementation (it decodes with FB_InfoGroup,
+// FB_InfoEStop and FB_InfoConnection already); the consumer shows bOk, the texts and the raw bytes.
+// specs/design/ui-tiers-and-hmi-gateway.md, section 3.2.
+INTERFACE I_SafetyDiagnostics
+]]></Declaration>
+<Property Name="StoActive" Id="{2593a9f9-76ca-4a4d-b5f6-da9a2b869610}">
+<Declaration><![CDATA[// Drives held torque-free by the safety circuit.
+PROPERTY StoActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{af14fc70-5eeb-46d0-a7db-09080a650f37}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="RestartPending" Id="{5c7d22d5-a63a-4366-bb41-54a79f390ee1}">
+<Declaration><![CDATA[// The safety group waits for restart / error acknowledge.
+PROPERTY RestartPending : BOOL]]></Declaration>
+<Get Name="Get" Id="{2aa4efdd-05b8-4439-a2d1-5d911c82baf8}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="Items" Id="{23bb4876-6137-43af-a75f-8e824fd8aaaf}">
+<Declaration><![CDATA[// Safety group, E-stop and connection items with their decoded state (nCount valid entries).
+PROPERTY Items : ST_SafetyItems]]></Declaration>
+<Get Name="Get" Id="{e7ab4250-0dcf-4575-b2d0-c6168fd8286e}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+</Itf>
+</TcPlcObject>

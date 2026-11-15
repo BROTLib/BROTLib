@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_FixedCabinet" Id="{855963da-f814-4280-8690-01a15777181d}" SpecialFunc="None">
+<Declaration><![CDATA[// I_Cabinet for machines without a Local/Remote switch (or for tests of consumers): the control mode is the project policy
+// eMode, set in the declaration of the instance in MAIN. It is an input of the block and not a property on purpose: there
+// is no setter on I_Cabinet, so the policy cannot become a software ownership switch over ADS or the HMI.
+FUNCTION_BLOCK FB_FixedCabinet IMPLEMENTS I_Cabinet
+VAR_INPUT
+	eMode				: E_ControlMode := E_ControlMode.remote;	// project policy; keep it a constant of the declaration
+	bEstop				: BOOL;		// E-stop pressed or not yet released
+	bSafetyError		: BOOL;		// TwinSAFE group in error
+	bSafetyAckPending	: BOOL;		// E-stop released, acknowledge not run yet
+	bPendantActive		: BOOL;		// a pendant holds motion authority
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+<Property Name="ControlMode" Id="{6950cc07-5cb3-47b1-8e4e-fd4a236adc05}">
+<Declaration><![CDATA[PROPERTY ControlMode : E_ControlMode]]></Declaration>
+<Get Name="Get" Id="{21eb716d-a50f-4ea1-b472-ac3c50c1128f}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[ControlMode := eMode;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SwitchPresent" Id="{2ec8ac4e-2dfb-43e2-9be3-a18217888fa2}">
+<Declaration><![CDATA[PROPERTY SwitchPresent : BOOL]]></Declaration>
+<Get Name="Get" Id="{148ae57a-6b2e-42af-8d75-d71d3e7ad424}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SwitchPresent := FALSE;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="EstopActive" Id="{fc1f5fa2-82b8-4f2e-8d90-1c4cf74b6618}">
+<Declaration><![CDATA[PROPERTY EstopActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{1454a98f-aa69-4fef-9bca-aaa255882283}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[EstopActive := bEstop;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SafetyError" Id="{4672937f-19fd-4885-b3ad-31a76b0acb1b}">
+<Declaration><![CDATA[PROPERTY SafetyError : BOOL]]></Declaration>
+<Get Name="Get" Id="{c7e41773-f1c1-4370-bec3-fda50c5350ff}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SafetyError := bSafetyError;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SafetyAckPending" Id="{f44a47a8-bd61-4220-be3c-b4b579332f7a}">
+<Declaration><![CDATA[PROPERTY SafetyAckPending : BOOL]]></Declaration>
+<Get Name="Get" Id="{19892326-2f60-4589-98f3-23879a746053}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SafetyAckPending := bSafetyAckPending;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="PendantActive" Id="{ce83f231-f0e3-4b09-b2bf-9ac7a713d766}">
+<Declaration><![CDATA[PROPERTY PendantActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{42c30272-9f6d-4aa0-abce-a1aa52bb9afd}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[PendantActive := bPendantActive;]]></ST>
+</Implementation>
+</Get>
+</Property>
+</POU>
+</TcPlcObject>

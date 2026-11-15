@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_SafetyItems" Id="{60d21cb8-f4f5-4c5d-9828-c4ba7ffc2000}">
+<Declaration><![CDATA[// The items of I_SafetyDiagnostics, a fixed list so that it can be read over ADS in one piece.
+TYPE ST_SafetyItems :
+STRUCT
+	nCount		: USINT;						// number of valid entries in aItem
+	aItem		: ARRAY[1..8] OF ST_SafetyItem;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

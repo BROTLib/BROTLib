@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_ControlMode" Id="{21390704-2bb3-46ec-bebb-9447898de08a}">
+<Declaration><![CDATA[// Who may command the telescope: the physical Local/Remote switch (or the fixed project policy). I_Cabinet.ControlMode.
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_ControlMode :
+(
+	remote := 0,
+	local := 1
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

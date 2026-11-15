@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_HmiMountType" Id="{78812fc8-0ca9-4cb9-9cab-cc90489b693a}">
+<Declaration><![CDATA[// Mount type of the telescope the gateway is wired to, derived from which telescope input is assigned.
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_HmiMountType :
+(
+	none := 0,
+	altaz,
+	radec
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

@@ -15,7 +15,8 @@ TYPE E_CommandRejectReason :
 	parking,
 	parked,
 	not_ready,
-	gohome_active
+	gohome_active,
+	init_required	// appended: MONETcommon#72 (a suspended telescope needs a new Init); only ever appended, the HMI reads it by value
 );
 END_TYPE
 ]]></Declaration>

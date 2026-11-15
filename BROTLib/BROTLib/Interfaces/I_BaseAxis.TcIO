@@ -66,6 +66,17 @@
         <Declaration><![CDATA[]]></Declaration>
       </Get>
     </Property>
+<Property Name="JogSlow" Id="{ef3d9068-2b85-46e8-971b-f71b2eeb66ae}">
+<Declaration><![CDATA[// Jog at the slow manual velocity (FB_Axis.Jog_Slow) instead of the fast one. A level like MovePos/MoveNeg: it is read
+// while the axis jogs. Default FALSE, which is the fast jog of today.
+PROPERTY JogSlow : BOOL]]></Declaration>
+<Get Name="Get" Id="{35e0dcb1-891d-4776-81df-42dcb9dc9a37}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+<Set Name="Set" Id="{60d23aff-9568-412c-942d-d4fd2c9d4215}">
+<Declaration><![CDATA[]]></Declaration>
+</Set>
+</Property>
     <Property Name="MoveNeg" Id="{273cb633-0163-4c0e-aa79-479108adb62f}">
       <Declaration><![CDATA[PROPERTY MoveNeg : BOOL]]></Declaration>
       <Get Name="Get" Id="{66565ae8-18e2-44be-8013-686e2e637e40}">

@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_HmiBlocker" Id="{147fe5bd-eca1-4425-8c4b-e462656c6f8f}">
+<Declaration><![CDATA[// Bit numbers of ST_HmiStatus.nBlockers (a DWORD bit set, bit n set = the blocker is active; contract 5.8). The HMI
+// translates every bit with its own texts. mode_remote, pendant_active and telescope_suspended_local are information, not errors.
+// Values are only ever appended (contract 5.7).
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_HmiBlocker :
+(
+	estop := 0,
+	safety_error,
+	safety_ack_pending,
+	telescope_error,
+	not_online,
+	axis_error,
+	axis_not_calibrated,
+	axis_in_limit,
+	covers_error,
+	hydraulics_error,
+	roof_error,
+	dome_error,
+	mode_remote,
+	pendant_active,
+	no_cabinet,
+	config_error,
+	telescope_suspended_local,
+	safety_item_not_ok
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

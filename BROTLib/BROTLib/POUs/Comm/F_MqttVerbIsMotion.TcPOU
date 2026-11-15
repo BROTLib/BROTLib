@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="F_MqttVerbIsMotion" Id="{b177645c-bfe5-41a0-ae3e-056c9eb84d28}" SpecialFunc="None">
+<Declaration><![CDATA[// TRUE for the MQTT command verbs that move something or reset it: the verbs the cabinet switch on Local refuses
+// (specs/design/ui-tiers-and-hmi-gateway.md, 4.1 and 4.4). Not the stop direction (stop, dome_stop) and not the data
+// fields (rightascension, declination, elevation, azimuth, temperature, humidity, pressure, dut1): those pass in
+// both modes. Pure function, so the list is unit-testable.
+FUNCTION F_MqttVerbIsMotion : BOOL
+VAR_INPUT
+	sVerb		: STRING(255);	// the parameter of the command field
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[F_MqttVerbIsMotion := sVerb = 'power' OR
+	sVerb = 'park' OR
+	sVerb = 'gohome' OR
+	sVerb = 'track' OR
+	sVerb = 'slew' OR
+	sVerb = 'focus' OR
+	sVerb = 'cover_open' OR
+	sVerb = 'cover_close' OR
+	sVerb = 'dome_open' OR
+	sVerb = 'dome_close' OR
+	sVerb = 'dome_park' OR
+	sVerb = 'dome_track' OR
+	sVerb = 'dome_reset' OR
+	sVerb = 'filter' OR
+	sVerb = 'nasmyth' OR
+	sVerb = 'derotatoroffset' OR
+	sVerb = 'elevationoffset' OR
+	sVerb = 'azimuthoffset' OR
+	sVerb = 'declinationoffset' OR
+	sVerb = 'hourangleoffset' OR
+	sVerb = 'reset';
+]]></ST>
+</Implementation>
+</POU>
+</TcPlcObject>

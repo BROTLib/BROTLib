@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiCommandRecord" Id="{348482ae-7deb-4b58-acf2-aae81f2ef317}">
+<Declaration><![CDATA[// Outcome of the last HMI command the gateway executed; the HMI matches nId to show the outcome next to the button.
+TYPE ST_HmiCommandRecord :
+STRUCT
+	nId					: UDINT;	// incremented per RPC that was queued
+	eCommand			: E_HmiCommand;
+	bAccepted			: BOOL;		// the interface method returned TRUE (informational: not every implementation returns a meaningful value)
+	eTelescopeReason	: E_CommandRejectReason;	// reason of a rejection by the telescope where I_TelescopeStatus provides it, else none
+	nCycle				: UDINT;	// heartbeat value at execution
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

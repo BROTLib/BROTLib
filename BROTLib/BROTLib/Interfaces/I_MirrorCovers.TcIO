@@ -39,5 +39,13 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
     </Method>
+<Method Name="Stop" Id="{862def1e-2c3b-4bfa-8457-8d736f531e2c}">
+<Declaration><![CDATA[// Stop a running open or close; the covers stay where they are. The result is informational (as the other commands').
+// A stop direction command: allowed in every mode.
+METHOD Stop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+</Method>
   </Itf>
 </TcPlcObject>

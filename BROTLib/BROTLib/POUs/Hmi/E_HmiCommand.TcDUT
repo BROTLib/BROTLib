@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_HmiCommand" Id="{9c19475c-a988-42a1-9b53-e282d18c4a2d}">
+<Declaration><![CDATA[// The command of ST_HmiCommandRecord. Values are only ever appended (contract 5.7).
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_HmiCommand :
+(
+	none := 0,
+	init,
+	park,
+	home,
+	slew,
+	slew_ha_dec,
+	track,
+	stop,
+	reset,
+	jog,
+	home_axis,
+	enable_axis,
+	move_axis_to,
+	reset_axis,
+	move_focus,
+	covers_open,
+	covers_close,
+	covers_stop,
+	covers_reset,
+	hydraulics_enable,
+	hydraulics_reset,
+	roof_open,
+	roof_close,
+	roof_stop,
+	roof_reset,
+	dome_open,
+	dome_close,
+	dome_park,
+	dome_stop,
+	dome_reset,
+	set_filter,
+	set_nasmyth
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

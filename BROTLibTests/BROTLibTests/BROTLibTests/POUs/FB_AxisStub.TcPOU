@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_AxisStub" Id="{46506141-b45c-430a-9047-d20651eecd0c}" SpecialFunc="None">
+<Declaration><![CDATA[// Minimal I_Axis for the HMI gateway tests: FB_BaseAxis supplies the I_BaseAxis part (levels, Position, Velocity), this adds the
+// I_Axis edge commands and counts them. Nothing moves.
+FUNCTION_BLOCK FB_AxisStub EXTENDS BROTLib.FB_BaseAxis IMPLEMENTS BROTLib.I_Axis
+VAR_INPUT
+	bTracking		: BOOL;
+	bMoveDone		: BOOL;
+END_VAR
+VAR_OUTPUT
+	nMoveAxisEdges	: INT;		// rising edges written to MoveAxis
+	nStopAxisEdges	: INT;		// rising edges written to StopAxis
+END_VAR
+VAR
+	bMoveAxisLevel	: BOOL;
+	bStopAxisLevel	: BOOL;
+	bTrackingLevel	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+<Property Name="isTracking" Id="{1cc6e2aa-f323-4a2f-ab9f-a3f2a3f0c0c3}">
+<Declaration><![CDATA[PROPERTY isTracking : BOOL]]></Declaration>
+<Get Name="Get" Id="{9fd3483b-cff8-49eb-96c9-e7a057b3ec74}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[isTracking := bTracking;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="MoveDone" Id="{3978ac65-986c-4e2d-8f3f-7977fdd0bb3b}">
+<Declaration><![CDATA[PROPERTY MoveDone : BOOL]]></Declaration>
+<Get Name="Get" Id="{2bcdf340-601b-447c-b17f-12638ea538af}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[MoveDone := bMoveDone;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="SlewTime" Id="{9fe4f6e6-0ab2-4b37-b7d1-54a438e448a3}">
+<Declaration><![CDATA[PROPERTY SlewTime : LREAL]]></Declaration>
+<Get Name="Get" Id="{39f24777-a600-4826-91e2-7faf762a90c5}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SlewTime := 0.0;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="MoveAxis" Id="{e2455b73-f934-4beb-a6af-fdfd2b72b355}">
+<Declaration><![CDATA[PROPERTY MoveAxis : BOOL]]></Declaration>
+<Get Name="Get" Id="{5f7d0c11-21c6-44fa-a51c-badd757c968b}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[MoveAxis := bMoveAxisLevel;]]></ST>
+</Implementation>
+</Get>
+<Set Name="Set" Id="{5e89fd27-1411-4dfc-bf39-b76806690964}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF MoveAxis AND NOT bMoveAxisLevel THEN
+	nMoveAxisEdges := nMoveAxisEdges + 1;
+END_IF
+bMoveAxisLevel := MoveAxis;]]></ST>
+</Implementation>
+</Set>
+</Property>
+<Property Name="StopAxis" Id="{54f1dc1e-1a03-479b-a573-d9bf6b62cc02}">
+<Declaration><![CDATA[PROPERTY StopAxis : BOOL]]></Declaration>
+<Get Name="Get" Id="{e1c2de41-610e-4aab-8810-a3ad62f7c488}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[StopAxis := bStopAxisLevel;]]></ST>
+</Implementation>
+</Get>
+<Set Name="Set" Id="{41421581-a1e6-4b5d-ae88-5944656a7e2d}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF StopAxis AND NOT bStopAxisLevel THEN
+	nStopAxisEdges := nStopAxisEdges + 1;
+END_IF
+bStopAxisLevel := StopAxis;]]></ST>
+</Implementation>
+</Set>
+</Property>
+<Property Name="Tracking" Id="{0535103b-1f89-40ab-8556-ace3dca445d3}">
+<Declaration><![CDATA[PROPERTY Tracking : BOOL]]></Declaration>
+<Get Name="Get" Id="{74d2e998-e942-4b3f-84c1-2fa95a7a76ad}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Tracking := bTrackingLevel;]]></ST>
+</Implementation>
+</Get>
+<Set Name="Set" Id="{26be9b9f-406d-4862-b7c5-da8f99dcfde2}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[bTrackingLevel := Tracking;]]></ST>
+</Implementation>
+</Set>
+</Property>
+<Method Name="Prepare" Id="{8b4fe3ad-8ae5-4225-b4bf-fbd5e81aad0a}">
+<Declaration><![CDATA[// A ready, calibrated axis (what MoveAxisTo requires).
+METHOD Prepare : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[bReady := TRUE;
+bCalibrated := TRUE;
+Prepare := TRUE;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_StartHoming" Id="{f521397a-b81e-4ac5-940c-a4254541eb91}">
+<Declaration><![CDATA[METHOD _StartHoming : BOOL
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

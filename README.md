@@ -64,11 +64,13 @@ BROTLib/
 │   │   ├── Interfaces/          # I_Telescope, I_Axis, I_BaseAxis, I_Dome,
 │   │   │                        # I_Roof, I_Focus, I_Filter, I_Brake,
 │   │   │                        # I_MirrorCovers, I_Nasmyth, I_Hydraulics,
-│   │   │                        # I_AltAzTelescope, I_RaDecTelescope
+│   │   │                        # I_AltAzTelescope, I_RaDecTelescope,
+│   │   │                        # I_Cabinet, I_TelescopeStatus, I_SafetyDiagnostics
 │   │   └── POUs/                # Function blocks and functions
 │   │       ├── MAIN.TcPOU       # Library placeholder
 │   │       ├── Comm/            # FB_Comm_MQTT, FB_Comm_MQTT_Influx, I_Comm
 │   │       ├── Debug/           # FB_InfoConnection, FB_InfoEStop, FB_InfoGroup
+│   │       ├── Hmi/             # FB_HmiGateway (ADS-RPC adapter for the maintenance HMI), GVL_Hmi, ST_Hmi*/E_Hmi*
 │   │       ├── Pointing/        # FB_PointingModelForward, FB_PointingModelInversion
 │   │       ├── Tracking/        # F_Azimuthvelocity, F_Elevationvelocity,
 │   │       │                    # F_DerotatorPosition2, F_Derotatorvelocity
@@ -110,19 +112,22 @@ organised into four layers:
    | Interface | Subsystem |
    |---|---|
    | `I_Telescope` | Generic telescope (command interface, coordinate handling, `ReadyState`, telemetry) |
-   | `I_AltAzTelescope` / `I_RaDecTelescope` | Mount-type-specific extensions |
-   | `I_Axis` / `I_BaseAxis` | Motion axes (position, velocity, tracking, homing) |
+   | `I_AltAzTelescope` / `I_RaDecTelescope` | Mount-type-specific extensions (`I_RaDecTelescope` also has the native `SlewHaDec`) |
+   | `I_TelescopeStatus` | Optional read-only status of a telescope control (error, busy, parked, suspended, last rejected command, current ICRS position) |
+   | `I_Axis` / `I_BaseAxis` | Motion axes (position, velocity, tracking, homing, jog levels and `JogSlow`) |
    | `I_Dome` | Dome rotation and shutter |
    | `I_Roof` | Roof (dome enclosure) open/close control |
    | `I_Focus`, `I_Filter`, `I_Brake` | Instrument subsystems (`I_Focus` has `MinPosition`/`MaxPosition` and `Stop()`) |
-   | `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics` | Telescope infrastructure |
+   | `I_MirrorCovers`, `I_Nasmyth`, `I_Hydraulics` | Telescope infrastructure (`I_MirrorCovers` has `Stop()`) |
+   | `I_Cabinet` (`FB_FixedCabinet`) | Read-only Local/Remote switch, E-stop, safety and pendant state; `FB_Comm_MQTT` refuses motion verbs in Local |
+   | `I_SafetyDiagnostics` | Optional read-only safety detail (STO, restart pending, decoded TwinSAFE items) |
    | `I_Comm` | Telemetry/log publishing (`Publish`, `PublishLog`) |
 
    **Which interface for which job.** The `I_*` interfaces are the one contract for what a telescope can do; every
    command source reaches them in its own way. Observing clients (pyobs-brot, BROTgui via pybrotlib) send MQTT verbs
    that `FB_Comm_MQTT_Influx` turns into `I_Telescope`/`I_Focus`/`I_Dome`/... calls. The maintenance HMI (BROTweb)
-   cannot call interfaces over ADS, so it uses the proposed adapter `FB_HmiGateway` at `MAIN.Hmi` (RPC methods and one
-   status struct over the same interfaces), and the proposed `I_Cabinet` carries the physical Local/Remote switch that
+   cannot call interfaces over ADS, so it uses the adapter `FB_HmiGateway` at `MAIN.Hmi` (RPC methods and one
+   status struct over the same interfaces), and `I_Cabinet` carries the physical Local/Remote switch that
    decides which of the two may move the telescope. The pendant and the TwinCAT VISU act on the axis blocks directly.
    Application code that coordinates subsystems (a telescope state machine, a watchdog) takes interface references,
    never concrete blocks, where the interface has what it needs. Design, enforcement rules and the open gaps of the

@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<Itf Name="I_Cabinet" Id="{92e83377-4cb9-4417-ad9b-a7da3ea87796}">
+<Declaration><![CDATA[// Read-only view of the cabinet: Local/Remote switch, E-stop, safety and pendant state. There is no setter, so no software
+// can change the mode. Used by the HMI gateway and the MQTT comm layer (specs/design/ui-tiers-and-hmi-gateway.md, section 3).
+INTERFACE I_Cabinet
+]]></Declaration>
+<Property Name="ControlMode" Id="{8bb1a8af-388b-4401-b545-224164dce9b4}">
+<Declaration><![CDATA[// The physical Local/Remote switch, or the fixed project policy when SwitchPresent is FALSE.
+PROPERTY ControlMode : E_ControlMode]]></Declaration>
+<Get Name="Get" Id="{be061cca-5015-4053-925b-71ad1fdbab80}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="SwitchPresent" Id="{1c6d185f-a8bd-4f9f-8543-92edeb3da8e5}">
+<Declaration><![CDATA[// FALSE: no physical switch, ControlMode is the fixed project policy.
+PROPERTY SwitchPresent : BOOL]]></Declaration>
+<Get Name="Get" Id="{918f9fa8-1f59-43ec-8e46-c72ca9094b4e}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="EstopActive" Id="{fdd54906-d5ad-4932-acd6-47e02221acf3}">
+<Declaration><![CDATA[// E-stop pressed or not yet released (the signal behind bEstopTriggered).
+PROPERTY EstopActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{c2535631-8813-4721-92aa-9ebe24a775be}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="SafetyError" Id="{43beca6c-2442-4e56-b645-3daf846cca24}">
+<Declaration><![CDATA[// TwinSAFE group in error.
+PROPERTY SafetyError : BOOL]]></Declaration>
+<Get Name="Get" Id="{f819ee1b-89e3-4aef-a8df-ebedae34505c}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="SafetyAckPending" Id="{3ab763d5-7294-4e03-bed2-81a23d159db5}">
+<Declaration><![CDATA[// E-stop released, safety acknowledge not run yet (drives in STO).
+PROPERTY SafetyAckPending : BOOL]]></Declaration>
+<Get Name="Get" Id="{4fc36cd3-8a2c-4d99-8399-5502dd33d7c0}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+<Property Name="PendantActive" Id="{6aca42d1-ae06-4bc1-bb43-d7481f97df74}">
+<Declaration><![CDATA[// A pendant currently holds motion authority.
+PROPERTY PendantActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{0f43e7be-d6fb-447e-931a-cad6e53010f9}">
+<Declaration><![CDATA[]]></Declaration>
+</Get>
+</Property>
+</Itf>
+</TcPlcObject>

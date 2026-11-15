@@ -310,6 +310,9 @@ eReason := BROTLib.E_CommandRejectReason.not_ready;
 AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'not_ready');
 eReason := BROTLib.E_CommandRejectReason.gohome_active;
 AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'gohome_active');
+eReason := BROTLib.E_CommandRejectReason.init_required;
+AssertTrue(Condition := LEN(BROTLib.F_CommandRejectText(eReason)) > 0, Message := 'init_required');
+AssertTrue(Condition := TO_INT(BROTLib.E_CommandRejectReason.init_required) = 10, Message := 'init_required is appended after gohome_active (value 10)');
 AssertEquals_STRING(Expected := 'telescope parked, send power=1 first', Actual := BROTLib.F_CommandRejectText(BROTLib.E_CommandRejectReason.parked), Message := 'parked text (#83)');
 TEST_FINISHED();
 ]]></ST>
