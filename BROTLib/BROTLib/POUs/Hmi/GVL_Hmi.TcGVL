@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<GVL Name="GVL_Hmi" Id="{20c72f3e-4fbc-4621-b485-85e3924acd23}">
+<Declaration><![CDATA[// Constants of the HMI gateway contract (specs/design/ui-tiers-and-hmi-gateway.md, 5.7). Changing MAX_AXES changes the
+// contract (major).
+{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	CONTRACT_MAJOR		: UINT := 1;
+	CONTRACT_MINOR		: UINT := 0;
+	MAX_AXES			: INT := 6;		// axis slots including the focus (MONET uses 4, IAG50cm 3)
+	// mailbox slots of the gateway (FB_HmiGateway)
+	SLOT_STOP			: INT := 0;
+	SLOT_TELESCOPE		: INT := 1;
+	SLOT_AXIS			: INT := 1;		// + the axis slot number (2..MAX_AXES+1)
+	SLOT_COVERS			: INT := MAX_AXES + 2;
+	SLOT_HYDRAULICS		: INT := MAX_AXES + 3;
+	SLOT_ROOF			: INT := MAX_AXES + 4;
+	SLOT_DOME			: INT := MAX_AXES + 5;
+	SLOT_FILTER			: INT := MAX_AXES + 6;
+	SLOT_NASMYTH		: INT := MAX_AXES + 7;
+	SLOT_LAST			: INT := MAX_AXES + 7;
+END_VAR]]></Declaration>
+</GVL>
+</TcPlcObject>

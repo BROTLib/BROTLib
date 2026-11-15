@@ -1,0 +1,1449 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_HmiGateway" Id="{009b732a-b2b1-49cf-ae88-47c085ce6ce8}" SpecialFunc="None">
+<Declaration><![CDATA[// Thin adapter that makes the I_* interfaces reachable over ADS for the HMI (BROTweb): it takes interface references as
+// inputs, exposes a fixed set of RPC methods ({attribute 'TcRpcEnable'}) and publishes one flat status struct (stStatus).
+// It holds no telescope logic: every command ends in an interface call, so all checks of the implementation apply unchanged.
+// Contract: specs/design/ui-tiers-and-hmi-gateway.md. Instantiate it at MAIN.Hmi and call it ONCE PER CYCLE, UNCONDITIONALLY, in the
+// task that runs the axis blocks and BEFORE them (the dead-man of the HMI jog lives here, section 7).
+// An RPC only validates (the gateway's own gates) and queues; the cyclic body executes (mailbox, section 5.5).
+FUNCTION_BLOCK FB_HmiGateway
+VAR_INPUT
+	ipAltAz				: I_AltAzTelescope;		// at most one of ipAltAz/ipRaDec; the assigned one is the gateway's I_Telescope
+	ipRaDec				: I_RaDecTelescope;		//   and decides the mount type
+	ipCabinet			: I_Cabinet;			// unassigned: every motion RPC is rejected (rejected_no_cabinet)
+	aipAxes				: ARRAY[1..GVL_Hmi.MAX_AXES] OF I_Axis;	// mount axes, derotator(s); the assigned ones become slots 1..n in this order
+	astAxisInfo			: ARRAY[1..GVL_Hmi.MAX_AXES] OF ST_HmiAxisInfo;
+	ipFocus				: I_Focus;				// appended as the next axis slot, role focus
+	stFocusInfo			: ST_HmiAxisInfo;
+	ipCovers			: I_MirrorCovers;
+	ipHydraulics		: I_Hydraulics;
+	ipBrake				: I_Brake;
+	ipRoof				: I_Roof;
+	ipDome				: I_Dome;
+	ipFilter			: I_Filter;
+	ipNasmyth			: I_Nasmyth;
+	ipTelescopeStatus	: I_TelescopeStatus;	// optional, same object as ipAltAz/ipRaDec
+	ipSafety			: I_SafetyDiagnostics;	// optional
+	bTelescopeRunsInLocal	: BOOL;				// project constant: TRUE where the telescope control runs with the switch on Local (IAG50cm),
+												//   FALSE where Local suspends it (MONETS, MONETN); replaced by NOT ipTelescopeStatus.Suspended where wired
+	tJogTimeout			: TIME := T#400MS;		// dead-man timeout: no Jog call for this long releases the jog (the HMI calls every 150 ms)
+END_VAR
+VAR_OUTPUT
+	stStatus			: ST_HmiStatus;			// the only symbol the HMI reads
+END_VAR
+VAR
+	ipTelescope			: I_Telescope;			// each cycle: ipAltAz if assigned, else ipRaDec
+	// derived each cycle
+	bCabinet			: BOOL;
+	bLocal				: BOOL;
+	bPendant			: BOOL;
+	bEstop				: BOOL;
+	bSafetyError		: BOOL;
+	bMotionAllowed		: BOOL;					// Local AND NOT pendant AND cabinet assigned
+	bTelescopeCmds		: BOOL;					// telescope-level commands available
+	bConfigError		: BOOL;
+	eMount				: E_HmiMountType;
+	nAxes				: INT;					// axis slots in use, the focus included
+	nFocusSlot			: INT;					// slot of the focus, 0 = none
+	aipSlot				: ARRAY[1..GVL_Hmi.MAX_AXES] OF I_BaseAxis;
+	aipAxis				: ARRAY[1..GVL_Hmi.MAX_AXES] OF I_Axis;		// 0 for the focus slot
+	aInfo				: ARRAY[1..GVL_Hmi.MAX_AXES] OF ST_HmiAxisInfo;
+	// mailbox
+	aRequest			: ARRAY[0..GVL_Hmi.SLOT_LAST] OF ST_HmiRequest;
+	nCommandId			: UDINT;
+	stLast				: ST_HmiCommandRecord;
+	nHeartbeat			: UDINT;
+	// jog (section 7)
+	bJogOwned			: BOOL;
+	nJogAxis			: INT;
+	nJogDir				: SINT;
+	bJogSlow			: BOOL;
+	nJogToken			: UDINT;
+	bJogCalled			: BOOL;					// a valid Jog call arrived since the last cycle: restarts the watchdog
+	bJogRelease			: BOOL;					// a release was requested (Jog with direction 0, reversal)
+	tonJog				: TON;
+	// MoveAxisTo (section 5.4.1)
+	aMove				: ARRAY[1..GVL_Hmi.MAX_AXES] OF ST_HmiMove;
+	aTonMove			: ARRAY[1..GVL_Hmi.MAX_AXES] OF TON;
+	stEmptyAxis			: ST_HmiAxisStatus;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[nHeartbeat := nHeartbeat + 1;
+_Derive();
+_ExecuteRequests();
+_ServiceJog();
+_ServiceMoves();
+_PublishStatus();
+]]></ST>
+</Implementation>
+<Method Name="_Post" Id="{3b6d49c8-a0f3-48c9-9d4d-5d1825038b1d}">
+<Declaration><![CDATA[// Queues a request in the mailbox slot of its group; the cyclic body executes it (section 5.5).
+METHOD PRIVATE _Post : E_HmiResult
+VAR_INPUT
+	nSlot		: INT;
+	eCommand	: E_HmiCommand;
+	nAxis		: USINT;
+	fA			: LREAL;
+	fB			: LREAL;
+	bFlag		: BOOL;
+	nValue		: DINT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF aRequest[nSlot].bFull THEN
+	_Post := E_HmiResult.rejected_busy;
+	RETURN;
+END_IF
+nCommandId := nCommandId + 1;
+aRequest[nSlot].bFull := TRUE;
+aRequest[nSlot].eCommand := eCommand;
+aRequest[nSlot].nId := nCommandId;
+aRequest[nSlot].nAxis := nAxis;
+aRequest[nSlot].fA := fA;
+aRequest[nSlot].fB := fB;
+aRequest[nSlot].bFlag := bFlag;
+aRequest[nSlot].nValue := nValue;
+_Post := E_HmiResult.queued;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_GateMotion" Id="{27adc8a4-333b-4ecb-850a-f10044f61bd3}">
+<Declaration><![CDATA[// The gate every HMI motion command passes: a cabinet, switch on Local, no pendant (section 4.2, 4.3).
+METHOD PRIVATE _GateMotion : E_HmiResult
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF NOT bCabinet THEN
+	_GateMotion := E_HmiResult.rejected_no_cabinet;
+ELSIF NOT bLocal THEN
+	_GateMotion := E_HmiResult.rejected_remote;
+ELSIF bPendant THEN
+	_GateMotion := E_HmiResult.rejected_pendant;
+ELSE
+	_GateMotion := E_HmiResult.queued;
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_GateTelescope" Id="{0d909500-18eb-42e5-ad25-c23ee443b412}">
+<Declaration><![CDATA[// Motion gate plus a telescope whose commands are available (section 5.3).
+METHOD PRIVATE _GateTelescope : E_HmiResult
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[_GateTelescope := _GateMotion();
+IF _GateTelescope = E_HmiResult.queued AND NOT bTelescopeCmds THEN
+	_GateTelescope := E_HmiResult.rejected_no_telescope;
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_GateAxis" Id="{3fa72f50-b574-48c1-a8c3-dc76c0127dbd}">
+<Declaration><![CDATA[// Motion gate plus a present axis slot.
+METHOD PRIVATE _GateAxis : E_HmiResult
+VAR_INPUT
+	nAxis	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[_GateAxis := _GateMotion();
+IF _GateAxis <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF nAxis < 1 OR nAxis > GVL_Hmi.MAX_AXES THEN
+	_GateAxis := E_HmiResult.rejected_argument;
+ELSIF nAxis > nAxes THEN
+	_GateAxis := E_HmiResult.rejected_absent;
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_GateSub" Id="{1810ed1d-6f2b-4d1a-a266-d4fcad59a16d}">
+<Declaration><![CDATA[// Motion gate (bStopDirection FALSE) plus a present subsystem.
+METHOD PRIVATE _GateSub : E_HmiResult
+VAR_INPUT
+	bPresent			: BOOL;
+	bStopDirection		: BOOL;		// stop direction commands are allowed in every mode
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF NOT bPresent THEN
+	_GateSub := E_HmiResult.rejected_absent;
+ELSIF bStopDirection THEN
+	_GateSub := E_HmiResult.queued;
+ELSE
+	_GateSub := _GateMotion();
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_IsStopDirection" Id="{7879c71c-969b-4eb0-b99a-12e0d4c9dd98}">
+<Declaration><![CDATA[METHOD PRIVATE _IsStopDirection : BOOL
+VAR_INPUT
+	eCommand	: E_HmiCommand;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[_IsStopDirection := eCommand = E_HmiCommand.stop OR eCommand = E_HmiCommand.covers_stop OR eCommand = E_HmiCommand.roof_stop OR eCommand = E_HmiCommand.dome_stop;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_IsTelescopeLevel" Id="{00571663-fd64-4608-b303-54637ef95eae}">
+<Declaration><![CDATA[METHOD PRIVATE _IsTelescopeLevel : BOOL
+VAR_INPUT
+	eCommand	: E_HmiCommand;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[_IsTelescopeLevel := eCommand = E_HmiCommand.init OR eCommand = E_HmiCommand.park OR eCommand = E_HmiCommand.home OR eCommand = E_HmiCommand.slew OR
+	eCommand = E_HmiCommand.slew_ha_dec OR eCommand = E_HmiCommand.track OR eCommand = E_HmiCommand.reset;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_IsReset" Id="{52ec9d3e-d4b2-4873-81e0-501267a6c160}">
+<Declaration><![CDATA[METHOD PRIVATE _IsReset : BOOL
+VAR_INPUT
+	eCommand	: E_HmiCommand;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[_IsReset := eCommand = E_HmiCommand.reset OR eCommand = E_HmiCommand.reset_axis OR eCommand = E_HmiCommand.covers_reset OR
+	eCommand = E_HmiCommand.hydraulics_reset OR eCommand = E_HmiCommand.roof_reset OR eCommand = E_HmiCommand.dome_reset;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Init" Id="{ff8100d6-2eb4-416f-abb3-1e5b6da0c1dc}">
+<Declaration><![CDATA[// Power on and initialise; bOpenCovers as MQTT power=1 (TRUE) / power=2 (FALSE). Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD Init : E_HmiResult
+VAR_INPUT
+	bOpenCovers	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Init := _GateTelescope();
+IF Init = E_HmiResult.queued THEN
+	Init := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.init, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := bOpenCovers, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Park" Id="{6f488d5e-cf13-44dc-b9d4-b0fa180e743e}">
+<Declaration><![CDATA[// Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD Park : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Park := _GateTelescope();
+IF Park = E_HmiResult.queued THEN
+	Park := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.park, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Home" Id="{c1fc4779-2cc8-424a-aac0-7cbe0d2b11af}">
+<Declaration><![CDATA[// Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD Home : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Home := _GateTelescope();
+IF Home = E_HmiResult.queued THEN
+	Home := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.home, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Slew" Id="{b5106e16-481b-4131-ac8c-885bb17c04dd}">
+<Declaration><![CDATA[// Alt-az pointing in degrees. Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD Slew : E_HmiResult
+VAR_INPUT
+	fAzimuth	: LREAL;
+	fAltitude	: LREAL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Slew := _GateTelescope();
+IF Slew <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+// the same ranges as the MQTT handler; NaN and infinity fail every comparison
+IF NOT (fAzimuth >= -360.0 AND fAzimuth <= 360.0 AND fAltitude >= -90.0 AND fAltitude <= 90.0) THEN
+	Slew := E_HmiResult.rejected_argument;
+	RETURN;
+END_IF
+Slew := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.slew, nAxis := 0, fA := fAzimuth, fB := fAltitude, bFlag := FALSE, nValue := 0);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="SlewHaDec" Id="{797d1c3f-1e54-4380-9f0a-ce166cebef22}">
+<Declaration><![CDATA[// Native move to apparent HA/Dec in degrees without tracking (I_RaDecTelescope.SlewHaDec); radec mounts only. Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD SlewHaDec : E_HmiResult
+VAR_INPUT
+	fHourAngle	: LREAL;
+	fDeclination	: LREAL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SlewHaDec := _GateTelescope();
+IF SlewHaDec <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF ipRaDec = 0 THEN
+	SlewHaDec := E_HmiResult.rejected_absent;
+	RETURN;
+END_IF
+IF NOT (fHourAngle >= -360.0 AND fHourAngle <= 360.0 AND fDeclination >= -90.0 AND fDeclination <= 90.0) THEN
+	SlewHaDec := E_HmiResult.rejected_argument;
+	RETURN;
+END_IF
+SlewHaDec := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.slew_ha_dec, nAxis := 0, fA := fHourAngle, fB := fDeclination, bFlag := FALSE, nValue := 0);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Track" Id="{300fb3cf-2d4d-4aca-a1a7-07ae6c7520b4}">
+<Declaration><![CDATA[// ICRS degrees (the HMI converts from h:m:s). Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD Track : E_HmiResult
+VAR_INPUT
+	fRightAscension	: LREAL;
+	fDeclination	: LREAL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Track := _GateTelescope();
+IF Track <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF NOT (fRightAscension >= 0.0 AND fRightAscension <= 360.0 AND fDeclination >= -90.0 AND fDeclination <= 90.0) THEN
+	Track := E_HmiResult.rejected_argument;
+	RETURN;
+END_IF
+Track := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.track, nAxis := 0, fA := fRightAscension, fB := fDeclination, bFlag := FALSE, nValue := 0);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Stop" Id="{15a878fa-d449-4046-9233-fb11611cba39}">
+<Declaration><![CDATA[// Stops the telescope and the focus, releases an HMI jog and stops a running HMI MoveAxisTo. Allowed in every mode.
+{attribute 'TcRpcEnable'}
+METHOD Stop : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// stop direction: allowed in every mode, also while the pendant is active
+IF ipTelescope = 0 AND nAxes = 0 THEN
+	Stop := E_HmiResult.rejected_absent;
+	RETURN;
+END_IF
+Stop := _Post(nSlot := GVL_Hmi.SLOT_STOP, eCommand := E_HmiCommand.stop, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Reset" Id="{5edb791e-5c77-4fa4-9de7-0c5955ed8786}">
+<Declaration><![CDATA[// Reset counts as motion: Local + bTelescopeCommands.
+{attribute 'TcRpcEnable'}
+METHOD Reset : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Reset := _GateTelescope();
+IF Reset = E_HmiResult.queued THEN
+	Reset := _Post(nSlot := GVL_Hmi.SLOT_TELESCOPE, eCommand := E_HmiCommand.reset, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Jog" Id="{88f8c175-f55a-4169-912e-9b5600f66dfe}">
+<Declaration><![CDATA[// Jog while pressed (section 7): the HMI calls every 150 ms while the button is held and once with nDirection 0 on release.
+// nDirection -1/0/+1, 0 = release (a stop direction command, any mode). nToken identifies the browser session (7.2).
+{attribute 'TcRpcEnable'}
+METHOD Jog : E_HmiResult
+VAR_INPUT
+	nAxis	: USINT;
+	nDirection	: SINT;
+	bSlow	: BOOL;
+	nToken	: UDINT;
+END_VAR
+VAR
+	i	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Jog := E_HmiResult.queued;
+IF nDirection < -1 OR nDirection > 1 THEN
+	Jog := E_HmiResult.rejected_argument;
+	RETURN;
+END_IF
+i := nAxis;
+IF nDirection = 0 THEN
+	// release: not gated by the mode, but only the owner can release
+	IF bJogOwned THEN
+		IF nToken = nJogToken THEN
+			bJogRelease := TRUE;
+		ELSE
+			Jog := E_HmiResult.rejected_jog_owner;
+		END_IF
+	END_IF
+	RETURN;
+END_IF
+Jog := _GateAxis(i);
+IF Jog <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF NOT aInfo[i].bCanJog OR bEstop OR bSafetyError THEN
+	Jog := E_HmiResult.rejected_not_allowed;
+ELSIF bJogOwned AND nToken <> nJogToken THEN
+	Jog := E_HmiResult.rejected_jog_owner;
+ELSIF aMove[i].nState <> 0 THEN
+	Jog := E_HmiResult.rejected_axis_busy;
+ELSIF bJogOwned AND (i <> nJogAxis OR nDirection <> nJogDir) THEN
+	// another axis or a reversal: the old jog is released first, the new one needs a call of its own
+	bJogRelease := TRUE;
+	Jog := E_HmiResult.rejected_axis_busy;
+ELSIF (nDirection > 0 AND (aipSlot[i].InPosLimit OR aipSlot[i].ActualPosition >= aInfo[i].fMax)) OR
+		(nDirection < 0 AND (aipSlot[i].InNegLimit OR aipSlot[i].ActualPosition <= aInfo[i].fMin)) THEN
+	Jog := E_HmiResult.rejected_not_allowed;
+ELSIF NOT bJogOwned AND aipSlot[i].Busy THEN
+	Jog := E_HmiResult.rejected_axis_busy;
+ELSE
+	// the levels are written by the cyclic body
+	bJogOwned := TRUE;
+	nJogAxis := i;
+	nJogDir := nDirection;
+	bJogSlow := bSlow;
+	nJogToken := nToken;
+	bJogCalled := TRUE;
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="HomeAxis" Id="{d8412504-b15b-495a-9388-a6863b4e4a7b}">
+<Declaration><![CDATA[// Rising edge of HomeAxis. Local; only if bCanHome.
+{attribute 'TcRpcEnable'}
+METHOD HomeAxis : E_HmiResult
+VAR_INPUT
+	nAxis	: USINT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[HomeAxis := _GateAxis(nAxis);
+IF HomeAxis <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF NOT aInfo[nAxis].bCanHome THEN
+	HomeAxis := E_HmiResult.rejected_not_allowed;
+	RETURN;
+END_IF
+IF aipSlot[nAxis].HomeAxis THEN
+	// a homing is already requested or running: a write would not be an edge
+	HomeAxis := E_HmiResult.rejected_axis_busy;
+	RETURN;
+END_IF
+HomeAxis := _Post(nSlot := GVL_Hmi.SLOT_AXIS + nAxis, eCommand := E_HmiCommand.home_axis, nAxis := nAxis, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="EnableAxis" Id="{f93a86ff-854a-4b58-996d-76cbdf3e8358}">
+<Declaration><![CDATA[// Switches the axis enable (disable too: a motion command). Local; only if bCanEnable.
+{attribute 'TcRpcEnable'}
+METHOD EnableAxis : E_HmiResult
+VAR_INPUT
+	nAxis	: USINT;
+	bEnable	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[EnableAxis := _GateAxis(nAxis);
+IF EnableAxis <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF NOT aInfo[nAxis].bCanEnable THEN
+	EnableAxis := E_HmiResult.rejected_not_allowed;
+	RETURN;
+END_IF
+EnableAxis := _Post(nSlot := GVL_Hmi.SLOT_AXIS + nAxis, eCommand := E_HmiCommand.enable_axis, nAxis := nAxis, fA := 0.0, fB := 0.0, bFlag := bEnable, nValue := 0);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="MoveAxisTo" Id="{aeece181-944f-4de2-9a25-faa333eefd92}">
+<Declaration><![CDATA[// Go-to-position of one axis in its unit, within the descriptor's fMin..fMax (section 5.4.1). A command, not hold-to-run;
+// stopped by Stop(), by the switch going to Remote, by the pendant and by E-stop/safety error. Local; only if bCanMoveTo.
+{attribute 'TcRpcEnable'}
+METHOD MoveAxisTo : E_HmiResult
+VAR_INPUT
+	nAxis	: USINT;
+	fPosition	: LREAL;
+END_VAR
+VAR
+	i	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[i := nAxis;
+MoveAxisTo := _GateAxis(i);
+IF MoveAxisTo <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF NOT aInfo[i].bCanMoveTo OR aipAxis[i] = 0 THEN
+	MoveAxisTo := E_HmiResult.rejected_not_allowed;
+ELSIF NOT (fPosition >= aInfo[i].fMin AND fPosition <= aInfo[i].fMax) THEN
+	MoveAxisTo := E_HmiResult.rejected_argument;
+ELSIF bEstop OR bSafetyError OR NOT aipSlot[i].Ready OR NOT aipSlot[i].Calibrated OR aipSlot[i].Error THEN
+	MoveAxisTo := E_HmiResult.rejected_not_allowed;
+ELSIF aipSlot[i].Busy OR aipAxis[i].isTracking OR aipAxis[i].MoveAxis OR aMove[i].nState <> 0 OR (bJogOwned AND nJogAxis = i) THEN
+	MoveAxisTo := E_HmiResult.rejected_axis_busy;
+ELSE
+	MoveAxisTo := _Post(nSlot := GVL_Hmi.SLOT_AXIS + i, eCommand := E_HmiCommand.move_axis_to, nAxis := nAxis, fA := fPosition, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="ResetAxis" Id="{4c74c57c-712f-4f39-9db2-0fe701387715}">
+<Declaration><![CDATA[// Resets one axis (counts as motion): Local.
+{attribute 'TcRpcEnable'}
+METHOD ResetAxis : E_HmiResult
+VAR_INPUT
+	nAxis	: USINT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[ResetAxis := _GateAxis(nAxis);
+IF ResetAxis = E_HmiResult.queued THEN
+	ResetAxis := _Post(nSlot := GVL_Hmi.SLOT_AXIS + nAxis, eCommand := E_HmiCommand.reset_axis, nAxis := nAxis, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="MoveFocus" Id="{66d49e42-b36a-4ccc-bbb8-c95ee5689eb6}">
+<Declaration><![CDATA[// Sets the focus target within I_Focus.MinPosition..MaxPosition (the focus follower moves it). Local.
+{attribute 'TcRpcEnable'}
+METHOD MoveFocus : E_HmiResult
+VAR_INPUT
+	fPosition	: LREAL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[MoveFocus := _GateMotion();
+IF MoveFocus <> E_HmiResult.queued THEN
+	RETURN;
+END_IF
+IF nFocusSlot = 0 THEN
+	MoveFocus := E_HmiResult.rejected_absent;
+ELSIF NOT (fPosition >= aInfo[nFocusSlot].fMin AND fPosition <= aInfo[nFocusSlot].fMax) THEN
+	// MinPosition..MaxPosition of the focus, as the MQTT focus verb checks it
+	MoveFocus := E_HmiResult.rejected_argument;
+ELSIF bJogOwned AND nJogAxis = nFocusSlot THEN
+	MoveFocus := E_HmiResult.rejected_axis_busy;
+ELSE
+	MoveFocus := _Post(nSlot := GVL_Hmi.SLOT_AXIS + nFocusSlot, eCommand := E_HmiCommand.move_focus, nAxis := INT_TO_USINT(nFocusSlot), fA := fPosition, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="CoversOpen" Id="{5125fe79-5f13-41d0-ac94-d9afade0a5bb}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD CoversOpen : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[CoversOpen := _GateSub(bPresent := ipCovers <> 0, bStopDirection := FALSE);
+IF CoversOpen = E_HmiResult.queued THEN
+	CoversOpen := _Post(nSlot := GVL_Hmi.SLOT_COVERS, eCommand := E_HmiCommand.covers_open, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="CoversClose" Id="{614ad6e6-37a4-41da-9746-5ee4f94cb305}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD CoversClose : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[CoversClose := _GateSub(bPresent := ipCovers <> 0, bStopDirection := FALSE);
+IF CoversClose = E_HmiResult.queued THEN
+	CoversClose := _Post(nSlot := GVL_Hmi.SLOT_COVERS, eCommand := E_HmiCommand.covers_close, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="CoversStop" Id="{42c0af32-ac2f-4e58-ade4-595ae2dee3d3}">
+<Declaration><![CDATA[// Stop direction: allowed in every mode.
+{attribute 'TcRpcEnable'}
+METHOD CoversStop : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[CoversStop := _GateSub(bPresent := ipCovers <> 0, bStopDirection := TRUE);
+IF CoversStop = E_HmiResult.queued THEN
+	CoversStop := _Post(nSlot := GVL_Hmi.SLOT_COVERS, eCommand := E_HmiCommand.covers_stop, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="CoversReset" Id="{63fb3784-1199-47a1-b048-585559fdb0f8}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD CoversReset : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[CoversReset := _GateSub(bPresent := ipCovers <> 0, bStopDirection := FALSE);
+IF CoversReset = E_HmiResult.queued THEN
+	CoversReset := _Post(nSlot := GVL_Hmi.SLOT_COVERS, eCommand := E_HmiCommand.covers_reset, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="HydraulicsEnable" Id="{7ebe588c-994c-41ed-b095-a1f8148f15d3}">
+<Declaration><![CDATA[// Local. ManualStartSuction/ManualStopPump are not exposed in the first version.
+{attribute 'TcRpcEnable'}
+METHOD HydraulicsEnable : E_HmiResult
+VAR_INPUT
+	bEnable	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[HydraulicsEnable := _GateSub(bPresent := ipHydraulics <> 0, bStopDirection := FALSE);
+IF HydraulicsEnable = E_HmiResult.queued THEN
+	HydraulicsEnable := _Post(nSlot := GVL_Hmi.SLOT_HYDRAULICS, eCommand := E_HmiCommand.hydraulics_enable, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := bEnable, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="HydraulicsReset" Id="{e336b155-8a1d-4385-b56f-558e612299c3}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD HydraulicsReset : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[HydraulicsReset := _GateSub(bPresent := ipHydraulics <> 0, bStopDirection := FALSE);
+IF HydraulicsReset = E_HmiResult.queued THEN
+	HydraulicsReset := _Post(nSlot := GVL_Hmi.SLOT_HYDRAULICS, eCommand := E_HmiCommand.hydraulics_reset, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="RoofOpen" Id="{5e3d2bbf-0b22-45ca-840f-211e8a685a07}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD RoofOpen : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[RoofOpen := _GateSub(bPresent := ipRoof <> 0, bStopDirection := FALSE);
+IF RoofOpen = E_HmiResult.queued THEN
+	RoofOpen := _Post(nSlot := GVL_Hmi.SLOT_ROOF, eCommand := E_HmiCommand.roof_open, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="RoofClose" Id="{c3cce0ab-967b-4014-9f8e-62c06b02fbb3}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD RoofClose : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[RoofClose := _GateSub(bPresent := ipRoof <> 0, bStopDirection := FALSE);
+IF RoofClose = E_HmiResult.queued THEN
+	RoofClose := _Post(nSlot := GVL_Hmi.SLOT_ROOF, eCommand := E_HmiCommand.roof_close, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="RoofStop" Id="{7a8378a2-60f5-4831-b8b4-fe6b61b8943d}">
+<Declaration><![CDATA[// Stop direction: allowed in every mode.
+{attribute 'TcRpcEnable'}
+METHOD RoofStop : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[RoofStop := _GateSub(bPresent := ipRoof <> 0, bStopDirection := TRUE);
+IF RoofStop = E_HmiResult.queued THEN
+	RoofStop := _Post(nSlot := GVL_Hmi.SLOT_ROOF, eCommand := E_HmiCommand.roof_stop, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="RoofReset" Id="{96460788-9ea6-4cc7-9230-e43c6a737657}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD RoofReset : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[RoofReset := _GateSub(bPresent := ipRoof <> 0, bStopDirection := FALSE);
+IF RoofReset = E_HmiResult.queued THEN
+	RoofReset := _Post(nSlot := GVL_Hmi.SLOT_ROOF, eCommand := E_HmiCommand.roof_reset, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="DomeOpen" Id="{f14edb45-b350-46ba-b189-ce474f1600d0}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD DomeOpen : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[DomeOpen := _GateSub(bPresent := ipDome <> 0, bStopDirection := FALSE);
+IF DomeOpen = E_HmiResult.queued THEN
+	DomeOpen := _Post(nSlot := GVL_Hmi.SLOT_DOME, eCommand := E_HmiCommand.dome_open, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="DomeClose" Id="{cd66b5ca-72fa-443c-b680-b499734f9290}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD DomeClose : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[DomeClose := _GateSub(bPresent := ipDome <> 0, bStopDirection := FALSE);
+IF DomeClose = E_HmiResult.queued THEN
+	DomeClose := _Post(nSlot := GVL_Hmi.SLOT_DOME, eCommand := E_HmiCommand.dome_close, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="DomePark" Id="{72a78e81-2b77-4e0d-ba96-4a9ad6934637}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD DomePark : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[DomePark := _GateSub(bPresent := ipDome <> 0, bStopDirection := FALSE);
+IF DomePark = E_HmiResult.queued THEN
+	DomePark := _Post(nSlot := GVL_Hmi.SLOT_DOME, eCommand := E_HmiCommand.dome_park, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="DomeStop" Id="{03841dc1-3f2b-4d9e-9a55-b2b10a395397}">
+<Declaration><![CDATA[// Stop direction: allowed in every mode.
+{attribute 'TcRpcEnable'}
+METHOD DomeStop : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[DomeStop := _GateSub(bPresent := ipDome <> 0, bStopDirection := TRUE);
+IF DomeStop = E_HmiResult.queued THEN
+	DomeStop := _Post(nSlot := GVL_Hmi.SLOT_DOME, eCommand := E_HmiCommand.dome_stop, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="DomeReset" Id="{8ef68cff-0f30-4d4c-b02c-02880b2c4d36}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD DomeReset : E_HmiResult
+VAR_INPUT
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[DomeReset := _GateSub(bPresent := ipDome <> 0, bStopDirection := FALSE);
+IF DomeReset = E_HmiResult.queued THEN
+	DomeReset := _Post(nSlot := GVL_Hmi.SLOT_DOME, eCommand := E_HmiCommand.dome_reset, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := 0);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="SetFilter" Id="{40588119-5077-48c5-bfed-22df4826d2b6}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD SetFilter : E_HmiResult
+VAR_INPUT
+	nPos	: USINT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SetFilter := _GateSub(bPresent := ipFilter <> 0, bStopDirection := FALSE);
+IF SetFilter = E_HmiResult.queued THEN
+	SetFilter := _Post(nSlot := GVL_Hmi.SLOT_FILTER, eCommand := E_HmiCommand.set_filter, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := nPos);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="SetNasmyth" Id="{f40fca9d-aaff-480c-9edd-63d62a3511b5}">
+<Declaration><![CDATA[// Local.
+{attribute 'TcRpcEnable'}
+METHOD SetNasmyth : E_HmiResult
+VAR_INPUT
+	nPort	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[SetNasmyth := _GateSub(bPresent := ipNasmyth <> 0, bStopDirection := FALSE);
+IF SetNasmyth = E_HmiResult.queued THEN
+	SetNasmyth := _Post(nSlot := GVL_Hmi.SLOT_NASMYTH, eCommand := E_HmiCommand.set_nasmyth, nAxis := 0, fA := 0.0, fB := 0.0, bFlag := FALSE, nValue := nPort);
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_Derive" Id="{97de1396-10a5-480a-918e-151758f0fd35}">
+<Declaration><![CDATA[METHOD PRIVATE _Derive
+VAR
+	i	: INT;
+	j	: INT;
+	bTelescopeRuns	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// Everything the gates and the status need, from the actual state of the interfaces, every cycle (section 5.3).
+bCabinet := ipCabinet <> 0;
+IF bCabinet THEN
+	bLocal := ipCabinet.ControlMode = E_ControlMode.local;
+	bPendant := ipCabinet.PendantActive;
+	bEstop := ipCabinet.EstopActive;
+	bSafetyError := ipCabinet.SafetyError;
+ELSE
+	bLocal := FALSE;
+	bPendant := FALSE;
+	bEstop := FALSE;
+	bSafetyError := FALSE;
+END_IF
+bMotionAllowed := bCabinet AND bLocal AND NOT bPendant;
+bConfigError := FALSE;
+
+// mount type: derived from which telescope input is wired, never configured
+IF ipAltAz <> 0 AND ipRaDec <> 0 THEN
+	bConfigError := TRUE;
+	eMount := E_HmiMountType.none;
+	ipTelescope := 0;
+ELSIF ipAltAz <> 0 THEN
+	eMount := E_HmiMountType.altaz;
+	ipTelescope := ipAltAz;
+ELSIF ipRaDec <> 0 THEN
+	eMount := E_HmiMountType.radec;
+	ipTelescope := ipRaDec;
+ELSE
+	eMount := E_HmiMountType.none;
+	ipTelescope := 0;
+END_IF
+IF ipTelescopeStatus <> 0 THEN
+	bTelescopeRuns := NOT ipTelescopeStatus.Suspended;
+ELSE
+	bTelescopeRuns := bTelescopeRunsInLocal;
+END_IF
+bTelescopeCmds := eMount <> E_HmiMountType.none AND bMotionAllowed AND bTelescopeRuns;
+
+// axis slots: the assigned axes in order, then the focus
+FOR i := 1 TO GVL_Hmi.MAX_AXES DO
+	aipSlot[i] := 0;
+	aipAxis[i] := 0;
+END_FOR
+nAxes := 0;
+nFocusSlot := 0;
+FOR i := 1 TO GVL_Hmi.MAX_AXES DO
+	IF aipAxes[i] <> 0 THEN
+		nAxes := nAxes + 1;
+		aipSlot[nAxes] := aipAxes[i];
+		aipAxis[nAxes] := aipAxes[i];
+		aInfo[nAxes] := astAxisInfo[i];
+	END_IF
+END_FOR
+IF ipFocus <> 0 THEN
+	IF nAxes < GVL_Hmi.MAX_AXES THEN
+		nAxes := nAxes + 1;
+		nFocusSlot := nAxes;
+		aipSlot[nAxes] := ipFocus;
+		aInfo[nAxes] := stFocusInfo;
+		aInfo[nAxes].eRole := E_HmiAxisRole.focus;
+		aInfo[nAxes].fMin := ipFocus.MinPosition;	// the travel the focus accepts, not the descriptor
+		aInfo[nAxes].fMax := ipFocus.MaxPosition;
+	ELSE
+		bConfigError := TRUE;
+	END_IF
+END_IF
+// duplicate axis roles are a configuration error (role other may repeat)
+FOR i := 1 TO nAxes - 1 DO
+	FOR j := i + 1 TO nAxes DO
+		IF aInfo[i].eRole <> E_HmiAxisRole.other AND aInfo[i].eRole = aInfo[j].eRole THEN
+			bConfigError := TRUE;
+		END_IF
+	END_FOR
+END_FOR
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_Record" Id="{3d87c280-7fc1-49da-bf3b-56c0ed88d401}">
+<Declaration><![CDATA[METHOD PRIVATE _Record
+VAR_INPUT
+	nId	: UDINT;
+	eCommand	: E_HmiCommand;
+	bAccepted	: BOOL;
+	eReason	: E_CommandRejectReason;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[stLast.nId := nId;
+stLast.eCommand := eCommand;
+stLast.bAccepted := bAccepted;
+stLast.eTelescopeReason := eReason;
+stLast.nCycle := nHeartbeat;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_ExecuteRequests" Id="{b67f4a39-fefb-4ca1-a268-211cd8c42a93}">
+<Declaration><![CDATA[METHOD PRIVATE _ExecuteRequests
+VAR
+	nPass	: INT;
+	i	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// One command per group per cycle, in a defined order: stop direction first, then resets, then the rest (section 5.5).
+FOR nPass := 0 TO 2 DO
+	FOR i := GVL_Hmi.SLOT_STOP TO GVL_Hmi.SLOT_LAST DO
+		IF aRequest[i].bFull THEN
+			IF (nPass = 0 AND _IsStopDirection(aRequest[i].eCommand)) OR
+				(nPass = 1 AND NOT _IsStopDirection(aRequest[i].eCommand) AND _IsReset(aRequest[i].eCommand)) OR
+				(nPass = 2 AND NOT _IsStopDirection(aRequest[i].eCommand) AND NOT _IsReset(aRequest[i].eCommand)) THEN
+				_Execute(nSlot := i);
+			END_IF
+		END_IF
+	END_FOR
+END_FOR
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_Execute" Id="{e994ae2d-92b0-4887-ac1e-6f3b9bdd8378}">
+<Declaration><![CDATA[METHOD PRIVATE _Execute
+VAR_INPUT
+	nSlot	: INT;
+END_VAR
+VAR
+	stReq	: ST_HmiRequest;
+	bOk	: BOOL;
+	i	: INT;
+	nRejBefore	: UDINT;
+	eReason	: E_CommandRejectReason;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// Takes the request out of its slot, re-checks the gates of this cycle and calls the interface. Only here (and in the
+// service methods below) are the I_* interfaces written, never in an RPC.
+stReq := aRequest[nSlot];
+aRequest[nSlot].bFull := FALSE;
+IF (NOT _IsStopDirection(stReq.eCommand) AND NOT bMotionAllowed) OR (_IsTelescopeLevel(stReq.eCommand) AND NOT bTelescopeCmds) THEN
+	// the switch, the pendant or the telescope state changed between the RPC and this cycle
+	_Record(stReq.nId, stReq.eCommand, FALSE, E_CommandRejectReason.none);
+	RETURN;
+END_IF
+IF ipTelescopeStatus <> 0 THEN
+	nRejBefore := ipTelescopeStatus.RejectCount;
+END_IF
+i := stReq.nAxis;
+bOk := FALSE;
+CASE stReq.eCommand OF
+E_HmiCommand.init:
+	ipTelescope.CoverAutoOpen := stReq.bFlag;
+	bOk := ipTelescope.Init();
+E_HmiCommand.park:
+	bOk := ipTelescope.Park();
+E_HmiCommand.home:
+	bOk := ipTelescope.Home();
+E_HmiCommand.slew:
+	bOk := ipTelescope.Slew(stReq.fA, stReq.fB);
+E_HmiCommand.slew_ha_dec:
+	IF ipRaDec <> 0 THEN
+		bOk := ipRaDec.SlewHaDec(stReq.fA, stReq.fB);
+	END_IF
+E_HmiCommand.track:
+	bOk := ipTelescope.Track(stReq.fA, stReq.fB);
+E_HmiCommand.reset:
+	bOk := ipTelescope.Reset();
+E_HmiCommand.stop:
+	// stops the telescope and the focus, releases the HMI jog and stops the HMI moves
+	IF ipTelescope <> 0 THEN
+		ipTelescope.Stop();
+	END_IF
+	IF ipFocus <> 0 THEN
+		ipFocus.Stop();
+	END_IF
+	_ReleaseJog();
+	FOR i := 1 TO nAxes DO
+		IF aMove[i].nState <> 0 THEN
+			_StopMove(nAxis := i);
+		END_IF
+	END_FOR
+	bOk := TRUE;
+E_HmiCommand.home_axis:
+	IF i >= 1 AND i <= nAxes THEN
+		aipSlot[i].HomeAxis := TRUE;	// FALSE -> TRUE starts homing; TRUE already means a homing is requested or running
+		bOk := TRUE;
+	END_IF
+E_HmiCommand.enable_axis:
+	IF i >= 1 AND i <= nAxes THEN
+		aipSlot[i].Enable := stReq.bFlag;
+		bOk := TRUE;
+	END_IF
+E_HmiCommand.reset_axis:
+	IF i >= 1 AND i <= nAxes THEN
+		bOk := aipSlot[i].Reset();
+	END_IF
+E_HmiCommand.move_axis_to:
+	IF i >= 1 AND i <= nAxes AND_THEN aipAxis[i] <> 0 THEN
+		// maintenance velocity by write-and-restore (5.4.1); restored once the axis reports the move started
+		aMove[i].fSavedVelocity := aipSlot[i].Velocity;
+		aMove[i].fMaintVelocity := 0.0;
+		IF aInfo[i].fMaintVelocity > 0.0 THEN
+			aMove[i].fMaintVelocity := aInfo[i].fMaintVelocity;
+			aipSlot[i].Velocity := aInfo[i].fMaintVelocity;
+		END_IF
+		aipSlot[i].Position := stReq.fA;
+		aipAxis[i].MoveAxis := FALSE;
+		aipAxis[i].MoveAxis := TRUE;	// each request is an edge of its own
+		aMove[i].nState := 2;
+		aTonMove[i](IN := FALSE, PT := T#1S);
+		bOk := TRUE;
+	END_IF
+E_HmiCommand.move_focus:
+	IF ipFocus <> 0 THEN
+		ipFocus.Position := stReq.fA;
+		bOk := TRUE;
+	END_IF
+E_HmiCommand.covers_open:
+	IF ipCovers <> 0 THEN
+		bOk := ipCovers.Open();
+	END_IF
+E_HmiCommand.covers_close:
+	IF ipCovers <> 0 THEN
+		bOk := ipCovers.Close();
+	END_IF
+E_HmiCommand.covers_stop:
+	IF ipCovers <> 0 THEN
+		bOk := ipCovers.Stop();
+	END_IF
+E_HmiCommand.covers_reset:
+	IF ipCovers <> 0 THEN
+		bOk := ipCovers.Reset();
+	END_IF
+E_HmiCommand.hydraulics_enable:
+	IF ipHydraulics <> 0 THEN
+		ipHydraulics.Enable := stReq.bFlag;
+		bOk := TRUE;
+	END_IF
+E_HmiCommand.hydraulics_reset:
+	IF ipHydraulics <> 0 THEN
+		bOk := ipHydraulics.Reset();
+	END_IF
+E_HmiCommand.roof_open:
+	IF ipRoof <> 0 THEN
+		bOk := ipRoof.Open();
+	END_IF
+E_HmiCommand.roof_close:
+	IF ipRoof <> 0 THEN
+		bOk := ipRoof.Close();
+	END_IF
+E_HmiCommand.roof_stop:
+	IF ipRoof <> 0 THEN
+		bOk := ipRoof.Stop();
+	END_IF
+E_HmiCommand.roof_reset:
+	IF ipRoof <> 0 THEN
+		bOk := ipRoof.Reset();
+	END_IF
+E_HmiCommand.dome_open:
+	IF ipDome <> 0 THEN
+		bOk := ipDome.Open();
+	END_IF
+E_HmiCommand.dome_close:
+	IF ipDome <> 0 THEN
+		bOk := ipDome.Close();
+	END_IF
+E_HmiCommand.dome_park:
+	IF ipDome <> 0 THEN
+		bOk := ipDome.Park();
+	END_IF
+E_HmiCommand.dome_stop:
+	IF ipDome <> 0 THEN
+		bOk := ipDome.Stop();
+	END_IF
+E_HmiCommand.dome_reset:
+	IF ipDome <> 0 THEN
+		bOk := ipDome.Reset();
+	END_IF
+E_HmiCommand.set_filter:
+	IF ipFilter <> 0 THEN
+		bOk := ipFilter.SetFilter(DINT_TO_USINT(stReq.nValue));
+	END_IF
+E_HmiCommand.set_nasmyth:
+	IF ipNasmyth <> 0 THEN
+		bOk := ipNasmyth.SetNasmyth(DINT_TO_INT(stReq.nValue));
+	END_IF
+END_CASE
+eReason := E_CommandRejectReason.none;
+IF _IsTelescopeLevel(stReq.eCommand) AND_THEN ipTelescopeStatus <> 0 AND_THEN ipTelescopeStatus.RejectCount <> nRejBefore THEN
+	eReason := ipTelescopeStatus.LastRejectReason;
+END_IF
+_Record(stReq.nId, stReq.eCommand, bOk, eReason);
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_ReleaseJog" Id="{3f5422a6-3346-4cc7-a520-952ac82ff756}">
+<Declaration><![CDATA[METHOD PRIVATE _ReleaseJog
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// Writes the jog levels of the owned axis FALSE ONCE and drops the ownership, the way the pendant releases (MONETcommon#3), so a
+// jog that the pendant or the VISU starts later is not overwritten.
+IF bJogOwned AND_THEN nJogAxis >= 1 AND_THEN nJogAxis <= nAxes THEN
+	aipSlot[nJogAxis].MovePos := FALSE;
+	aipSlot[nJogAxis].MoveNeg := FALSE;
+	aipSlot[nJogAxis].JogSlow := FALSE;
+END_IF
+bJogOwned := FALSE;
+nJogDir := 0;
+bJogRelease := FALSE;
+bJogCalled := FALSE;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_ServiceJog" Id="{ad33d683-fc04-4c5c-8c6c-66217973b505}">
+<Declaration><![CDATA[METHOD PRIVATE _ServiceJog
+VAR_INPUT
+	i	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// The dead-man (section 7): the levels are written every cycle while the jog is valid and released on any condition of 7.1.
+IF NOT bJogOwned THEN
+	bJogRelease := FALSE;
+	bJogCalled := FALSE;
+	tonJog(IN := FALSE, PT := tJogTimeout);
+	RETURN;
+END_IF
+i := nJogAxis;
+tonJog(IN := NOT bJogCalled, PT := tJogTimeout);	// every valid call restarts the watchdog
+bJogCalled := FALSE;
+IF i < 1 OR i > nAxes THEN
+	_ReleaseJog();
+ELSIF bJogRelease OR NOT bMotionAllowed OR bEstop OR bSafetyError OR aipSlot[i].Error THEN
+	// release request, switch to Remote, pendant, E-stop, safety error or axis error
+	_ReleaseJog();
+ELSIF (nJogDir > 0 AND (aipSlot[i].InPosLimit OR aipSlot[i].ActualPosition >= aInfo[i].fMax)) OR
+		(nJogDir < 0 AND (aipSlot[i].InNegLimit OR aipSlot[i].ActualPosition <= aInfo[i].fMin)) THEN
+	_ReleaseJog();
+ELSIF tonJog.Q THEN
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'HMI jog %s released: no keep-alive', aInfo[i].sName);
+	_ReleaseJog();
+ELSE
+	aipSlot[i].MovePos := nJogDir > 0;
+	aipSlot[i].MoveNeg := nJogDir < 0;
+	aipSlot[i].JogSlow := bJogSlow;
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_RestoreVelocity" Id="{26329332-d518-443c-bf51-daa3ca1a8535}">
+<Declaration><![CDATA[METHOD PRIVATE _RestoreVelocity
+VAR_INPUT
+	nAxis	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// Restores the velocity the move overwrote, but never over a value someone else wrote meanwhile (5.4.1).
+IF aMove[nAxis].fMaintVelocity > 0.0 AND_THEN aipSlot[nAxis].Velocity = aMove[nAxis].fMaintVelocity THEN
+	aipSlot[nAxis].Velocity := aMove[nAxis].fSavedVelocity;
+END_IF
+aMove[nAxis].fMaintVelocity := 0.0;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_StopMove" Id="{24d76a0f-8b21-42dd-b865-2b5cc28d7f60}">
+<Declaration><![CDATA[METHOD PRIVATE _StopMove
+VAR_INPUT
+	nAxis	: INT;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// One StopAxis edge on an axis with a running HMI MoveAxisTo.
+_RestoreVelocity(nAxis := nAxis);
+IF aipAxis[nAxis] <> 0 THEN
+	aipAxis[nAxis].StopAxis := FALSE;
+	aipAxis[nAxis].StopAxis := TRUE;
+END_IF
+aMove[nAxis].nState := 0;
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_ServiceMoves" Id="{b4bf79ab-da49-4184-bf99-86c7f6e19378}">
+<Declaration><![CDATA[METHOD PRIVATE _ServiceMoves
+VAR
+	i	: INT;
+	bStopNow	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[// Follows the HMI MoveAxisTo moves (5.4.1): restores the velocity once the axis reports the move started, ends when it is over,
+// stops it once when the switch goes to Remote, the pendant takes over, or E-stop / safety error.
+bStopNow := NOT bMotionAllowed OR bEstop OR bSafetyError;
+FOR i := 1 TO nAxes DO
+	IF aMove[i].nState = 0 THEN
+		aTonMove[i](IN := FALSE, PT := T#1S);
+	ELSIF bStopNow THEN
+		_StopMove(nAxis := i);
+	ELSIF aMove[i].nState = 2 THEN
+		aTonMove[i](IN := TRUE, PT := T#1S);
+		IF aipSlot[i].Busy THEN
+			_RestoreVelocity(nAxis := i);
+			aMove[i].nState := 3;
+		ELSIF aTonMove[i].Q THEN
+			// not started within 1 s (the axis refused it): the move is over
+			_RestoreVelocity(nAxis := i);
+			aMove[i].nState := 0;
+		END_IF
+	ELSIF aMove[i].nState = 3 THEN
+		IF NOT aipSlot[i].Busy OR aipSlot[i].Error THEN
+			aMove[i].nState := 0;
+		END_IF
+	END_IF
+END_FOR
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_Set" Id="{397bdc7c-c284-47e4-a0c5-b46bda0d7d0f}">
+<Declaration><![CDATA[// Sets the bit of one blocker in stStatus.nBlockers.
+METHOD PRIVATE _Set
+VAR_INPUT
+	bCondition	: BOOL;
+	eBlocker	: E_HmiBlocker;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IF bCondition THEN
+	stStatus.nBlockers := stStatus.nBlockers OR SHL(DWORD#1, TO_INT(eBlocker));
+END_IF
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="_PublishStatus" Id="{91e9d53e-6e19-4511-9754-6cbf56df3098}">
+<Declaration><![CDATA[METHOD PRIVATE _PublishStatus
+VAR
+	i	: INT;
+	bAxisError	: BOOL;
+	bNotCalibrated	: BOOL;
+	bInLimit	: BOOL;
+	bItemNotOk	: BOOL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[stStatus.nContractMajor := GVL_Hmi.CONTRACT_MAJOR;
+stStatus.nContractMinor := GVL_Hmi.CONTRACT_MINOR;
+stStatus.sLibVersion := Global_Version.stLibVersion_BROTLib.sVersion;
+stStatus.nHeartbeat := nHeartbeat;
+stStatus.nBlockers := 0;
+
+// cabinet and safety
+IF bCabinet THEN
+	stStatus.eControlMode := ipCabinet.ControlMode;
+	stStatus.bSwitchPresent := ipCabinet.SwitchPresent;
+	stStatus.bSafetyAckPending := ipCabinet.SafetyAckPending;
+ELSE
+	stStatus.eControlMode := E_ControlMode.remote;
+	stStatus.bSwitchPresent := FALSE;
+	stStatus.bSafetyAckPending := FALSE;
+END_IF
+stStatus.bEstop := bEstop;
+stStatus.bSafetyError := bSafetyError;
+stStatus.bPendantActive := bPendant;
+stStatus.bHmiMotionAllowed := bMotionAllowed;
+stStatus.bTelescopeCommands := bTelescopeCmds;
+
+// telescope
+stStatus.eMountType := eMount;
+stStatus.bTelescope := eMount <> E_HmiMountType.none;
+IF stStatus.bTelescope THEN
+	stStatus.fReadyState := ipTelescope.ReadyState;
+	stStatus.fAzimuth := ipTelescope.Azimuth;
+	stStatus.fAltitude := ipTelescope.Altitude;
+	stStatus.fTargetRA := ipTelescope.RightAscension;
+	stStatus.fTargetDec := ipTelescope.Declination;
+ELSE
+	stStatus.fReadyState := 0.0;
+	stStatus.fAzimuth := 0.0;
+	stStatus.fAltitude := 0.0;
+	stStatus.fTargetRA := 0.0;
+	stStatus.fTargetDec := 0.0;
+END_IF
+stStatus.stLastCommand := stLast;
+IF ipTelescopeStatus <> 0 THEN
+	stStatus.stTelescopeStatus.bStatusPresent := TRUE;
+	stStatus.stTelescopeStatus.bError := ipTelescopeStatus.Error;
+	stStatus.stTelescopeStatus.nErrorID := ipTelescopeStatus.ErrorID;
+	stStatus.stTelescopeStatus.bBusy := ipTelescopeStatus.Busy;
+	stStatus.stTelescopeStatus.bIsParked := ipTelescopeStatus.IsParked;
+	stStatus.stTelescopeStatus.bSuspended := ipTelescopeStatus.Suspended;
+	stStatus.stTelescopeStatus.eLastRejectedCommand := ipTelescopeStatus.LastRejectedCommand;
+	stStatus.stTelescopeStatus.eLastRejectReason := ipTelescopeStatus.LastRejectReason;
+	stStatus.stTelescopeStatus.nRejectCount := ipTelescopeStatus.RejectCount;
+	stStatus.stTelescopeStatus.fCurrentRA := ipTelescopeStatus.CurrentRightAscension;
+	stStatus.stTelescopeStatus.fCurrentDec := ipTelescopeStatus.CurrentDeclination;
+ELSE
+	stStatus.stTelescopeStatus.bStatusPresent := FALSE;
+	stStatus.stTelescopeStatus.bError := FALSE;
+	stStatus.stTelescopeStatus.nErrorID := 0;
+	stStatus.stTelescopeStatus.bBusy := FALSE;
+	stStatus.stTelescopeStatus.bIsParked := FALSE;
+	stStatus.stTelescopeStatus.bSuspended := FALSE;
+	stStatus.stTelescopeStatus.eLastRejectedCommand := E_TCSCommand.no_command;
+	stStatus.stTelescopeStatus.eLastRejectReason := E_CommandRejectReason.none;
+	stStatus.stTelescopeStatus.nRejectCount := 0;
+	stStatus.stTelescopeStatus.fCurrentRA := 0.0;
+	stStatus.stTelescopeStatus.fCurrentDec := 0.0;
+END_IF
+
+// axes
+stStatus.nAxisCount := INT_TO_USINT(nAxes);
+FOR i := 1 TO GVL_Hmi.MAX_AXES DO
+	IF i <= nAxes THEN
+		stStatus.aAxis[i].bPresent := TRUE;
+		stStatus.aAxis[i].stInfo := aInfo[i];
+		stStatus.aAxis[i].fPosition := aipSlot[i].ActualPosition;
+		stStatus.aAxis[i].fTarget := aipSlot[i].Position;
+		stStatus.aAxis[i].bEnabled := aipSlot[i].Enable;
+		stStatus.aAxis[i].bReady := aipSlot[i].Ready;
+		stStatus.aAxis[i].bBusy := aipSlot[i].Busy;
+		stStatus.aAxis[i].bCalibrated := aipSlot[i].Calibrated;
+		stStatus.aAxis[i].bError := aipSlot[i].Error;
+		stStatus.aAxis[i].nErrorID := aipSlot[i].ErrorID;
+		stStatus.aAxis[i].bInPosLimit := aipSlot[i].InPosLimit;
+		stStatus.aAxis[i].bInNegLimit := aipSlot[i].InNegLimit;
+		stStatus.aAxis[i].bTracking := aipAxis[i] <> 0 AND_THEN aipAxis[i].isTracking;
+		IF bJogOwned AND nJogAxis = i THEN
+			stStatus.aAxis[i].nJogDirection := nJogDir;
+		ELSE
+			stStatus.aAxis[i].nJogDirection := 0;
+		END_IF
+		stStatus.aAxis[i].bHmiMoveActive := aMove[i].nState <> 0;
+		bAxisError := bAxisError OR aipSlot[i].Error;
+		bNotCalibrated := bNotCalibrated OR (aInfo[i].bCanHome AND NOT aipSlot[i].Calibrated);
+		bInLimit := bInLimit OR aipSlot[i].InPosLimit OR aipSlot[i].InNegLimit;
+	ELSE
+		stStatus.aAxis[i] := stEmptyAxis;
+	END_IF
+END_FOR
+
+// subsystems
+stStatus.stCovers.bPresent := ipCovers <> 0;
+IF ipCovers <> 0 THEN
+	stStatus.stCovers.bOpened := ipCovers.Opened;
+	stStatus.stCovers.bClosed := ipCovers.Closed;
+	stStatus.stCovers.bError := ipCovers.Error;
+ELSE
+	stStatus.stCovers.bOpened := FALSE;
+	stStatus.stCovers.bClosed := FALSE;
+	stStatus.stCovers.bError := FALSE;
+END_IF
+stStatus.stHydraulics.bPresent := ipHydraulics <> 0;
+IF ipHydraulics <> 0 THEN
+	stStatus.stHydraulics.bEnabled := ipHydraulics.Enable;
+	stStatus.stHydraulics.bPumpRunning := ipHydraulics.PumpRunning;
+	stStatus.stHydraulics.bSuctionRunning := ipHydraulics.SuctionRunning;
+	stStatus.stHydraulics.bOilPressureOK := ipHydraulics.OilPressureOK;
+	stStatus.stHydraulics.bError := ipHydraulics.Error;
+ELSE
+	stStatus.stHydraulics.bEnabled := FALSE;
+	stStatus.stHydraulics.bPumpRunning := FALSE;
+	stStatus.stHydraulics.bSuctionRunning := FALSE;
+	stStatus.stHydraulics.bOilPressureOK := FALSE;
+	stStatus.stHydraulics.bError := FALSE;
+END_IF
+stStatus.stBrake.bPresent := ipBrake <> 0;
+IF ipBrake <> 0 THEN
+	stStatus.stBrake.bOpen := ipBrake.BrakeOpen;
+ELSE
+	stStatus.stBrake.bOpen := FALSE;
+END_IF
+stStatus.stRoof.bPresent := ipRoof <> 0;
+IF ipRoof <> 0 THEN
+	stStatus.stRoof.eState := ipRoof.State;
+ELSE
+	stStatus.stRoof.eState := E_RoofState.unknown;
+END_IF
+stStatus.stDome.bPresent := ipDome <> 0;
+IF ipDome <> 0 THEN
+	stStatus.stDome.fPosition := ipDome.Position;
+	stStatus.stDome.eRotState := ipDome.RotState;
+	stStatus.stDome.eShutterState := ipDome.ShutterState;
+	stStatus.stDome.bParked := ipDome.Parked;
+	stStatus.stDome.bTracking := ipDome.Tracking;
+	stStatus.stDome.bError := ipDome.Error;
+	stStatus.stDome.nErrorID := ipDome.ErrorID;
+	stStatus.stDome.nCapabilities := ipDome.Capabilities;
+ELSE
+	stStatus.stDome.fPosition := 0.0;
+	stStatus.stDome.eShutterState := E_RoofState.unknown;
+	stStatus.stDome.bParked := FALSE;
+	stStatus.stDome.bTracking := FALSE;
+	stStatus.stDome.bError := FALSE;
+	stStatus.stDome.nErrorID := 0;
+	stStatus.stDome.nCapabilities := 0;
+END_IF
+stStatus.bFilter := ipFilter <> 0;
+stStatus.bNasmyth := ipNasmyth <> 0;
+
+// safety detail
+stStatus.bSafetyDiagPresent := ipSafety <> 0;
+IF ipSafety <> 0 THEN
+	stStatus.bStoActive := ipSafety.StoActive;
+	stStatus.bRestartPending := ipSafety.RestartPending;
+	stStatus.stSafety := ipSafety.Items;
+	FOR i := 1 TO stStatus.stSafety.nCount DO
+		IF i <= 8 THEN
+			bItemNotOk := bItemNotOk OR NOT stStatus.stSafety.aItem[i].bOk;
+		END_IF
+	END_FOR
+	bItemNotOk := bItemNotOk OR stStatus.bStoActive;
+END_IF
+
+// why not ready / blockers (section 5.8)
+_Set(bCondition := bEstop, eBlocker := E_HmiBlocker.estop);
+_Set(bCondition := bSafetyError, eBlocker := E_HmiBlocker.safety_error);
+_Set(bCondition := stStatus.bSafetyAckPending, eBlocker := E_HmiBlocker.safety_ack_pending);
+_Set(bCondition := stStatus.bTelescope AND (stStatus.fReadyState = -1.0 OR stStatus.stTelescopeStatus.bError), eBlocker := E_HmiBlocker.telescope_error);
+_Set(bCondition := stStatus.bTelescope AND stStatus.fReadyState <> 1.0, eBlocker := E_HmiBlocker.not_online);
+_Set(bCondition := bAxisError, eBlocker := E_HmiBlocker.axis_error);
+_Set(bCondition := bNotCalibrated, eBlocker := E_HmiBlocker.axis_not_calibrated);
+_Set(bCondition := bInLimit, eBlocker := E_HmiBlocker.axis_in_limit);
+_Set(bCondition := stStatus.stCovers.bError, eBlocker := E_HmiBlocker.covers_error);
+_Set(bCondition := stStatus.stHydraulics.bError OR (stStatus.stHydraulics.bEnabled AND NOT stStatus.stHydraulics.bOilPressureOK AND stStatus.stHydraulics.bPresent), eBlocker := E_HmiBlocker.hydraulics_error);
+_Set(bCondition := stStatus.stRoof.bPresent AND stStatus.stRoof.eState = E_RoofState.error, eBlocker := E_HmiBlocker.roof_error);
+_Set(bCondition := stStatus.stDome.bError, eBlocker := E_HmiBlocker.dome_error);
+_Set(bCondition := bCabinet AND NOT bLocal, eBlocker := E_HmiBlocker.mode_remote);
+_Set(bCondition := bPendant, eBlocker := E_HmiBlocker.pendant_active);
+_Set(bCondition := NOT bCabinet, eBlocker := E_HmiBlocker.no_cabinet);
+_Set(bCondition := bConfigError, eBlocker := E_HmiBlocker.config_error);
+_Set(bCondition := bLocal AND stStatus.bTelescope AND NOT bTelescopeCmds AND NOT bPendant, eBlocker := E_HmiBlocker.telescope_suspended_local);
+_Set(bCondition := bItemNotOk, eBlocker := E_HmiBlocker.safety_item_not_ok);
+]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

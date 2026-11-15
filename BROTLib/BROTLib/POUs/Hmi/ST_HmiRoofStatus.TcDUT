@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_HmiRoofStatus" Id="{34ac0b1b-fb5d-4044-b372-a1447098a820}">
+<Declaration><![CDATA[TYPE ST_HmiRoofStatus :
+STRUCT
+	bPresent	: BOOL;
+	eState		: E_RoofState;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

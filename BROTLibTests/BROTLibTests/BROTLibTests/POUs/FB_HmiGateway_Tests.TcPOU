@@ -1,0 +1,515 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_HmiGateway_Tests" Id="{edd3b4cb-b3f6-434a-bf9e-7718bb0b31d8}" SpecialFunc="None">
+<Declaration><![CDATA[// Tests for BROTLib.FB_HmiGateway (HMI interface X10): the gateway's own gates, the jog dead-man, MoveAxisTo, the mailbox and the
+// status. The telescope-level RPCs and the subsystems are not exercised here (no alt-az/radec telescope stub); they are plain
+// forwards through the same _Post/_Execute path. The RPC from the TcHMI server (TcRpcEnable on a library FB) is checked in the
+// BROTweb integration test, not here.
+FUNCTION_BLOCK FB_HmiGateway_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[No_Cabinet_Rejects_Motion_Allows_Stop();
+Remote_Rejects_Motion_Allows_Stop();
+Pendant_Rejects_Motion();
+Jog_Starts_Holds_And_Releases();
+Jog_Foreign_Token_Is_Rejected();
+Jog_Times_Out_Without_Keep_Alive();
+Jog_Released_When_Switch_Goes_Remote();
+Jog_Stops_At_The_Descriptor_Limit();
+MoveAxisTo_Checks_Range_And_Writes_An_Edge();
+MoveAxisTo_Needs_A_Calibrated_Ready_Axis();
+Capability_Flags_Are_Respected();
+Home_And_Enable_Reach_The_Axis();
+One_Request_Per_Group_Until_Executed();
+MoveFocus_Is_Limited_By_The_Focus_Travel();
+Status_Reports_Cabinet_Heartbeat_And_Blockers();
+Duplicate_Axis_Roles_Are_A_Config_Error();
+]]></ST>
+</Implementation>
+<Method Name="Wire" Id="{f8ac2df7-1d89-4bec-9ee5-5f215fc8e6fd}">
+<Declaration><![CDATA[// One azimuth axis (jog, move-to and home allowed, -10..10 deg), the cabinet stub and one gateway cycle so that the derived state is current.
+METHOD PRIVATE Wire
+VAR_IN_OUT
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[axis.Prepare();
+fbHmi.ipCabinet := cabinet;
+fbHmi.aipAxes[1] := axis;
+fbHmi.astAxisInfo[1].sName := 'axis.azimuth';
+fbHmi.astAxisInfo[1].eRole := BROTLib.E_HmiAxisRole.azimuth;
+fbHmi.astAxisInfo[1].sUnit := 'deg';
+fbHmi.astAxisInfo[1].fMin := -10.0;
+fbHmi.astAxisInfo[1].fMax := 10.0;
+fbHmi.astAxisInfo[1].bCanJog := TRUE;
+fbHmi.astAxisInfo[1].bCanHome := TRUE;
+fbHmi.astAxisInfo[1].bCanEnable := TRUE;
+fbHmi.astAxisInfo[1].bCanMoveTo := TRUE;
+fbHmi();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="No_Cabinet_Rejects_Motion_Allows_Stop" Id="{4ff7db37-cd96-4ab8-9a11-b9a8bc67b84b}">
+<Declaration><![CDATA[// Without a cabinet every motion RPC is rejected; the stop direction is not gated.
+METHOD PRIVATE No_Cabinet_Rejects_Motion_Allows_Stop
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('No_Cabinet_Rejects_Motion_Allows_Stop');
+axis.Prepare();
+fbHmi.aipAxes[1] := axis;
+fbHmi.astAxisInfo[1].bCanJog := TRUE;
+fbHmi();
+eRes := fbHmi.Jog(1, 1, FALSE, 7);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_no_cabinet, Message := 'jog without cabinet');
+eRes := fbHmi.HomeAxis(1);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_no_cabinet, Message := 'home without cabinet');
+eRes := fbHmi.Stop();
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'stop is queued');
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.no_cabinet))) <> 0, Message := 'blocker no_cabinet');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Remote_Rejects_Motion_Allows_Stop" Id="{334945fe-7db2-4aaf-86fa-8cfa593c20e3}">
+<Declaration><![CDATA[// Switch on Remote: jog, home and move-to are rejected, the jog release and Stop are not (4.2).
+METHOD PRIVATE Remote_Rejects_Motion_Allows_Stop
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Remote_Rejects_Motion_Allows_Stop');
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.Jog(1, 1, FALSE, 7);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_remote, Message := 'jog in Remote');
+eRes := fbHmi.MoveAxisTo(1, 5.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_remote, Message := 'move-to in Remote');
+eRes := fbHmi.EnableAxis(1, FALSE);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_remote, Message := 'disable in Remote');
+eRes := fbHmi.Jog(1, 0, FALSE, 7);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'jog release is a stop direction command');
+eRes := fbHmi.Stop();
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'stop in Remote');
+AssertFalse(Condition := fbHmi.stStatus.bHmiMotionAllowed, Message := 'motion not allowed in Remote');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Pendant_Rejects_Motion" Id="{783c0ccd-b1aa-49c7-9a7a-43d4ce2f0f87}">
+<Declaration><![CDATA[// In Local with an active pendant new HMI motion is rejected (4.3).
+METHOD PRIVATE Pendant_Rejects_Motion
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Pendant_Rejects_Motion');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+cabinet.bPendantActive := TRUE;
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.Jog(1, 1, FALSE, 7);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_pendant, Message := 'jog with pendant');
+eRes := fbHmi.Stop();
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'stop still allowed');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Jog_Starts_Holds_And_Releases" Id="{29a9cab2-9fa1-4d14-bd26-0d4a7c837113}">
+<Declaration><![CDATA[// Local: a Jog call makes the gateway write the levels every cycle (slow flag included); direction 0 releases once.
+METHOD PRIVATE Jog_Starts_Holds_And_Releases
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Jog_Starts_Holds_And_Releases');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.Jog(1, 1, TRUE, 42);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'jog queued');
+fbHmi();
+AssertTrue(Condition := axis.MovePos, Message := 'MovePos written');
+AssertFalse(Condition := axis.MoveNeg, Message := 'MoveNeg not written');
+AssertTrue(Condition := axis.JogSlow, Message := 'JogSlow written');
+AssertTrue(Condition := fbHmi.stStatus.aAxis[1].nJogDirection = 1, Message := 'status shows the jog');
+eRes := fbHmi.Jog(1, 1, TRUE, 42);
+fbHmi();
+AssertTrue(Condition := axis.MovePos, Message := 'a keep-alive call keeps it');
+eRes := fbHmi.Jog(1, 0, FALSE, 42);
+fbHmi();
+AssertFalse(Condition := axis.MovePos OR axis.MoveNeg OR axis.JogSlow, Message := 'released');
+AssertTrue(Condition := fbHmi.stStatus.aAxis[1].nJogDirection = 0, Message := 'status shows no jog');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Jog_Foreign_Token_Is_Rejected" Id="{cf40c20c-3605-4980-a167-fffa14a5269c}">
+<Declaration><![CDATA[// One jog at a time: a second client with another token cannot keep, reverse or release it (7.2).
+METHOD PRIVATE Jog_Foreign_Token_Is_Rejected
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Jog_Foreign_Token_Is_Rejected');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.Jog(1, 1, FALSE, 42);
+fbHmi();
+eRes := fbHmi.Jog(1, -1, FALSE, 99);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_jog_owner, Message := 'other token');
+eRes := fbHmi.Jog(1, 0, FALSE, 99);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_jog_owner, Message := 'other token cannot release');
+fbHmi();
+AssertTrue(Condition := axis.MovePos, Message := 'the owner keeps the jog');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Jog_Times_Out_Without_Keep_Alive" Id="{909571e1-fef4-4c7b-b9cd-218cc3544277}">
+<Declaration><![CDATA[// No Jog call for tJogTimeout releases the levels (dead-man, 7.1). Timeout 0: the cycle after the last call.
+METHOD PRIVATE Jog_Times_Out_Without_Keep_Alive
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Jog_Times_Out_Without_Keep_Alive');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+fbHmi.tJogTimeout := T#0S;
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.Jog(1, -1, FALSE, 42);
+fbHmi();
+AssertTrue(Condition := axis.MoveNeg, Message := 'jog runs in the cycle of the call');
+fbHmi();
+AssertFalse(Condition := axis.MoveNeg, Message := 'no call since: released');
+// ownership is dropped, so another client can start
+eRes := fbHmi.Jog(1, 1, FALSE, 99);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'new owner after the release');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Jog_Released_When_Switch_Goes_Remote" Id="{38263cf8-8c22-4757-8838-c3411a7eff1b}">
+<Declaration><![CDATA[// The levels drop in the gateway cycle in which the switch goes to Remote, or E-stop / pendant appear (7.1).
+METHOD PRIVATE Jog_Released_When_Switch_Goes_Remote
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Jog_Released_When_Switch_Goes_Remote');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.Jog(1, 1, FALSE, 42);
+fbHmi();
+AssertTrue(Condition := axis.MovePos, Message := 'jogging');
+cabinet.eMode := BROTLib.E_ControlMode.remote;
+fbHmi();
+AssertFalse(Condition := axis.MovePos, Message := 'released at Remote');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+fbHmi();
+eRes := fbHmi.Jog(1, 1, FALSE, 42);
+fbHmi();
+AssertTrue(Condition := axis.MovePos, Message := 'jogging again');
+cabinet.bEstop := TRUE;
+fbHmi();
+AssertFalse(Condition := axis.MovePos, Message := 'released at E-stop');
+cabinet.bEstop := FALSE;
+fbHmi();
+eRes := fbHmi.Jog(1, 1, FALSE, 42);
+fbHmi();
+cabinet.bPendantActive := TRUE;
+fbHmi();
+AssertFalse(Condition := axis.MovePos, Message := 'released when the pendant takes over');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Jog_Stops_At_The_Descriptor_Limit" Id="{87eeb123-be56-465f-9592-f1aac2a9934c}">
+<Declaration><![CDATA[// A jog towards a limit the axis is at is rejected; reaching it during a jog releases (7.1).
+METHOD PRIVATE Jog_Stops_At_The_Descriptor_Limit
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Jog_Stops_At_The_Descriptor_Limit');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+axis.ActualPosition := 10.0;
+eRes := fbHmi.Jog(1, 1, FALSE, 42);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_not_allowed, Message := 'at fMax, jog + rejected');
+eRes := fbHmi.Jog(1, -1, FALSE, 42);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'jog - away from it is fine');
+fbHmi();
+AssertTrue(Condition := axis.MoveNeg, Message := 'jogging down');
+axis.ActualPosition := -10.0;
+fbHmi();
+AssertFalse(Condition := axis.MoveNeg, Message := 'released at fMin');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="MoveAxisTo_Checks_Range_And_Writes_An_Edge" Id="{85746c66-5070-4b11-8379-e6e999071d5c}">
+<Declaration><![CDATA[// MoveAxisTo: range from the descriptor, then Position and a fresh MoveAxis edge in the cyclic body (5.4.1); Stop() writes one StopAxis edge.
+METHOD PRIVATE MoveAxisTo_Checks_Range_And_Writes_An_Edge
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('MoveAxisTo_Checks_Range_And_Writes_An_Edge');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+eRes := fbHmi.MoveAxisTo(1, 20.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_argument, Message := 'above fMax');
+eRes := fbHmi.MoveAxisTo(1, -10.5);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_argument, Message := 'below fMin');
+eRes := fbHmi.MoveAxisTo(2, 1.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_absent, Message := 'no such slot');
+eRes := fbHmi.MoveAxisTo(1, 5.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'in range: queued');
+fbHmi();
+AssertEquals_LREAL(Expected := 5.0, Actual := axis.Position, Delta := 1.0E-9, Message := 'target written');
+AssertEquals_INT(Expected := 1, Actual := axis.nMoveAxisEdges, Message := 'one MoveAxis edge');
+AssertTrue(Condition := fbHmi.stStatus.aAxis[1].bHmiMoveActive, Message := 'the HMI move is followed');
+AssertTrue(Condition := fbHmi.stStatus.stLastCommand.eCommand = BROTLib.E_HmiCommand.move_axis_to, Message := 'last command recorded');
+eRes := fbHmi.Jog(1, 1, FALSE, 42);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_axis_busy, Message := 'no jog while the HMI move runs');
+eRes := fbHmi.Stop();
+fbHmi();
+AssertEquals_INT(Expected := 1, Actual := axis.nStopAxisEdges, Message := 'one StopAxis edge');
+AssertFalse(Condition := fbHmi.stStatus.aAxis[1].bHmiMoveActive, Message := 'the move is no longer followed');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="MoveAxisTo_Needs_A_Calibrated_Ready_Axis" Id="{553a092a-0217-482b-be29-bfdfb34424b7}">
+<Declaration><![CDATA[// An uncalibrated axis is not moved by position (5.4.1).
+METHOD PRIVATE MoveAxisTo_Needs_A_Calibrated_Ready_Axis
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('MoveAxisTo_Needs_A_Calibrated_Ready_Axis');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+fbHmi.ipCabinet := cabinet;
+fbHmi.aipAxes[1] := axis;
+fbHmi.astAxisInfo[1].fMin := -10.0;
+fbHmi.astAxisInfo[1].fMax := 10.0;
+fbHmi.astAxisInfo[1].bCanMoveTo := TRUE;
+fbHmi();
+eRes := fbHmi.MoveAxisTo(1, 5.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_not_allowed, Message := 'axis not ready/calibrated');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Capability_Flags_Are_Respected" Id="{fa289d1d-0e19-4014-b24e-d3883ab414be}">
+<Declaration><![CDATA[// A descriptor flag that is FALSE rejects the RPC with rejected_not_allowed.
+METHOD PRIVATE Capability_Flags_Are_Respected
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Capability_Flags_Are_Respected');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+fbHmi.astAxisInfo[1].bCanJog := FALSE;
+fbHmi.astAxisInfo[1].bCanHome := FALSE;
+fbHmi.astAxisInfo[1].bCanEnable := FALSE;
+fbHmi.astAxisInfo[1].bCanMoveTo := FALSE;
+fbHmi();
+AssertTrue(Condition := fbHmi.Jog(1, 1, FALSE, 1) = BROTLib.E_HmiResult.rejected_not_allowed, Message := 'jog');
+AssertTrue(Condition := fbHmi.HomeAxis(1) = BROTLib.E_HmiResult.rejected_not_allowed, Message := 'home');
+AssertTrue(Condition := fbHmi.EnableAxis(1, TRUE) = BROTLib.E_HmiResult.rejected_not_allowed, Message := 'enable');
+AssertTrue(Condition := fbHmi.MoveAxisTo(1, 1.0) = BROTLib.E_HmiResult.rejected_not_allowed, Message := 'move-to');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Home_And_Enable_Reach_The_Axis" Id="{669c59c6-de48-42ec-8c23-ecedb87bd55c}">
+<Declaration><![CDATA[// HomeAxis and EnableAxis are executed in the cyclic body through the interface.
+METHOD PRIVATE Home_And_Enable_Reach_The_Axis
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Home_And_Enable_Reach_The_Axis');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+AssertTrue(Condition := fbHmi.EnableAxis(1, TRUE) = BROTLib.E_HmiResult.queued, Message := 'enable queued');
+fbHmi();
+AssertTrue(Condition := axis.Enable, Message := 'axis enabled');
+AssertTrue(Condition := fbHmi.stStatus.stLastCommand.eCommand = BROTLib.E_HmiCommand.enable_axis AND fbHmi.stStatus.stLastCommand.bAccepted, Message := 'enable recorded as accepted');
+AssertTrue(Condition := fbHmi.HomeAxis(1) = BROTLib.E_HmiResult.queued, Message := 'home queued');
+fbHmi();
+AssertTrue(Condition := axis.HomeAxis, Message := 'homing requested');
+AssertTrue(Condition := fbHmi.HomeAxis(1) = BROTLib.E_HmiResult.rejected_axis_busy, Message := 'a second home request is not an edge');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="One_Request_Per_Group_Until_Executed" Id="{32617ebc-8bb2-4172-ad92-b88f6fe889b6}">
+<Declaration><![CDATA[// A second command of the same group before the body ran is rejected_busy (5.5).
+METHOD PRIVATE One_Request_Per_Group_Until_Executed
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('One_Request_Per_Group_Until_Executed');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+Wire(fbHmi, cabinet, axis);
+AssertTrue(Condition := fbHmi.EnableAxis(1, TRUE) = BROTLib.E_HmiResult.queued, Message := 'first queued');
+AssertTrue(Condition := fbHmi.HomeAxis(1) = BROTLib.E_HmiResult.rejected_busy, Message := 'second of the same axis group is busy');
+fbHmi();
+AssertTrue(Condition := fbHmi.HomeAxis(1) = BROTLib.E_HmiResult.queued, Message := 'free again after the cycle');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="MoveFocus_Is_Limited_By_The_Focus_Travel" Id="{fa441a22-81c9-49bd-bc79-f2d039f22bb4}">
+<Declaration><![CDATA[// The focus slot takes its limits from I_Focus and moves through Position (5.4.1, 5.4).
+METHOD PRIVATE MoveFocus_Is_Limited_By_The_Focus_Travel
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	focus		: FB_FocusStub(comm := 0);
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('MoveFocus_Is_Limited_By_The_Focus_Travel');
+cabinet.eMode := BROTLib.E_ControlMode.local;
+focus.fMinPosition := 0.0;
+focus.fMaxPosition := 100.0;
+fbHmi.ipCabinet := cabinet;
+fbHmi.ipFocus := focus;
+fbHmi();
+AssertTrue(Condition := fbHmi.stStatus.nAxisCount = 1, Message := 'the focus is slot 1');
+AssertTrue(Condition := fbHmi.stStatus.aAxis[1].stInfo.eRole = BROTLib.E_HmiAxisRole.focus, Message := 'role focus');
+AssertEquals_LREAL(Expected := 100.0, Actual := fbHmi.stStatus.aAxis[1].stInfo.fMax, Delta := 1.0E-9, Message := 'fMax from the focus');
+eRes := fbHmi.MoveFocus(150.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.rejected_argument, Message := 'above the travel');
+eRes := fbHmi.MoveFocus(50.0);
+AssertTrue(Condition := eRes = BROTLib.E_HmiResult.queued, Message := 'inside: queued');
+fbHmi();
+AssertEquals_LREAL(Expected := 50.0, Actual := focus.Position, Delta := 1.0E-9, Message := 'target written');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Status_Reports_Cabinet_Heartbeat_And_Blockers" Id="{dd10e9c1-aba7-424f-8443-fd39293997c8}">
+<Declaration><![CDATA[// The status mirrors the cabinet, the heartbeat advances, and blockers are set from the inputs (5.6, 5.8).
+METHOD PRIVATE Status_Reports_Cabinet_Heartbeat_And_Blockers
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub;
+	eRes		: BROTLib.E_HmiResult;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Status_Reports_Cabinet_Heartbeat_And_Blockers');
+cabinet.eMode := BROTLib.E_ControlMode.remote;
+cabinet.bEstop := TRUE;
+cabinet.bSafetyAckPending := TRUE;
+Wire(fbHmi, cabinet, axis);
+AssertTrue(Condition := fbHmi.stStatus.nHeartbeat = 1, Message := 'first cycle');
+fbHmi();
+AssertTrue(Condition := fbHmi.stStatus.nHeartbeat = 2, Message := 'heartbeat +1 per cycle');
+AssertTrue(Condition := fbHmi.stStatus.nContractMajor = BROTLib.GVL_Hmi.CONTRACT_MAJOR, Message := 'contract major published');
+AssertTrue(Condition := fbHmi.stStatus.eControlMode = BROTLib.E_ControlMode.remote, Message := 'mode');
+AssertTrue(Condition := fbHmi.stStatus.bEstop AND fbHmi.stStatus.bSafetyAckPending, Message := 'estop and ack pending');
+AssertTrue(Condition := fbHmi.stStatus.nAxisCount = 1, Message := 'one axis');
+AssertTrue(Condition := fbHmi.stStatus.aAxis[1].bPresent AND fbHmi.stStatus.aAxis[1].bReady, Message := 'axis status');
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.estop))) <> 0, Message := 'blocker estop');
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.safety_ack_pending))) <> 0, Message := 'blocker safety_ack_pending');
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.mode_remote))) <> 0, Message := 'blocker mode_remote');
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.pendant_active))) = 0, Message := 'no blocker pendant_active');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="Duplicate_Axis_Roles_Are_A_Config_Error" Id="{23bf583b-a889-47b0-8eab-bc579d4a3376}">
+<Declaration><![CDATA[// Two axes with the same role set the config_error blocker (5.8); role other may repeat.
+METHOD PRIVATE Duplicate_Axis_Roles_Are_A_Config_Error
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis1		: FB_AxisStub;
+	axis2		: FB_AxisStub;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('Duplicate_Axis_Roles_Are_A_Config_Error');
+fbHmi.ipCabinet := cabinet;
+fbHmi.aipAxes[1] := axis1;
+fbHmi.aipAxes[2] := axis2;
+fbHmi.astAxisInfo[1].eRole := BROTLib.E_HmiAxisRole.other;
+fbHmi.astAxisInfo[2].eRole := BROTLib.E_HmiAxisRole.other;
+fbHmi();
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.config_error))) = 0, Message := 'role other may repeat');
+fbHmi.astAxisInfo[1].eRole := BROTLib.E_HmiAxisRole.azimuth;
+fbHmi.astAxisInfo[2].eRole := BROTLib.E_HmiAxisRole.azimuth;
+fbHmi();
+AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.config_error))) <> 0, Message := 'duplicate roles');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+</POU>
+</TcPlcObject>

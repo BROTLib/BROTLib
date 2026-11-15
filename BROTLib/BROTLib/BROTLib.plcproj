@@ -128,6 +128,63 @@
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
     </Compile>
+    <Compile Include="POUs\Hmi\GVL_Hmi.TcGVL">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\E_HmiResult.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\E_HmiMountType.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\E_HmiAxisRole.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\E_HmiCommand.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\E_HmiBlocker.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiAxisInfo.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiAxisStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiCommandRecord.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiTelescopeStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiCoversStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiHydraulicsStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiBrakeStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiRoofStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiDomeStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiRequest.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiMove.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\ST_HmiStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Hmi\FB_HmiGateway.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Comm\FB_Comm_MQTT.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -344,6 +401,7 @@
     <Folder Include="POUs\Debug" />
     <Folder Include="POUs\Tracking" />
     <Folder Include="POUs\Pointing" />
+    <Folder Include="POUs\Hmi" />
     <Folder Include="VISUs" />
     <Folder Include="POUs" />
   </ItemGroup>
