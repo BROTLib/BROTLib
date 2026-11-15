@@ -97,6 +97,9 @@
     <Compile Include="POUs\FB_Comm_MQTT_Influx_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_Comm_MQTT_Cabinet_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_BlinkTimingProbe.TcPOU">
       <SubType>Code</SubType>
     </Compile>

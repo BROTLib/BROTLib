@@ -34,7 +34,7 @@ METHOD PRIVATE Wire
 VAR_IN_OUT
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 END_VAR
 ]]></Declaration>
 <Implementation>
@@ -60,7 +60,7 @@ METHOD PRIVATE No_Cabinet_Rejects_Motion_Allows_Stop
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -87,7 +87,7 @@ METHOD PRIVATE Remote_Rejects_Motion_Allows_Stop
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -115,7 +115,7 @@ METHOD PRIVATE Pendant_Rejects_Motion
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -138,7 +138,7 @@ METHOD PRIVATE Jog_Starts_Holds_And_Releases
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -170,7 +170,7 @@ METHOD PRIVATE Jog_Foreign_Token_Is_Rejected
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -196,7 +196,7 @@ METHOD PRIVATE Jog_Times_Out_Without_Keep_Alive
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -223,7 +223,7 @@ METHOD PRIVATE Jog_Released_When_Switch_Goes_Remote
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -262,7 +262,7 @@ METHOD PRIVATE Jog_Stops_At_The_Descriptor_Limit
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -290,7 +290,7 @@ METHOD PRIVATE MoveAxisTo_Checks_Range_And_Writes_An_Edge
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -327,7 +327,7 @@ METHOD PRIVATE MoveAxisTo_Needs_A_Calibrated_Ready_Axis
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -352,7 +352,7 @@ METHOD PRIVATE Capability_Flags_Are_Respected
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -379,7 +379,7 @@ METHOD PRIVATE Home_And_Enable_Reach_The_Axis
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -405,7 +405,7 @@ METHOD PRIVATE One_Request_Per_Group_Until_Executed
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -458,7 +458,7 @@ METHOD PRIVATE Status_Reports_Cabinet_Heartbeat_And_Blockers
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis		: FB_AxisStub;
+	axis		: FB_AxisStub(comm := 0);
 	eRes		: BROTLib.E_HmiResult;
 END_VAR
 ]]></Declaration>
@@ -490,8 +490,8 @@ METHOD PRIVATE Duplicate_Axis_Roles_Are_A_Config_Error
 VAR
 	fbHmi		: BROTLib.FB_HmiGateway;
 	cabinet		: FB_CabinetStub;
-	axis1		: FB_AxisStub;
-	axis2		: FB_AxisStub;
+	axis1		: FB_AxisStub(comm := 0);
+	axis2		: FB_AxisStub(comm := 0);
 END_VAR
 ]]></Declaration>
 <Implementation>

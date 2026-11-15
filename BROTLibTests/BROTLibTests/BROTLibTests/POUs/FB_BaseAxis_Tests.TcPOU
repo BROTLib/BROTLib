@@ -15,7 +15,7 @@ END_VAR
 <Declaration><![CDATA[// A fresh axis jogs fast; the level is kept through the interface and does not touch MovePos/MoveNeg.
 METHOD PRIVATE JogSlow_Defaults_To_Fast_And_Is_Stored
 VAR
-	fbFocus	: FB_FocusStub;
+	fbFocus	: FB_FocusStub(comm := 0);
 	ipAxis	: BROTLib.I_BaseAxis;
 END_VAR
 ]]></Declaration>
