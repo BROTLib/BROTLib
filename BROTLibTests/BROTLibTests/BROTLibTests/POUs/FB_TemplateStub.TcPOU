@@ -1,0 +1,348 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_TemplateStub" Id="{1671c852-67fc-4177-a9d4-87655e3e61e0}" SpecialFunc="None">
+    <Declaration><![CDATA[// Minimal concrete telescope for the tests of the template body of FB_BaseTelescopeControl (BROTLib#25 step 5.4): every hook is a
+// counter, and the few inputs below steer the hooks the tests need to steer. It does not move anything.
+FUNCTION_BLOCK FB_TemplateStub EXTENDS FB_AltAzTelescopeControl
+VAR_INPUT
+	bAcceptMoves	: BOOL := TRUE;		// _AcceptMove: FALSE rejects every move
+	bReplaceOnGoto	: BOOL;				// _AcceptMove: a goto replaces the running move (the supersede request)
+	bRaiseError		: BOOL;				// _ReadErrors: bError for the scan
+	bParkWaits		: BOOL;				// _ParkPreStep: the pending park waits
+	bSettled		: BOOL;				// _StopSettled
+END_VAR
+VAR_OUTPUT
+	nAcceptMove		: UINT;				// calls of _AcceptMove
+	eLastAccepted	: E_TCSCommand;		// the command of the last _AcceptMove
+	nMoveEdgeAccepted	: UINT;
+	nAutoStop		: UINT;
+	nDoPowerOn, nDoPark, nDoGoHome, nDoGoto, nDoSlew, nDoTrack, nDoStop	: UINT;	// calls of the _Do* hooks
+	nInterruptedDo	: UINT;				// _Do* calls made while bInterrupted was TRUE
+	eRestartKeep	: E_TCSCommand;		// the argument of the last _RestartMoveTimeout
+	nRestartMoveTimeout	: UINT;
+	nSendTelemetry	: UINT;
+	eTimeoutAsked	: E_TCSCommand;		// the argument of the last _CommandTimeout
+	nSeq			: UINT;				// order of the hooks: nAt* is the value of nSeq when the hook ran last
+	nAtReadInputs, nAtHandleReset, nAtReadErrors, nAtErrorReaction, nAtComputeTargets, nAtTimers, nAtParkRequests, nAtUpdateStatus,
+	nAtReleaseReset, nAtSafeStateEndOfScan, nAtEndOfScan	: UINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SUPER^();
+]]></ST>
+    </Implementation>
+    <Method Name="Seed" Id="{8b1d6a33-7a18-48c6-820f-933dbc847cec}">
+      <Declaration><![CDATA[// Test seam: sets requests of the base block that the tests cannot write from outside.
+METHOD Seed
+VAR_INPUT
+	bSlew, bGoto, bGoHome, bAbort, bSupersede	: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSlewActive := bSlew;
+bGotoActive := bGoto;
+bGoHomeActive := bGoHome;
+bMoveAbortPending := bAbort;
+bSupersedeRequest := bSupersede;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ReadInputs" Id="{078c48cb-3190-40db-99f8-d69a9aea4844}">
+      <Declaration><![CDATA[METHOD PROTECTED _ReadInputs
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtReadInputs := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_HandleReset" Id="{2745af26-30b7-4749-a5bd-5e123196f676}">
+      <Declaration><![CDATA[METHOD PROTECTED _HandleReset
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtHandleReset := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ReadErrors" Id="{22b6578e-a493-47f3-a843-4017a95c18eb}">
+      <Declaration><![CDATA[METHOD PROTECTED _ReadErrors
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtReadErrors := nSeq;
+IF bRaiseError THEN
+	bError := TRUE;
+	nErrorID := 16#1;
+ELSE
+	bError := FALSE;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ErrorReaction" Id="{9ea24e3b-80b8-4d22-be74-64783b26b281}">
+      <Declaration><![CDATA[METHOD PROTECTED _ErrorReaction
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtErrorReaction := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ComputeTargets" Id="{08560a43-6638-43d0-91d5-49db778ba672}">
+      <Declaration><![CDATA[METHOD PROTECTED _ComputeTargets
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtComputeTargets := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_Timers" Id="{c904515d-cdc9-408b-aabc-a58ec236362e}">
+      <Declaration><![CDATA[METHOD PROTECTED _Timers
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtTimers := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ParkRequests" Id="{98781094-5a0c-4d0e-9362-8188cd59326d}">
+      <Declaration><![CDATA[METHOD PROTECTED _ParkRequests
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtParkRequests := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_UpdateStatus" Id="{1d20cd39-ffe8-4ddc-bbaf-de742fdd9d1a}">
+      <Declaration><![CDATA[METHOD PROTECTED _UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtUpdateStatus := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ReleaseReset" Id="{fd97cc0b-9cdd-4501-ab1a-db8fa78743f4}">
+      <Declaration><![CDATA[METHOD PROTECTED _ReleaseReset
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtReleaseReset := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_SafeStateEndOfScan" Id="{d3c34217-7bfb-4d65-ae2e-04c9d9a78fdc}">
+      <Declaration><![CDATA[METHOD PROTECTED _SafeStateEndOfScan
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtSafeStateEndOfScan := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_EndOfScan" Id="{0f9f2a4b-0890-4ca9-aa5e-6678206d959e}">
+      <Declaration><![CDATA[METHOD PROTECTED _EndOfScan
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSeq := nSeq + 1;
+nAtEndOfScan := nSeq;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_AutoStop" Id="{b0244105-0386-4195-872b-13e4670e0f6e}">
+      <Declaration><![CDATA[METHOD PROTECTED _AutoStop
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nAutoStop := nAutoStop + 1;	// the clock of the stub is never valid: no stop, the tests drive the requests themselves
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_AcceptMove" Id="{ee058a84-571b-4cd4-8a13-629c076a1822}">
+      <Declaration><![CDATA[METHOD PROTECTED _AcceptMove : BOOL
+VAR_INPUT
+	eCommand	: E_TCSCommand;
+	eExcludeOwn	: E_TCSCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nAcceptMove := nAcceptMove + 1;
+eLastAccepted := eCommand;
+_AcceptMove := bAcceptMoves;
+IF bAcceptMoves AND bReplaceOnGoto AND eCommand = E_TCSCommand.goto THEN
+	bSupersedeRequest := TRUE;
+	eSupersedeKeep := eCommand;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_OnMoveEdgeAccepted" Id="{aad3ee2f-5156-42cf-b8da-cd02192b2cdd}">
+      <Declaration><![CDATA[METHOD PROTECTED _OnMoveEdgeAccepted
+VAR_INPUT
+	eCommand	: E_TCSCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nMoveEdgeAccepted := nMoveEdgeAccepted + 1;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ApplyError" Id="{3759fe8b-0b20-4220-9de2-384f0e757bf3}">
+      <Declaration><![CDATA[METHOD PROTECTED _ApplyError
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_RestartMoveTimeout" Id="{2a791745-7781-43ef-b7c1-fa610be8c3f0}">
+      <Declaration><![CDATA[METHOD PROTECTED _RestartMoveTimeout
+VAR_INPUT
+	eKeep	: E_TCSCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nRestartMoveTimeout := nRestartMoveTimeout + 1;
+eRestartKeep := eKeep;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_ParkPreStep" Id="{0571c14e-5eac-4800-b8ba-d566bf8d6308}">
+      <Declaration><![CDATA[METHOD PROTECTED _ParkPreStep : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_ParkPreStep := bParkWaits;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DropAxisCommands" Id="{9f6655e9-5790-4773-8ae8-ee6e06b06b4e}">
+      <Declaration><![CDATA[METHOD PROTECTED _DropAxisCommands
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoPowerOn" Id="{6d244a56-d54c-458b-a566-913e721efbbe}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoPowerOn
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoPowerOn := nDoPowerOn + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoPark" Id="{ee0a76dd-31a7-4ca8-8a57-d8331bd43dcf}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoPark
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoPark := nDoPark + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoGoHome" Id="{a94ae25f-cf53-4cc2-a068-2742d3248b16}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoGoHome
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoGoHome := nDoGoHome + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoGoto" Id="{8cb3fbf9-d26a-4d3f-a550-8c988c1a881f}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoGoto
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoGoto := nDoGoto + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoSlew" Id="{0a8f9db8-0efd-4bac-b1f3-ac849eb38f3b}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoSlew
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoSlew := nDoSlew + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoTrack" Id="{3b8ff862-fd17-44c3-94c7-ab7e1f5472c0}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoTrack
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoTrack := nDoTrack + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_DoStop" Id="{890120e6-c9e9-4007-91dd-0a04b2ae9b60}">
+      <Declaration><![CDATA[METHOD PROTECTED _DoStop
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDoStop := nDoStop + 1;
+IF bInterrupted THEN
+	nInterruptedDo := nInterruptedDo + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_CommandTimeout" Id="{8dcb6945-3718-447c-b93c-2c6bae50fb1e}">
+      <Declaration><![CDATA[METHOD PROTECTED _CommandTimeout : TIME
+VAR_INPUT
+	eCommand	: E_TCSCommand;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eTimeoutAsked := eCommand;
+_CommandTimeout := T#1H;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_StopSettled" Id="{1a9986d4-179c-4bdf-9b88-5b7f5c2dc92f}">
+      <Declaration><![CDATA[METHOD PROTECTED _StopSettled : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_StopSettled := bSettled;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_TelemetryPeriod" Id="{0578015f-8045-490e-b781-9d8e9faa4dd1}">
+      <Declaration><![CDATA[METHOD PROTECTED _TelemetryPeriod : TIME
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_TelemetryPeriod := T#0S;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_SendTelemetry" Id="{b47c1edc-61e9-4958-8532-329831fbe921}">
+      <Declaration><![CDATA[METHOD PROTECTED _SendTelemetry : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nSendTelemetry := nSendTelemetry + 1;
+_SendTelemetry := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_LogEvents" Id="{bcdd5403-9ac2-48ca-80f8-db8ba748f373}">
+      <Declaration><![CDATA[METHOD PROTECTED _LogEvents
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

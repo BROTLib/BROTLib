@@ -40,6 +40,7 @@ VAR
 	fbStopTransactionTests	: FB_StopTransaction_Tests;
 	fbStopLoopSimTests		: StopLoop_Sim_Tests;
 	fbCommandArbiterTests	: FB_CommandArbiter_Tests;
+	fbBaseTelescopeControlTests	: FB_BaseTelescopeControl_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

@@ -129,12 +129,16 @@ organised into four layers:
    interfaces: [specs/design/ui-tiers-and-hmi-gateway.md](specs/design/ui-tiers-and-hmi-gateway.md).
 
 2. **Telescope control** — base classes for the command/state layer. The
-   state machine itself is not in the library (see below):
+   cyclic body of the command model is in the base (since 0.20.0, #25), the
+   telescope-specific actions are in the derived blocks:
 
    - `FB_BaseTelescopeControl` — abstract base: the TCS command inputs and
-     `I_Telescope` methods, the variables the derived state machines share
-     (timers, events, and `fJd`/`fLst`, which the derived block must set), and
-     the MQTT telemetry (`_PublishTelemetry`).
+     `I_Telescope` methods, the cyclic body of the command model (request
+     latches, edge memory, `FB_CommandArbiter`, supersede, abort stop, park,
+     `FB_StopTransaction`) with 45 `PROTECTED` hook methods that a derived
+     block overrides (24 `ABSTRACT`, 21 with a default), the variables the
+     derived blocks share (timers, events, and `fJd`/`fLst`, which the derived
+     block must set), and the MQTT telemetry (`_PublishTelemetry`).
    - `FB_AltAzTelescopeControl` — Alt-Az extension: offset, derotator and DUT1
      inputs (`I_AltAzTelescope`) and their telemetry. The coordinate transforms
      and the pointing model are called by the derived block.
@@ -145,11 +149,12 @@ organised into four layers:
    **Command model** — the library defines the command enumeration
    `E_TCSCommand` (`no_command`, `gohome`, `park`, `track`, `goto`, `stop`,
    `slew`, `poweron`). The command-priority dispatching (`power > stop > park >
-   gohome > goto > slew > track > no_command`) and the stage-based sub-state
-   machines (`CASE nStage`) live in the concrete implementations, each with its
-   own copy (#25): MONETcommon's `FB_MonetTelescopeControl` (MONET/S and
-   MONET/N, derived from `FB_AltAzTelescopeControl`) and IAG50cm's standalone
-   `FB_TelescopeControl`. They report `fReadyState` (0 shutdown … 1 ready, −1
+   gohome > goto > slew > track > no_command`) is in the base body; the
+   stage-based sub-state machines (`CASE nStage`) of the commands are in the
+   hooks of the concrete implementations: MONETcommon's `FB_MonetTelescopeControl`
+   (MONET/S and MONET/N, derived from `FB_AltAzTelescopeControl`) and IAG50cm's
+   `FB_TelescopeControl`. Until those two move onto the base body (#25, steps
+   S6 and S8) they keep their own copy. They report `fReadyState` (0 shutdown … 1 ready, −1
    error), `nMotionState` (0 stopped / 1 moving / 8 tracking) and per-command
    timeouts as telemetry.
 
@@ -186,9 +191,9 @@ organised into four layers:
 - **`FB_BaseTelescopeControl`** — abstract base class for all telescope types.
   Provides the command interface (`E_TCSCommand`: e.g. `GoHome`, `GoTo`,
   `Track`, `Slew`, `Park`, `Stop`, `PowerOn`), coordinate handling and MQTT
-  telemetry publishing. The command state machine itself is not here — it's
-  a stage-based `CASE nStage` in each concrete implementation (see the note
-  below).
+  telemetry publishing, and the cyclic body of the command model; the
+  telescope-specific actions are `PROTECTED` hook methods of the derived
+  block (breaking in 0.20.0: a derived block implements the 24 abstract hooks).
 - **`FB_AltAzTelescopeControl`** — Alt-Az extension: offset, derotator and
   DUT1 inputs and their telemetry. MONETcommon's `FB_MonetTelescopeControl`
   derives from it and calls the pointing model
@@ -220,7 +225,7 @@ organised into four layers:
 - **`FB_StopTransaction` (`Telescope/`)** — the stop of up to four axes with one `MC_Stop` each, pure logic, no axis access
   (plan step 4.2; nobody calls it yet, MONETcommon and IAG50cm still have their own blocks). It merges
   `FB_MonetStopTransaction` and IAG50cm's `FB_StopTransaction`: per-axis inputs `abEnabled`, `abStandStill`,
-  `abStopAxis`, `abStopDone`, `abMoving`, `abStopping`, `abLocked`, `abHoming`; outputs `abWriteLow`/`abWriteHigh`
+  `abStopAxis`, `abStopDone`, `abMoving`, `abStopping`, `abLocked`, `abHoming`, `abSweeping` (an axis in a calibration sweep is sent its stop even at standstill, IAG50cm#198); outputs `abWriteLow`/`abWriteHigh`
   for the `StopAxis` of the axis blocks, `bSettled`, `bActive`, `bForced`, `bStuck`, `bTimedOut`, `abNoDone`. The timeout
   is either the owner's (`bTimeout`) or internal (`tTimeout`, with the `nTimeDivisor` test seam). A disabled axis is never
   sent a stop. Call the body while stopping, `Monitor()` every scan, `Begin()`/`Cancel()`/`Restart()` around it.
@@ -336,7 +341,9 @@ logic for focus blocks: a new target during a move restarts the move.
   literals MONETcommon's `FB_MonetTelescopeControl` had built in (MONETcommon#24, plan
   `2026-11-02-reference-implementation-issue-24.md` in MONETcommon, step 2a; pinned by
   `F_MotionConfigValid_Tests`). `F_MotionConfigValid` is TRUE when velocities, timeouts and track time caps are
-  > 0, both windows are ordered (min < max) and the margins are >= 0. Nothing in BROTLib uses it yet.
+  > 0, both windows are ordered (min < max) and the margins and stop dynamics are >= 0. Nothing in BROTLib uses it yet.
+  The MC_Stop dynamics per axis (deceleration deg/s^2, jerk deg/s^3; 0.0 = the NC axis parameters): `f*FastStop*` for the
+  stop of the healthy axes when another axis faults (MONETcommon#272), `f*Stop*` for every other stop (MONETcommon#286).
 - `ST_InfoDataConnection` / `ST_InfoDataFB` / `ST_InfoDataGroup` — debug info
   data structures used by the `FB_Info*` debug blocks.
 - `E_TCSCommand`, `E_TCSErrors`, `E_TelescopeMode` — command, error and mode

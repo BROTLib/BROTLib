@@ -36,6 +36,8 @@ Timeout_Does_Not_Release_While_Locked_Or_Homing();
 Settled_Transaction_Does_Not_Time_Out();
 Internal_Timeout_Releases_A_Stop_Without_Done_At_Rest();
 Cancel_Stops_The_Internal_Timeout_And_Begin_Restarts_It();
+Sweeping_Axis_At_Standstill_Gets_One_Stop();
+Sweeping_Disabled_Axis_Gets_No_Stop();
 ]]></ST>
     </Implementation>
     <Method Name="Moving_Axis_Gets_One_Stop" Id="{487b7228-6dc3-4bed-ba63-693469aed6ee}">
@@ -895,6 +897,54 @@ IF bBegun THEN
 		TEST_FINISHED();
 	END_IF
 END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sweeping_Axis_At_Standstill_Gets_One_Stop" Id="{4a094e47-b9d5-4d09-80c7-64ddf4575f5c}">
+      <Declaration><![CDATA[// IAG50cm#198: a pause of the calibration sweep reports StandStill, but the sweep is active: the axis gets its one stop anyway.
+METHOD PRIVATE Sweeping_Axis_At_Standstill_Gets_One_Stop
+VAR
+	tx		: FB_StopTransaction;
+	i		: UINT;
+	nWrites	: ARRAY[1..4] OF INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sweeping_Axis_At_Standstill_Gets_One_Stop');
+FOR i := 1 TO 4 DO
+	tx.abEnabled[i] := TRUE;
+	tx.abStandStill[i] := TRUE;
+END_FOR
+tx.abSweeping[2] := TRUE;
+tx.Begin();
+FOR i := 1 TO 50 DO
+	tx();
+	IF tx.abWriteHigh[1] THEN nWrites[1] := nWrites[1] + 1; END_IF
+	IF tx.abWriteHigh[2] THEN nWrites[2] := nWrites[2] + 1; END_IF
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := nWrites[2], Message := 'sweeping axis stopped once');
+AssertEquals_INT(Expected := 0, Actual := nWrites[1], Message := 'standing axis without a sweep: no stop');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sweeping_Disabled_Axis_Gets_No_Stop" Id="{5ad7b8ac-a30f-43b0-89a2-1e764ea5c96d}">
+      <Declaration><![CDATA[// A disabled axis is never sent a stop (#150), a sweep flag does not change that.
+METHOD PRIVATE Sweeping_Disabled_Axis_Gets_No_Stop
+VAR
+	tx	: FB_StopTransaction;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Sweeping_Disabled_Axis_Gets_No_Stop');
+tx.abEnabled[1] := FALSE;
+tx.abStandStill[1] := TRUE;
+tx.abSweeping[1] := TRUE;
+tx.Begin();
+tx();
+AssertFalse(Condition := tx.abWriteHigh[1], Message := 'no stop for a disabled axis');
+AssertFalse(Condition := tx.abWriteLow[1], Message := 'no low write');
+TEST_FINISHED();
 ]]></ST>
       </Implementation>
     </Method>

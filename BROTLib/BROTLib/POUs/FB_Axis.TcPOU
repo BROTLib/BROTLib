@@ -16,6 +16,12 @@ VAR_INPUT
 	TrackVelocityRef: LREAL := 0.0;
 	// Tracking direction (-1,0,1)
 	TrackDirectionRef: INT := 0;
+	// #167: TRUE feeds MC_ExtSetPointGenFeed with the velocity and acceleration of the fed position (its change per
+	// CycleTime), signed, instead of the fixed values below that follow the position difference to the actual position.
+	// FALSE (default) keeps the old behaviour. Not used in the first scan of a track request.
+	FeedFromPosition: BOOL := FALSE;
+	// task cycle time (s) for FeedFromPosition
+	CycleTime: LREAL := 0.01;
 	// PosDiff for isTracking (arcsec)
 	TrackEnvelope: LREAL := 5.0;
 	// Enable movement in positive direction (considering limit switch)
@@ -32,6 +38,10 @@ VAR_INPUT
 	// enable external setpoint generator
 	Tracking:			BOOL;
 	HomingMode:			MC_HomingMode := MC_HomingMode.MC_DefaultHoming;
+	// MONETcommon#272: deceleration (unit/s^2) and jerk (unit/s^3) of MC_Stop; 0.0 (default) takes the NC axis
+	// parameters. MC_Stop reads them at its rising Execute. Set them with FB_BaseAxis.SetStopDynamics().
+	StopDeceleration:	LREAL := 0.0;
+	StopJerk:			LREAL := 0.0;
 END_VAR
 VAR_OUTPUT
 	// Reset has been executed
@@ -46,6 +56,9 @@ VAR_OUTPUT
 	MovePending:	BOOL;
 	// a Home() is waiting to start (axis not Ready yet)
 	HomePending:	BOOL;
+	// an MC_Stop of Stop() is pending or executing: the NC locks the axis for motion commands until its Execute is released
+	// (16#4260), so MoveTo(), Home() and jog wait (MONETcommon#278)
+	StopLocked:	BOOL;
 	// the NC reports the axis as homed (a level, see Calibrated). It is set by the NC before the homing procedure has
 	// finished, so do not use it to end homing-related overrides (limit switch bypass): use HomeActive
 	HomeDone:	BOOL;
@@ -79,6 +92,9 @@ VAR_OUTPUT
 	ErrorID: 	UDINT;
 	// actual position of the axis
 	ActualPosition: LREAL;
+	// NC set position of the axis (NcToPlc.SetPos, ModuloSetPos on a modulo axis): where the setpoint generator or the
+	// external setpoint has put the axis; ActualPosition lags it by the following error (MONETcommon#267)
+	SetPosition: LREAL;
 	// axis is calibrated;
 	Calibrated:	BOOL := FALSE;
 
@@ -115,6 +131,10 @@ VAR
 	TrackPosition:		LREAL;
 	TrackVelocity:		LREAL;
 	TrackAcceleration:	LREAL;
+	TrackPositionLast:	LREAL;	// fed position of the previous scan (#167)
+	TrackFeedVelocityLast:	LREAL;	// fed velocity of the previous scan (#167)
+	TrackFeedValid:		BOOL;	// TrackPositionLast is the fed position of the previous scan (#167)
+	TrackFeedVelocity:	LREAL;
 END_VAR
 
 VAR_IN_OUT
@@ -179,11 +199,32 @@ ELSE
 END_IF
 
 
+// #167: the velocity and acceleration of the fed position. The first scan of a track request has no previous position:
+// the old values are used there.
+IF FeedFromPosition AND Tracking AND TrackFeedValid AND CycleTime > 0.0 THEN
+	TrackFeedVelocity := (TrackPosition - TrackPositionLast) / CycleTime;
+	TrackVelocity := ABS(TrackFeedVelocity);
+	TrackAcceleration := MAX(ABS(TrackFeedVelocity - TrackFeedVelocityLast) / CycleTime, 0.005);
+	IF TrackFeedVelocity > 0.0 THEN
+		Direction := 1;
+	ELSIF TrackFeedVelocity < 0.0 THEN
+		Direction := -1;
+	ELSE
+		Direction := TrackDirectionRef;
+	END_IF
+ELSE
+	TrackFeedVelocity := 0.0;
+END_IF
+TrackPositionLast := TrackPosition;
+TrackFeedVelocityLast := TrackFeedVelocity;
+TrackFeedValid := Tracking;
 
 isTracking := Tracking AND ABS(Position - ActualPosition) < (TrackEnvelope/3600.0);
+// MONETcommon#278: the stop of the last cycle (Execute as the MC_Stop got it) or a Stop() since; it holds every motion command
+StopLocked := StopCommand.Execute OR StopCommand.Pending;
 // drops Execute on an error and re-arms on Reset or a new track request (#9), see F_SetpointEnableExecute
 Axis_SetpointEnable.Execute := F_SetpointEnableExecute(
-	Request :=	Tracking AND Ready AND Calibrated AND NOT StopCommand.Execute AND NOT StopCommand.Pending,
+	Request :=	Tracking AND Ready AND Calibrated AND NOT StopLocked,
 	Tracking :=	Tracking,
 	Reset :=	Reset,
 	Execute :=	Axis_SetpointEnable.Execute,
@@ -210,7 +251,7 @@ MC_ExtSetPointGenFeed(
 
 // #101: a stop request also disables the generator (a stop with Tracking still TRUE would otherwise wait for ever)
 Axis_SetpointDisable(Axis := AxisRef,
-	Execute := NOT Tracking OR StopCommand.Pending OR StopCommand.Execute);
+	Execute := NOT Tracking OR StopLocked);
 // the NC rejects stop, move and jog with 0x4257 while the generator is on: the commands wait until it is off
 ExtActive := F_ExtSetpointActive(
 	StatusEnabled :=	Axis_Status.Status.ExtSetPointGenEnabled,
@@ -233,7 +274,8 @@ FOR MoveSlot := 0 TO 1 DO
 	END_IF
 END_FOR
 // #92: Execute is released on Done or CommandAborted of the active instance
-MoveChannel(Allowed := Ready AND Calibrated AND NOT ExtActive, Reset := Reset,
+// MONETcommon#278: a MoveTo() during a stop waits for it (the NC refuses it with 16#4260 while MC_Stop holds the axis)
+MoveChannel(Allowed := Ready AND Calibrated AND NOT ExtActive AND NOT StopLocked, Reset := Reset,
 	aDone := aMoveDone, aAborted := aMoveAborted, aBusy := aMoveBusy);
 MovePending := MoveChannel.Pending;
 // HalfBROT#103: the NC ignores a rising Execute on an instance that is still Busy, so each new command goes to the
@@ -262,14 +304,14 @@ ELSE
 END_IF
 
 Axis_Jog(
-	JogForward := 	Jog_Forward AND Ready AND Enable_Positive AND NOT ExtActive,
-	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative AND NOT ExtActive,
+	JogForward := 	Jog_Forward AND Ready AND Enable_Positive AND NOT ExtActive AND NOT StopLocked,	// MONETcommon#278
+	JogBackwards := Jog_Backwards AND Ready AND Enable_Negative AND NOT ExtActive AND NOT StopLocked,
 	Mode := 		MC_JOGMODE_STANDARD_FAST,
 	Done => 		JogDone,
 	Axis := 		AxisRef);
 
 
-HomeCommand(Allowed := Ready, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted OR HomeStopAbort);	// #92, HalfBROT#114
+HomeCommand(Allowed := Ready AND NOT StopLocked, Reset := Reset, Done := Axis_Home.Done, Aborted := Axis_Home.CommandAborted OR HomeStopAbort);	// #92, HalfBROT#114
 HomePending := HomeCommand.Pending;
 Axis_Home(
 	Axis := 			AxisRef,
@@ -308,6 +350,8 @@ StopCommand(Allowed := StopAllowed AND NOT ExtActive, Reset := Reset, Done := Ax
 Axis_Stop(
 	Axis := 	AxisRef,
 	Execute := 	StopCommand.Execute,
+	Deceleration :=	StopDeceleration,	// 0.0: NC axis parameters (MONETcommon#272)
+	Jerk :=		StopJerk,
 	Done => 	StopDone);
 // #93: a Stop() joined to a stop that was already finishing reports StopDone once the axis is at rest
 StopDone := StopDone OR StopCommand.Joined;
@@ -319,8 +363,10 @@ Axis_Position(
 *)
 IF isModuloAxis THEN
 	ActualPosition := AxisRef.NcToPlc.ModuloActPos; // required e.g. for Filterwheel
+	SetPosition := AxisRef.NcToPlc.ModuloSetPos;
 ELSE
 	ActualPosition := AxisRef.NcToPlc.ActPos;
+	SetPosition := AxisRef.NcToPlc.SetPos;
 END_IF
 
 IF Axis_Power.Error THEN
