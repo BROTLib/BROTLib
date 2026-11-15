@@ -1127,7 +1127,7 @@ bJogCalled := FALSE;
 </Method>
 <Method Name="_ServiceJog" Id="{ad33d683-fc04-4c5c-8c6c-66217973b505}">
 <Declaration><![CDATA[METHOD PRIVATE _ServiceJog
-VAR_INPUT
+VAR
 	i	: INT;
 END_VAR
 ]]></Declaration>
