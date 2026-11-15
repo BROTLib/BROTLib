@@ -69,7 +69,7 @@ no IAG-private infrastructure/credential/incident details — those stay in IAG'
   `FB_HmiGateway` at `MAIN.Hmi`: RPC methods, flat status struct, contract version, jog dead-man, why-not-ready bits.
   New optional `I_TelescopeStatus` and `I_SafetyDiagnostics`, `I_RaDecTelescope.SlewHaDec`, `I_MirrorCovers.Stop`,
   `JogSlow`; one consolidated table of all interface changes with implementers and release consequences. Verified
-  state of jog modelling and of where the switch is read today. *proposed, not implemented* (2026-11-04)
+  state of jog modelling and of where the switch is read today. *BROTLib part implemented; consumers pending* (2026-11-04, refreshed 2026-11-15)
   (Repos: BROTLib, MONETcommon, MONETN, MONETS, IAG50cm, HalfBROT, BROTweb)
 
 - [telescope-ready-state.md](telescope-ready-state.md) — completed startup semantics of READY_STATE, calibration state 0.8, and the hardware-free readiness latch. (Repos: BROTLib, MONETcommon, IAG50cm, pyBROT, pyobs-brot)

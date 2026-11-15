@@ -1,6 +1,7 @@
 # UI tiers and the HMI gateway (`FB_HmiGateway`, `I_Cabinet`)
 
-Date: 2026-11-04. Status: **proposed**, design only; nothing implemented.
+Date: 2026-11-04, refreshed 2026-11-15 against BROTLib 0.25.0. Status: **BROTLib part implemented** (X1-X10, one PR against
+`develop`, see section 13 and 5.9); the other repositories and BROTweb are still to do.
 
 Repos: BROTLib (`I_Cabinet`, `FB_HmiGateway`, `FB_Comm_MQTT_Influx`), MONETcommon, MONETN, MONETS, IAG50cm,
 HalfBROT (axis blocks), BROTweb (consumer).
@@ -35,6 +36,12 @@ Boundary rules:
   `MAIN.TelescopeControl.*`.
 
 ## 2. Verified state of the code (2026-11-04, `origin/develop` of every repo)
+
+Refresh 2026-11-15: every row of section 13 was checked again against `origin/develop` of BROTLib (0.25.0), HalfBROT (0.16.0),
+IAG50cm, MONETcommon (0.27.0), MONETS and MONETN. Corrections found: IAG50cm `FB_TelescopeControl` no longer stands alone, it
+`EXTENDS BROTLib.FB_RaDecTelescopeControl` (the template-body unification), so X5 breaks it as a subclass; the consumers' pins moved
+(HalfBROT and IAG50cm pin BROTLib 0.20.0, MONETcommon and MONETN 0.25.0, MONETS 0.23.0); `E_CommandRejectReason` lives in
+`Telescope/Command/`. Everything else in this section is unchanged.
 
 ### 2.1 Interfaces (BROTLib `Interfaces/`, `POUs/Comm/I_Comm`)
 
@@ -74,7 +81,7 @@ Implementations:
 | Interface | MONETS/MONETN (MONETcommon, HalfBROT, MONETRoof) | IAG50cm |
 |---|---|---|
 | `I_AltAzTelescope` | `FB_MonetTelescopeControl` (extends `FB_AltAzTelescopeControl`) | - |
-| `I_RaDecTelescope` (hence `I_Telescope`) | - | `FB_TelescopeControl` (standalone) |
+| `I_RaDecTelescope` (hence `I_Telescope`) | - | `FB_TelescopeControl` (extends BROTLib `FB_RaDecTelescopeControl`) |
 | `I_Axis` | HalfBROT `FB_AzimuthControl`, `FB_ElevationControl`, `FB_DerotatorControl` | `FB_HourAngleControl`, `FB_DeclinationControl` (via `FB_AxisControl`) |
 | `I_Focus` | HalfBROT `FB_FocusControl` | `FB_FocusControl` |
 | `I_MirrorCovers` | HalfBROT `FB_CoverControl` | `FB_CoverControl` |
@@ -208,8 +215,8 @@ PROPERTY CurrentDeclination    : LREAL          // deg, ICRS
   `bIsParked`, `eLastRejectedCommand`, `eLastRejectReason`, `nCommandRejectCount`, the suspend state and the current
   ICRS position it publishes as telemetry); IAG50cm `FB_TelescopeControl` later (its refusals are event texts today;
   it maps them to `not_ready` and the other existing reasons).
-- **`E_CommandRejectReason` mismatch:** BROTLib's enum ends at `gohome_active`; MONETcommon keeps its own copy with
-  `init_required` appended (#72). Resolution: append `init_required` to BROTLib's enum (same position, non-breaking)
+- **`E_CommandRejectReason` mismatch:** BROTLib's enum (`Telescope/Command/`) ended at `gohome_active`; MONETcommon keeps its own copy with
+  `init_required` appended (#72). Resolution (done in BROTLib, value 10, with its `F_CommandRejectText` text): append `init_required` to BROTLib's enum (same position, non-breaking)
   and drop MONETcommon's local copies of `E_CommandRejectReason`, `E_CommandDecision` and `ST_CommandState` in favour
   of BROTLib's, so `LastRejectReason` has one type across the fleet.
 
@@ -258,8 +265,8 @@ PROPERTY Items          : ST_SafetyItems
 - `I_RaDecTelescope.SlewHaDec(fHourAngle, fDeclination : LREAL) : BOOL` (former O2): a native move to apparent HA/Dec
   in degrees, without tracking, through the telescope's own state machine and checks. IAG50cm implements it with its
   existing HA/Dec machinery (`FB_RaDecCoordinates` and its slew stage); BROTLib's abstract `FB_RaDecTelescopeControl`
-  declares it `ABSTRACT`. No alt-az telescope implements `I_RaDecTelescope` (checked: only BROTLib
-  `FB_RaDecTelescopeControl` and IAG50cm `FB_TelescopeControl`; no test mock), so MONET is not affected.
+  declares it `ABSTRACT`. No alt-az telescope implements `I_RaDecTelescope` (checked 2026-11-15: only BROTLib
+  `FB_RaDecTelescopeControl` and its one subclass IAG50cm `FB_TelescopeControl`; no test mock), so MONET is not affected.
 - `I_MirrorCovers.Stop() : BOOL` (former O9): HalfBROT `FB_CoverControl` and IAG50cm `FB_CoverControl` already have
   a `METHOD Stop : BOOL` with no inputs, so they satisfy it unchanged; MONET uses HalfBROT's block. The only other
   implementer is IAG50cmTests `FB_CoversMock`, which must add it. MONETcommon can then drop its concrete
@@ -340,8 +347,10 @@ beyond the `PendantActive` bit.
 - `_ApplyField` checks once at the top: `IF Cabinet <> 0 AND_THEN Cabinet.ControlMode = E_ControlMode.local AND_THEN
   F_MqttVerbIsMotion(parameter) THEN` log and `RETURN`. `F_MqttVerbIsMotion` is a pure function with the motion and reset
   verbs of 4.1 (`power`, `park`, `gohome`, `track`, `slew`, `focus`, `cover_open`, `cover_close`, `dome_open`, `dome_close`,
-  `dome_park`, `dome_track`, `filter`, `nasmyth`, `derotator`, `derotatoroffset`, `elevationoffset`, `azimuthoffset`,
-  `declinationoffset`, `hourangleoffset`, `reset`; not `stop` or `dome_stop`), unit-testable in BROTLibTests.
+  `dome_park`, `dome_track`, `dome_reset`, `filter`, `nasmyth`, `derotatoroffset`, `elevationoffset`, `azimuthoffset`,
+  `declinationoffset`, `hourangleoffset`, `reset`; not `stop` or `dome_stop`), unit-testable in BROTLibTests
+  (`F_MqttVerbIsMotion_Tests`). The list matches the verbs `_ApplyField` really dispatches (checked 2026-11-15): the earlier
+  sketch had `derotator`, which is no verb, and lacked `nasmyth` and `dome_reset`, which are motion and reset verbs of 4.1.
 - A refused `track`/`slew` still consumes the coordinate buffers (as an incomplete one does), so nothing replays
   after the switch goes back to Remote.
 - `Cabinet` unassigned keeps today's behaviour (everything accepted), so the change is backward compatible.
@@ -722,6 +731,28 @@ Per-axis `nErrorID` is shown with its number; BROTweb may translate NC error num
 `I_TelescopeStatus` (3.1) the last rejected command and its `E_CommandRejectReason` are shown, otherwise BROTweb
 shows `ReadyState` and the blocker set only.
 
+### 5.9 Implementation notes (BROTLib, where the code differs from or fills in the text above)
+
+- **Files:** `POUs/Hmi/` holds `FB_HmiGateway`, `GVL_Hmi` and all types. `E_HmiBlocker` is an enum of the bit numbers of 5.8
+  (`nBlockers` bit n = `E_HmiBlocker` value n); `ST_HmiRequest` and `ST_HmiMove` are internal types of the mailbox and of `MoveAxisTo`.
+  `GVL_Hmi` also holds the mailbox slot numbers.
+- **Axis slots:** the assigned `aipAxes[i]` are compacted into slots 1..n in index order (a gap does not leave an empty slot), the focus is
+  slot n+1. `nAxis` of every RPC, `aAxis[]` and the descriptor copy use the slot number. A focus that does not fit (all 6 slots used) is a
+  `config_error`.
+- **Jog:** a call for another axis, or in another direction, by the owner releases the old jog and is answered `rejected_axis_busy`; the
+  client calls again (a reversal needs a release, 7.1). A release (`nDirection = 0`) by another token is `rejected_jog_owner`, without an
+  owner it is a no-op with result `queued`. The timeout is logged with `ADSLOGSTR` (WARN), not `FB_EventLog`: the gateway has no `I_Comm` input.
+- **Execution:** the cyclic body takes the mailbox in three passes (stop direction, resets, the rest) and re-checks the gates of that cycle
+  before every call; a command whose gate closed in between (switch to Remote, pendant, telescope suspended) is not executed and is recorded
+  in `stLastCommand` with `bAccepted = FALSE`. `Stop()` is `rejected_absent` when neither a telescope nor an axis is wired.
+- **`HomeAxis`:** writes `HomeAxis := TRUE` only. Writing FALSE first would call `CancelHome()` of the axis (`FB_BaseAxis`), so the RPC
+  answers `rejected_axis_busy` while `HomeAxis` already reads TRUE (a homing is requested or running).
+- **`MoveAxisTo`:** the maintenance velocity is written and restored as 5.4.1 describes; the move ends when the axis is no longer `Busy`
+  (or in error), or one second after the request when it never reported `Busy`. `MoveFocus` needs no `bCanMoveTo`; its limits are
+  `MinPosition`/`MaxPosition`.
+- **Not exercised by the unit tests:** telescope-level RPCs and the subsystem groups (no alt-az or RA/Dec telescope stub exists); the
+  TcHMI server path (BROTweb integration test); the NC behaviour of `Jog_Slow` and of the velocity write-and-restore (on-site test).
+
 ## 6. Relation to existing safety
 
 - The gateway only calls `I_*` methods and properties. It cannot do anything an MQTT client or the pendant cannot do
@@ -850,10 +881,10 @@ instantiates `MAIN.Hmi`:
   - An interface-typed FB input is harmless (5.2).
   - Jog dead-man 150/400 ms including connection loss, and round-trip times: 7.3.
   - Not exercised: the TcHMI client library (the server protocol it uses was), per-method access rights (5.1.1).
-- **Still open (O6, remaining part Q1a):** RPC on a method of an FB that lives in a **library** (pass 2: the same test
-  FB moved into a library project and instantiated in the application). Outcome decides where `FB_HmiGateway` lives:
-  - works: `FB_HmiGateway` with its `TcRpcEnable` methods stays in BROTLib, as designed (X10);
-  - does not work: BROTLib keeps the gateway logic (status, gates, mailbox, dead-man) in a library FB without RPC, and
+- **Resolved (O6, pass 2, IAG repo `specs/spikes/hmi-rpc-spike/RESULTS.md`):** RPC works on a method of an FB that lives in a
+  **library** and is instantiated in the application, so `FB_HmiGateway` with its `TcRpcEnable` methods stays in BROTLib, as designed
+  (X10, implemented). Kept for the record, the alternative that was not needed:
+  - does not work (not the case): BROTLib keeps the gateway logic (status, gates, mailbox, dead-man) in a library FB without RPC, and
     each project adds a thin application-side wrapper FB at `MAIN.Hmi` that carries the `TcRpcEnable` methods and
     forwards each call to the library FB. The symbol path, method names and signatures stay the same, so BROTweb is
     not affected; the wrapper is a few lines per method and must be kept in step with the library (contract version).
@@ -970,7 +1001,8 @@ numbers are not reused. Still open:
 
 All library changes this design needs, verified against `origin/develop` of every repo on 2026-11-04 (implementers
 found by grep over the `IMPLEMENTS` clauses, test projects included). "Breaking" means an existing implementer no
-longer compiles until it is changed. BROTLib is 0.18.0 on `develop`; consumers pin released versions
+longer compiles until it is changed. Written against BROTLib 0.18.0, re-verified against 0.25.0 on 2026-11-15 and implemented in one BROTLib
+PR (version bump by the release workflow, next minor); consumers pin released versions
 (`Name, x.y.z (BROT)` references, release flow in [custom-library-versioning.md](custom-library-versioning.md)), so a change reaches a consumer only when that
 consumer bumps its pin, and the bump PR must contain the consumer's own changes from this table.
 
@@ -978,14 +1010,14 @@ consumer bumps its pin, and the bump PR must contain the consumer's own changes 
 |---|---|---|---|---|---|
 | X1 | new `E_ControlMode`, `I_Cabinet`, `FB_FixedCabinet` (3) | new | MONETcommon `FB_MonetCabinetControl`; IAG50cm `FB_CabinetControl`; BROTLibTests stub `FB_CabinetStub` (new) | no (new interface) | BROTLib minor; MONETcommon and IAG50cm implement after their pin bump |
 | X2 | new `I_TelescopeStatus` (3.1) | new | MONETcommon `FB_MonetTelescopeControl` (first); IAG50cm `FB_TelescopeControl` (later); BROTLibTests stub | no (optional, separate interface) | BROTLib minor; implementers adopt at their own pace |
-| X3 | `E_CommandRejectReason.init_required` appended (3.1) | BROTLib enum | MONETcommon drops its local copies (`E_CommandRejectReason`, `E_CommandDecision`, `ST_CommandState`) and uses BROTLib's | no (append); MONETcommon's removal is its own change | BROTLib minor; MONETcommon change in its pin-bump PR |
+| X3 | `E_CommandRejectReason.init_required` appended (3.1), value 10, text in `F_CommandRejectText` | BROTLib enum (`Telescope/Command/`) | MONETcommon drops its local copies (`E_CommandRejectReason`, `E_CommandDecision`, `ST_CommandState`) and uses BROTLib's | no (append); MONETcommon's removal is its own change | BROTLib minor; MONETcommon change in its pin-bump PR |
 | X4 | new `E_SafetyItemKind`, `ST_SafetyItem`, `ST_SafetyItems`, `I_SafetyDiagnostics` (3.2) | new | MONETcommon `FB_MonetSafetyHandling`; IAG50cm `FB_SafetyHandling`; BROTLibTests stub | no (new) | BROTLib minor |
-| X5 | `SlewHaDec(fHourAngle, fDeclination)` (3.3) | `I_RaDecTelescope` | BROTLib `FB_RaDecTelescopeControl` (declares it `ABSTRACT`, in the same PR); IAG50cm `FB_TelescopeControl` (implements); no alt-az implementer, no mock | **yes** for IAG50cm `FB_TelescopeControl` (and any future subclass of `FB_RaDecTelescopeControl`) | BROTLib minor (0.x: minor carries breaking changes); IAG50cm must implement it in the PR that bumps its BROTLib pin |
+| X5 | `SlewHaDec(fHourAngle, fDeclination)` (3.3) | `I_RaDecTelescope` | BROTLib `FB_RaDecTelescopeControl` (declares it `ABSTRACT`, in the same PR); IAG50cm `FB_TelescopeControl` (implements); no alt-az implementer, no mock | **yes** for IAG50cm `FB_TelescopeControl` (a subclass of `FB_RaDecTelescopeControl` since the template-body unification; also any future subclass) | BROTLib minor (0.x: minor carries breaking changes); IAG50cm must implement it in the PR that bumps its BROTLib pin |
 | X6 | `Stop()` (3.3) | `I_MirrorCovers` | HalfBROT `FB_CoverControl` and IAG50cm `FB_CoverControl`: already have `METHOD Stop : BOOL`, nothing to do; IAG50cmTests `FB_CoversMock` adds it | **yes** for IAG50cmTests `FB_CoversMock` only | BROTLib minor; IAG50cmTests change in IAG50cm's pin-bump PR; HalfBROT compiles unchanged |
-| X7 | `Jog_Slow` input (2.2) | `FB_Axis` | HalfBROT `FB_AzimuthControl`, `FB_ElevationControl`, `FB_DerotatorControl`, `FB_FocusControl` and IAG50cm `FB_HourAngleControl`, `FB_DeclinationControl`, `FB_FocusControl` pass `Jog_Slow := bJogSlow` | no (input with default FALSE) | BROTLib minor; HalfBROT and IAG50cm pass it through when they bump (functional, not a compile break) |
+| X7 | `Jog_Slow` input (2.2); `FB_BaseAxis` input `bJogSlow` | `FB_Axis` | HalfBROT `FB_AzimuthControl`, `FB_ElevationControl`, `FB_DerotatorControl`, `FB_FocusControl` and IAG50cm `FB_HourAngleControl`, `FB_DeclinationControl`, `FB_FocusControl` pass `Jog_Slow := bJogSlow` | no (input with default FALSE) | BROTLib minor; HalfBROT and IAG50cm pass it through when they bump (functional, not a compile break) |
 | X8 | `JogSlow` property (2.2) | `I_BaseAxis` | BROTLib `FB_BaseAxis` (implements it once, so every `FB_AxisControl`/`FB_FocusControl` extending it is covered); IAG50cmTests `FB_FocusMock` (implements `I_Focus` directly) adds it; BROTLibTests `FB_FocusStub` extends `FB_BaseAxis`, covered | **yes** for IAG50cmTests `FB_FocusMock` only | as X6 |
-| X9 | `Cabinet : I_Cabinet` input, `F_MqttVerbIsMotion` (4.4) | `FB_Comm_MQTT`, `FB_Comm_MQTT_Influx` | MONETS, MONETN, IAG50cm `MAIN` wire it | no (optional input) | BROTLib minor; wiring in each application's pin-bump PR |
-| X10 | `FB_HmiGateway`, `GVL_Hmi`, all `ST_Hmi*`/`E_Hmi*` (5) | new | MONETS, MONETN, IAG50cm `MAIN` instantiate `MAIN.Hmi` with reviewed descriptors (S2/I2) | no (new) | BROTLib minor; first release sets contract 1.0 (5.7) |
+| X9 | `Cabinet : I_Cabinet` input, `F_MqttVerbIsMotion` in `POUs/Comm/` (4.4) | `FB_Comm_MQTT`, `FB_Comm_MQTT_Influx` | MONETS, MONETN, IAG50cm `MAIN` wire it | no (optional input) | BROTLib minor; wiring in each application's pin-bump PR |
+| X10 | `FB_HmiGateway`, `GVL_Hmi`, all `ST_Hmi*`/`E_Hmi*` (5), in `POUs/Hmi/`; implementation notes 5.9 | new | MONETS, MONETN, IAG50cm `MAIN` instantiate `MAIN.Hmi` with reviewed descriptors (S2/I2) | no (new) | BROTLib minor; first release sets contract 1.0 (5.7) |
 
 Not changed: `I_Telescope`, `I_AltAzTelescope`, `I_Axis`, `I_Focus`, `I_Hydraulics`, `I_Brake`, `I_Roof`, `I_Dome`,
 `I_Filter`, `I_Nasmyth`, `I_Comm`. No interface gets `__System.IQueryInterface` (2.1). MONETRoof implements only
@@ -993,6 +1025,6 @@ Not changed: `I_Telescope`, `I_AltAzTelescope`, `I_Axis`, `I_Focus`, `I_Hydrauli
 installed BROTLib: check its build after the release.
 
 **Release grouping:** all interface rows (X1-X9) go into **one** BROTLib release, so every implementer is touched once
-and pins move once. `FB_HmiGateway` (X10) is additive and can ship in the same release if pass 2 of the RPC spike (O6, library FB) is done
-in time and positive; if negative, BROTLib ships the gateway logic without RPC and the projects add the wrapper (section 8), otherwise in the next minor; it does not change any interface again. Order after the BROTLib release: HalfBROT (X7 pass-through) -> MONETcommon (X1-X4 implementations, X3 cleanup) -> MONETS, MONETN (X9,
+and pins move once. `FB_HmiGateway` (X10) is additive and ships in the same release (pass 2 of the RPC spike was positive, section 8, so
+the RPC methods stay in the library); it does not change any interface again. Order after the BROTLib release: HalfBROT (X7 pass-through) -> MONETcommon (X1-X4 implementations, X3 cleanup) -> MONETS, MONETN (X9,
 X10 wiring); IAG50cm in parallel with HalfBROT/MONETcommon (X1, X5, X6/X8 mocks, X7, X9, X10; X2 later).
