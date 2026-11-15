@@ -166,6 +166,9 @@
     <Compile Include="POUs\F_MotionConfigValid_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\F_MqttVerbIsMotion_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_InfoConnection_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

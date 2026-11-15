@@ -158,6 +158,9 @@
     <Compile Include="POUs\Comm\F_IsNumericValue.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\Comm\F_MqttVerbIsMotion.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Comm\F_TruncateInfluxEscaped.TcPOU">
       <SubType>Code</SubType>
     </Compile>

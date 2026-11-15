@@ -18,6 +18,7 @@ VAR_INPUT
 	Dome			: I_Dome;
 	Roof			: I_Roof;
 	MirrorCovers	: I_MirrorCovers;
+	Cabinet			: I_Cabinet;	// optional: with the switch on Local the motion and reset verbs are refused (F_MqttVerbIsMotion); unassigned accepts everything
 END_VAR
 VAR_OUTPUT
 	bConnected    	: BOOL := FALSE;

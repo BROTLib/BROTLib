@@ -121,7 +121,21 @@ VAR
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF parameter = 'power' AND Telescope <> 0 THEN
+        <ST><![CDATA[// Cabinet switch on Local (specs/design/ui-tiers-and-hmi-gateway.md, 4.4): the motion and reset verbs are refused, the stop
+// direction and the data fields pass. A refused track/slew still consumes its coordinate buffers, so nothing is replayed
+// after the switch goes back to Remote. No Cabinet assigned: everything is accepted as before.
+IF Cabinet <> 0 AND_THEN Cabinet.ControlMode = E_ControlMode.local AND_THEN F_MqttVerbIsMotion(parameter) THEN
+	IF parameter = 'track' THEN
+		RaDec.RightAscension := GVL_Math.LREAL_MIN;
+		RaDec.Declination := GVL_Math.LREAL_MIN;
+	ELSIF parameter = 'slew' THEN
+		AltAz.Azimuth := GVL_Math.LREAL_MIN;
+		AltAz.Altitude := GVL_Math.LREAL_MIN;
+	END_IF
+	ADSLOGSTR( ADSLOG_MSGTYPE_WARN OR ADSLOG_MSGTYPE_LOG, 'MQTT %s refused: cabinet switch on Local', parameter);
+	RETURN;
+END_IF
+IF parameter = 'power' AND Telescope <> 0 THEN
 	// there is no power-off command: Park() serves that role
 	IF STRING_TO_UINT(value) = 1 THEN
 		Telescope.CoverAutoOpen := TRUE;
