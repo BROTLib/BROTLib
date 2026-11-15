@@ -18,6 +18,7 @@ END_VAR
 	E_CommandRejectReason.parked:			F_CommandRejectText := 'telescope parked, send power=1 first';
 	E_CommandRejectReason.not_ready:		F_CommandRejectText := 'not ready';
 	E_CommandRejectReason.gohome_active:	F_CommandRejectText := 'gohome in progress';
+	E_CommandRejectReason.init_required:	F_CommandRejectText := 'init required, send power=1 first';
 ELSE
 	F_CommandRejectText := '';
 END_CASE
