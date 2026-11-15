@@ -27,6 +27,19 @@ END_VAR]]></Declaration>
       <ST><![CDATA[SUPER^();
 ]]></ST>
     </Implementation>
+<Method Name="SlewHaDec" Id="{77db7afb-bbae-423b-b1e1-56dab7c44804}">
+<Declaration><![CDATA[// Native move to an apparent hour angle / declination (degrees) without tracking (I_RaDecTelescope.SlewHaDec). Abstract:
+// the subclass owns the state machine and the axes (IAG50cm FB_TelescopeControl uses its HA/Dec slew stage).
+METHOD ABSTRACT SlewHaDec : BOOL
+VAR_INPUT
+	fHourAngle		: LREAL;	// deg, apparent
+	fDeclination	: LREAL;	// deg, apparent
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+</Method>
     <Method Name="_UpdateTarget" Id="{2bbf8ddc-7457-4cc7-a970-f3d674d63a45}">
       <Declaration><![CDATA[// Apparent HA/Dec and Alt/Az of the target and the slew target RA/Dec/HA, from fRightAscension, fDeclination, fElevation,
 // fAzimuth, fJd and fTimeOffset. Call after _UpdateClock() and before the pointing model.
