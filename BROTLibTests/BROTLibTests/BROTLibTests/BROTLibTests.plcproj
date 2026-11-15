@@ -67,6 +67,9 @@
     <Compile Include="POUs\FB_TelescopeStatusStub.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_SafetyDiagnosticsStub.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_FixedCabinet_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

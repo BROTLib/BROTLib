@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="ST_SafetyItem" Id="{3d404492-5d81-4c52-ac9b-626a1cbb9365}">
+<Declaration><![CDATA[// One item of the read-only Safety page: what the safety handling decodes with FB_InfoGroup, FB_InfoEStop and
+// FB_InfoConnection (raw TwinSAFE map state and diagnosis bytes, decoded texts, the channel bits of a connection).
+TYPE ST_SafetyItem :
+STRUCT
+	sName		: STRING(31);		// localization key, e.g. 'safety.group1', 'safety.estop1', 'safety.el2904'
+	eKind		: E_SafetyItemKind;
+	bOk			: BOOL;				// the item reports its normal running/data state and no diagnosis (decided by the implementation)
+	nMapState	: USINT;			// raw TwinSAFE map state
+	nMapDiag	: USINT;			// raw diagnosis byte
+	sState		: STRING(31);		// decoded state text of the FB_Info* block (English, for the technician)
+	sDiag		: STRING(80);		// decoded diagnosis text
+	nChannels	: BYTE;				// connections: bit 0..3 = channel 1..4; 0 otherwise
+END_STRUCT
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

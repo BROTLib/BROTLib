@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<DUT Name="E_SafetyItemKind" Id="{4435679c-35de-4a98-807e-c61cb9c13077}">
+<Declaration><![CDATA[// What an ST_SafetyItem describes (I_SafetyDiagnostics).
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_SafetyItemKind :
+(
+	group := 0,			// TwinSAFE group (FB_InfoGroup)
+	estop,				// E-stop (FB_InfoEStop)
+	connection_in,		// TwinSAFE input connection, e.g. EL1904 (FB_InfoConnection)
+	connection_out,		// TwinSAFE output connection, e.g. EL2904 (FB_InfoConnection)
+	other
+);
+END_TYPE
+]]></Declaration>
+</DUT>
+</TcPlcObject>

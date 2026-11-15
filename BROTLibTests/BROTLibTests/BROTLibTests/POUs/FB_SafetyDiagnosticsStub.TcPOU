@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_SafetyDiagnosticsStub" Id="{5b52800c-fc81-42ef-9d5a-d5ab5f2cee2b}" SpecialFunc="None">
+<Declaration><![CDATA[// Settable I_SafetyDiagnostics for tests of consumers (HMI gateway): the properties return the inputs.
+FUNCTION_BLOCK FB_SafetyDiagnosticsStub IMPLEMENTS BROTLib.I_SafetyDiagnostics
+VAR_INPUT
+	bStoActive		: BOOL;
+	bRestartPending	: BOOL;
+	stItems			: BROTLib.ST_SafetyItems;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+<Property Name="StoActive" Id="{cd3f9f17-d496-4716-b47d-0268b7faf947}">
+<Declaration><![CDATA[PROPERTY StoActive : BOOL]]></Declaration>
+<Get Name="Get" Id="{f438f7bd-6b50-4f06-ace2-b20fea1df5a6}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[StoActive := bStoActive;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="RestartPending" Id="{9ae9f196-9513-418e-94a1-049297f5ae9e}">
+<Declaration><![CDATA[PROPERTY RestartPending : BOOL]]></Declaration>
+<Get Name="Get" Id="{c17a25c5-9e18-42f8-89d4-37290332a1eb}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[RestartPending := bRestartPending;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="Items" Id="{67236ac8-e6e2-4a7f-a8b9-eb7013295204}">
+<Declaration><![CDATA[PROPERTY Items : BROTLib.ST_SafetyItems]]></Declaration>
+<Get Name="Get" Id="{ac8256a4-9b63-449a-ac0e-7862a9a05128}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Items := stItems;]]></ST>
+</Implementation>
+</Get>
+</Property>
+</POU>
+</TcPlcObject>
