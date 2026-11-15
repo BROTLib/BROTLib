@@ -76,6 +76,9 @@
     <Compile Include="Interfaces\I_RaDecTelescope.TcIO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Interfaces\I_TelescopeStatus.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Interfaces\I_Roof.TcIO">
       <SubType>Code</SubType>
     </Compile>

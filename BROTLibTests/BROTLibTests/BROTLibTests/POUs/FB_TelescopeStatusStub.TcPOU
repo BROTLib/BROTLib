@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<POU Name="FB_TelescopeStatusStub" Id="{6184d763-b72f-4072-9102-f33f1a111c9a}" SpecialFunc="None">
+<Declaration><![CDATA[// Settable I_TelescopeStatus for tests of consumers (HMI gateway): the properties return the inputs.
+FUNCTION_BLOCK FB_TelescopeStatusStub IMPLEMENTS BROTLib.I_TelescopeStatus
+VAR_INPUT
+	bError					: BOOL;
+	nErrorID				: UDINT;
+	bBusy					: BOOL;
+	bIsParked				: BOOL;
+	bSuspended				: BOOL;
+	eLastRejectedCommand	: BROTLib.E_TCSCommand;
+	eLastRejectReason		: BROTLib.E_CommandRejectReason;
+	nRejectCount			: UDINT;
+	fCurrentRA				: LREAL;
+	fCurrentDec				: LREAL;
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[]]></ST>
+</Implementation>
+<Property Name="Error" Id="{8efb484e-aeed-4917-b040-d8ff2dd81b61}">
+<Declaration><![CDATA[PROPERTY Error : BOOL]]></Declaration>
+<Get Name="Get" Id="{37a7a81b-b72d-4f0b-89e2-d8b703c79ca7}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Error := bError;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="ErrorID" Id="{16817e2b-3b38-4095-9b98-57a3bf5dd668}">
+<Declaration><![CDATA[PROPERTY ErrorID : UDINT]]></Declaration>
+<Get Name="Get" Id="{d1afd579-b7b2-4d56-8dee-79af366293d1}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[ErrorID := nErrorID;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="Busy" Id="{45b7bfd0-16d3-4793-b939-224c4490f409}">
+<Declaration><![CDATA[PROPERTY Busy : BOOL]]></Declaration>
+<Get Name="Get" Id="{691dc387-b576-4a39-906f-52ad738fa583}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Busy := bBusy;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="IsParked" Id="{0a496587-05a1-448f-8612-733b70e2ee66}">
+<Declaration><![CDATA[PROPERTY IsParked : BOOL]]></Declaration>
+<Get Name="Get" Id="{fcebae1c-8f8b-42ad-87de-9102ebd05829}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[IsParked := bIsParked;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="Suspended" Id="{2402739c-a84d-4852-a800-9e36ea1fc762}">
+<Declaration><![CDATA[PROPERTY Suspended : BOOL]]></Declaration>
+<Get Name="Get" Id="{1c922f0b-0ad3-4ecf-9d4c-11de2f9d004d}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[Suspended := bSuspended;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="LastRejectedCommand" Id="{cc63b23f-415f-45bd-807c-30fb196468bd}">
+<Declaration><![CDATA[PROPERTY LastRejectedCommand : BROTLib.E_TCSCommand]]></Declaration>
+<Get Name="Get" Id="{267e6b69-e301-452f-b998-9562b621071f}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[LastRejectedCommand := eLastRejectedCommand;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="LastRejectReason" Id="{858ee852-30e6-4773-9fd2-5e8f7a77c57f}">
+<Declaration><![CDATA[PROPERTY LastRejectReason : BROTLib.E_CommandRejectReason]]></Declaration>
+<Get Name="Get" Id="{4f3a49f3-49b0-4b97-932d-f173ff934b5e}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[LastRejectReason := eLastRejectReason;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="RejectCount" Id="{ab35f529-103d-4d24-a014-f8dac5816aba}">
+<Declaration><![CDATA[PROPERTY RejectCount : UDINT]]></Declaration>
+<Get Name="Get" Id="{f0d1ca1e-ddea-40ba-ac7b-b047ed9ffad4}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[RejectCount := nRejectCount;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="CurrentRightAscension" Id="{e0ae9008-54f7-4696-a7f4-35322bbf57bd}">
+<Declaration><![CDATA[PROPERTY CurrentRightAscension : LREAL]]></Declaration>
+<Get Name="Get" Id="{edf0f493-784f-4af1-a299-54a4624b089f}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[CurrentRightAscension := fCurrentRA;]]></ST>
+</Implementation>
+</Get>
+</Property>
+<Property Name="CurrentDeclination" Id="{a0cfed95-e32e-4494-b518-ccdb11311c3c}">
+<Declaration><![CDATA[PROPERTY CurrentDeclination : LREAL]]></Declaration>
+<Get Name="Get" Id="{796b1888-5a17-4cbe-a09e-6dbf28faaa3c}">
+<Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[CurrentDeclination := fCurrentDec;]]></ST>
+</Implementation>
+</Get>
+</Property>
+</POU>
+</TcPlcObject>
