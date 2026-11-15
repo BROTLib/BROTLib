@@ -41,6 +41,7 @@ VAR
 	fbStopLoopSimTests		: StopLoop_Sim_Tests;
 	fbCommandArbiterTests	: FB_CommandArbiter_Tests;
 	fbBaseTelescopeControlTests	: FB_BaseTelescopeControl_Tests;
+	fbFixedCabinetTests		: FB_FixedCabinet_Tests;
 END_VAR
 ]]></Declaration>
     <Implementation>

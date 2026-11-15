@@ -49,6 +49,12 @@
     <Compile Include="Interfaces\I_Brake.TcIO">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Interfaces\I_Cabinet.TcIO">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_FixedCabinet.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Interfaces\I_Dome.TcIO">
       <SubType>Code</SubType>
     </Compile>
@@ -261,6 +267,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Telescope\Command\E_CommandRejectReason.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\E_ControlMode.TcDUT">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Telescope\Command\ST_CommandState.TcDUT">

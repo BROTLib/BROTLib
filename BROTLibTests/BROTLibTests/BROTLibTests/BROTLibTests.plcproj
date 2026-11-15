@@ -61,6 +61,12 @@
     <Compile Include="POUs\FB_FocusStub.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_CabinetStub.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_FixedCabinet_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_CommStub.TcPOU">
       <SubType>Code</SubType>
     </Compile>
