@@ -21,6 +21,7 @@ VAR_INPUT
 	ipBrake				: I_Brake;
 	ipRoof				: I_Roof;
 	ipDome				: I_Dome;
+	sTelescopeName		: STRING(31);			// optional, project constant: shown in the HMI header (status.sTelescopeName); longer names are cut
 	ipFilter			: I_Filter;
 	ipNasmyth			: I_Nasmyth;
 	ipTelescopeStatus	: I_TelescopeStatus;	// optional, same object as ipAltAz/ipRaDec
@@ -1258,6 +1259,7 @@ END_VAR
 stStatus.nContractMinor := GVL_Hmi.CONTRACT_MINOR;
 stStatus.sLibVersion := Global_Version.stLibVersion_BROTLib.sVersion;
 stStatus.nHeartbeat := nHeartbeat;
+stStatus.sTelescopeName := sTelescopeName;
 stStatus.nBlockers := 0;
 
 // cabinet and safety
