@@ -432,6 +432,7 @@ VAR_INPUT
     ipSafety       : I_SafetyDiagnostics; // optional (3.2)
     bTelescopeRunsInLocal : BOOL;        // project constant: TRUE where the telescope control runs with the switch on
                                          //   Local (IAG50cm), FALSE where Local suspends it (MONETS, MONETN); 5.3
+    sTelescopeName : STRING(31);         // optional project constant, copied to stStatus.sTelescopeName every cycle
     tJogTimeout    : TIME := T#400MS;    // dead-man timeout, section 7
 END_VAR
 VAR
@@ -626,6 +627,7 @@ TYPE ST_HmiStatus : STRUCT
     nContractMinor   : UINT;          // GVL_Hmi.CONTRACT_MINOR
     sLibVersion      : STRING(23);    // from Global_Version.stLibVersion_BROTLib
     nHeartbeat       : UDINT;         // +1 per gateway cycle; frozen = PLC/gateway not running
+    sTelescopeName   : STRING(31);    // gateway input sTelescopeName (HMI header); empty = not set; since 1.1
     // cabinet and safety (I_Cabinet)
     eControlMode     : E_ControlMode;
     bSwitchPresent   : BOOL;
@@ -698,6 +700,10 @@ TcHMI binds fields by name, so appending is safe. BROTweb declares the major it 
 needs; on a different major or a lower minor it shows a blocking banner and disables every command (BROTweb design).
 The library version itself follows [custom-library-versioning.md](custom-library-versioning.md); the contract version
 changes only when the HMI-visible surface changes.
+
+History: 1.0 first contract; 1.1 `ST_HmiStatus.sTelescopeName` (and the gateway input of the same name) added. BROTweb
+keeps `MIN_CONTRACT_MINOR = 0` as long as the name is only cosmetic (an older PLC leaves the header empty); it needs 1 only
+if a feature depends on the name.
 
 ### 5.8 Errors and "why not ready"
 
