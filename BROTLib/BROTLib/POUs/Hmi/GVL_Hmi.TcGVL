@@ -6,7 +6,7 @@
 {attribute 'qualified_only'}
 VAR_GLOBAL CONSTANT
 	CONTRACT_MAJOR		: UINT := 1;
-	CONTRACT_MINOR		: UINT := 0;
+	CONTRACT_MINOR		: UINT := 1;		// 1: ST_HmiStatus.sTelescopeName
 	MAX_AXES			: INT := 6;		// axis slots including the focus (MONET uses 4, IAG50cm 3)
 	// mailbox slots of the gateway (FB_HmiGateway)
 	SLOT_STOP			: INT := 0;

@@ -11,6 +11,7 @@ STRUCT
 	nContractMinor		: UINT;
 	sLibVersion			: STRING(23);	// from Global_Version.stLibVersion_BROTLib
 	nHeartbeat			: UDINT;		// +1 per gateway cycle; frozen = PLC/gateway not running
+	sTelescopeName		: STRING(31);	// from the gateway input of the same name, shown in the HMI header; empty = not set (contract 1.1)
 	// cabinet and safety (I_Cabinet)
 	eControlMode		: E_ControlMode;
 	bSwitchPresent		: BOOL;

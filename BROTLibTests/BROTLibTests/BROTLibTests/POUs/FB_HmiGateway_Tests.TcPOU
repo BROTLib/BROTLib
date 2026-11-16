@@ -26,6 +26,7 @@ One_Request_Per_Group_Until_Executed();
 MoveFocus_Is_Limited_By_The_Focus_Travel();
 Status_Reports_Cabinet_Heartbeat_And_Blockers();
 Duplicate_Axis_Roles_Are_A_Config_Error();
+TelescopeName_Is_Published_Empty_And_Truncated();
 ]]></ST>
 </Implementation>
 <Method Name="Wire" Id="{f8ac2df7-1d89-4bec-9ee5-5f215fc8e6fd}">
@@ -480,6 +481,31 @@ AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLi
 AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.safety_ack_pending))) <> 0, Message := 'blocker safety_ack_pending');
 AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.mode_remote))) <> 0, Message := 'blocker mode_remote');
 AssertTrue(Condition := (fbHmi.stStatus.nBlockers AND SHL(DWORD#1, TO_INT(BROTLib.E_HmiBlocker.pendant_active))) = 0, Message := 'no blocker pendant_active');
+TEST_FINISHED();
+]]></ST>
+</Implementation>
+</Method>
+<Method Name="TelescopeName_Is_Published_Empty_And_Truncated" Id="{6f0c2b1e-3a54-4d7e-9b8a-5c1d0e2f7a43}">
+<Declaration><![CDATA[// The telescope name input appears in the status; empty stays empty; a name longer than 31 characters is cut (5.6).
+METHOD PRIVATE TelescopeName_Is_Published_Empty_And_Truncated
+VAR
+	fbHmi		: BROTLib.FB_HmiGateway;
+	cabinet		: FB_CabinetStub;
+	axis		: FB_AxisStub(comm := 0);
+	sLong		: STRING(80) := '0123456789012345678901234567890123456789';
+END_VAR
+]]></Declaration>
+<Implementation>
+<ST><![CDATA[TEST('TelescopeName_Is_Published_Empty_And_Truncated');
+Wire(fbHmi, cabinet, axis);
+AssertEquals_STRING(Expected := '', Actual := fbHmi.stStatus.sTelescopeName, Message := 'empty name stays empty');
+AssertTrue(Condition := BROTLib.GVL_Hmi.CONTRACT_MINOR >= 1, Message := 'contract minor covers sTelescopeName');
+fbHmi.sTelescopeName := 'MONET/N';
+fbHmi();
+AssertEquals_STRING(Expected := 'MONET/N', Actual := fbHmi.stStatus.sTelescopeName, Message := 'name published');
+fbHmi.sTelescopeName := sLong;
+fbHmi();
+AssertEquals_STRING(Expected := '0123456789012345678901234567890', Actual := fbHmi.stStatus.sTelescopeName, Message := 'cut at 31 characters');
 TEST_FINISHED();
 ]]></ST>
 </Implementation>
