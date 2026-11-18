@@ -183,7 +183,7 @@ derived in MONET `MAIN` from `KeyLocal`. MONET keeps deriving it; `ControlMode =
 | Implementation | Repo | Source of each member |
 |---|---|---|
 | `FB_MonetCabinetControl IMPLEMENTS I_Cabinet` | MONETcommon | `ControlMode` from `inKeyLocal`; `SwitchPresent` TRUE; `EstopActive`, `SafetyError` new inputs wired in `MAIN` from `SafetyHandling.estop`/`.error`; `SafetyAckPending` new input (MONET's `FB_MonetSafetyHandling` reset sequence state; signal to be identified); `PendantActive` new input, wired from the existing output `FB_MonetPendantControl.bEnable` (pendant enable key, 4.3). |
-| `FB_CabinetControl IMPLEMENTS I_Cabinet` | IAG50cm | `ControlMode` from `bIMode` (TRUE = Local per its comment; polarity to be checked on site, O16); `EstopActive`, `SafetyAckPending` from its existing inputs `bEstop`, `bSafetyAckPending`; `SafetyError` new input from `FB_SafetyHandling`; `PendantActive` from a new output of IAG's `FB_PendantControl` (none exists yet, 4.3; FALSE until then). The instance moves from `FB_TelescopeControl` to `MAIN` (passed to the telescope as `I_Cabinet` or `REFERENCE TO`), so the gateway and the comm can reach it. |
+| `FB_CabinetControl IMPLEMENTS I_Cabinet` | IAG50cm | `ControlMode` from `bIMode` (TRUE = Local; polarity verified on site 2026-11-18, O16 closed); `EstopActive`, `SafetyAckPending` from its existing inputs `bEstop`, `bSafetyAckPending`; `SafetyError` new input from `FB_SafetyHandling`; `PendantActive` from a new output of IAG's `FB_PendantControl` (none exists yet, 4.3; FALSE until then). The instance moves from `FB_TelescopeControl` to `MAIN` (passed to the telescope as `I_Cabinet` or `REFERENCE TO`), so the gateway and the comm can reach it. |
 | `FB_FixedCabinet IMPLEMENTS I_Cabinet` | BROTLib | for machines without a switch. `ControlMode` from a constant input `eMode` set in the project's `MAIN` declaration (the per-project policy); `SwitchPresent` FALSE; safety members from inputs (default FALSE); `PendantActive` from an input (default FALSE). The policy value is a project constant, never an ADS-writable variable (it must not become a software ownership switch). |
 
 ### 3.1 `I_TelescopeStatus` (decided, former O11)
@@ -1001,7 +1001,7 @@ numbers are not reused. Still open:
 | O6 | ADS/TcHMI spike: remaining part Q1a | Answered for an application FB (section 8, pass 1). Open: RPC on a method of a library FB (pass 2); the outcome decides between the gateway in BROTLib and a thin application-side wrapper (section 8). |
 | O7 | Jog speeds | NC slow/fast manual velocities per axis (MONETS, MONETN, IAG50cm); is the slow mode slow enough for a touch screen; `Jog_Slow` extension of `FB_Axis` (2.2). |
 | O10 | Focus and axis enable in MONET manual mode | MONET focus homing is `bManualHome` (not in `I_Focus`); behaviour of `Focus.Position` writes in manual; whether the HMI may switch axis enables (MONET elevation depends on the brake key). |
-| O16 | IAG50cm switch polarity | `bIMode` TRUE = Local per the comment; check on site. |
+| O16 | IAG50cm switch polarity | **Closed 2026-11-18.** Checked on site on IAG50cm (BROTLib 0.27.0, `FB_IagCabinet`): key in Remote reads `TELESCOPE.STATUS.LOCAL_MODE` 0, in Local 1, i.e. `bLocalKey` TRUE = Local as assumed. |
 
 ## 13. Interface additions and changes (consolidated)
 
