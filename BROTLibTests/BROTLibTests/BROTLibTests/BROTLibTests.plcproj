@@ -172,6 +172,9 @@
     <Compile Include="POUs\FB_RefractionShift_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_RaDecCoordinatesSlew_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_RaDecCoordinates_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

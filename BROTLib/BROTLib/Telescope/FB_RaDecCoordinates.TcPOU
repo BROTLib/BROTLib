@@ -23,6 +23,11 @@ VAR_INPUT
 	// slew target (TCS input)
 	fElevation				: LREAL;		// degrees
 	fAzimuth				: LREAL;		// degrees
+	// slew target of a SlewHaDec (I_RaDecTelescope.SlewHaDec): while bSlewHaDec, the slew target is this apparent HA/Dec
+	// instead of fElevation/fAzimuth, and its ICRS position and Alt/Az are derived from it (IAG50cm X5)
+	bSlewHaDec				: BOOL;
+	fSlewHaDecHa			: LREAL;		// degrees, apparent
+	fSlewHaDecDec			: LREAL;		// degrees, apparent
 	// TRUE: the slew altitude is an observed (refracted) one, FALSE: a theoretical one. IAG50cm runs FALSE
 	// (IAG50cm#3 decides), AstroBROT's own default and MONET's choice is TRUE.
 	bSlewAltIsObserved		: BOOL := TRUE;	// NEW always takes the slew altitude as observed
@@ -43,9 +48,12 @@ VAR_OUTPUT
 	fDeclinationApparent	: LREAL;		// apparent declination of the target
 	fElevationCalc			: LREAL;		// Alt/Az of the target
 	fAzimuthCalc			: LREAL;
-	fRightAscensionCalc		: LREAL;		// RA/Dec/HA of the slew target
-	fDeclinationCalc		: LREAL;
-	fHourAngleCalc			: LREAL;
+	fRightAscensionCalc		: LREAL;		// RA (ICRS) of the slew target
+	fDeclinationCalc		: LREAL;		// apparent declination of the slew target, the one the axes are driven to (IAG50cm#239)
+	fHourAngleCalc			: LREAL;		// apparent hour angle of the slew target
+	fDeclinationCalcIcrs	: LREAL;		// ICRS declination of the slew target (goto coordinates, RaDec)
+	fElevationSlew			: LREAL;		// Alt/Az of the slew target: fElevation/fAzimuth, or derived from the SlewHaDec target
+	fAzimuthSlew			: LREAL;
 	bRefractionNew			: BOOL;			// eRefractionMode = NEW in the last Target()
 	bRefractionLiveWeather	: BOOL;			// a live pressure or temperature is used (F_RefractionWeather), NEW only
 	fRefractionPressure		: LREAL;		// hPa, 0.0 = estimate; what the AstroBROT calls get (0.0 in OLD)
@@ -67,7 +75,8 @@ VAR
 	fbRaDec2HaDec	: FB_RADEC2HADEC;
 	fbEq2Hor		: FB_EQ2HOR;
 	fbHor2Eq		: FB_HOR2EQ;
-	fbHaDec2RaDec	: FB_HADEC2RADEC;
+	fbHaDec2RaDec	: FB_HADEC2RADEC;	// also the SlewHaDec target, one instance as in IAG50cm
+	fbRaDec2HaDecSlew	: FB_RADEC2HADEC;	// apparent declination of the Alt/Az slew target (IAG50cm#239)
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -75,7 +84,8 @@ END_VAR
 ]]></ST>
     </Implementation>
     <Method Name="Target" Id="{7b36f19e-4b13-4d56-90e2-22d3be9fa356}">
-      <Declaration><![CDATA[// Apparent HA/Dec of the target, its Alt/Az (to check if it is on the sky or in the ground) and the RA/Dec/HA of the slew target.
+      <Declaration><![CDATA[// Apparent HA/Dec of the target, its Alt/Az (to check if it is on the sky or in the ground) and the RA/Dec/HA of the slew target
+// (Alt/Az, or the apparent HA/Dec of a SlewHaDec).
 METHOD Target
 VAR
 END_VAR
@@ -116,20 +126,57 @@ fbEq2Hor(
 	temperature_set := bRefractionTemperatureSet,
 	alt => fElevationCalc,
 	az => fAzimuthCalc);
-fbHor2Eq(
-	alt := fElevation,
-	az := fAzimuth,
-	jd := fJd + fTimeOffset,
-	lat := fLatitude,
-	lon := fLongitude,
-	altitude := fAltitude,
-	alt_is_observed := bSlewAltIsObserved OR bRefractionNew,
-	pressure := fRefractionPressure,
-	temperature := fRefractionTemperature,
-	temperature_set := bRefractionTemperatureSet,
-	ra => fRightAscensionCalc,
-	dec => fDeclinationCalc,
-	ha => fHourAngleCalc);
+IF bSlewHaDec THEN
+	// SlewHaDec (IAG50cm X5): the target is the apparent HA/Dec itself. Its ICRS position and horizontal coordinates are
+	// derived from it, so that the horizon and pole guards, the dome azimuth and the goto coordinates follow the same target.
+	fHourAngleCalc := fSlewHaDecHa;
+	fDeclinationCalc := fSlewHaDecDec;
+	fbHaDec2RaDec(
+		ha := fSlewHaDecHa,
+		dec := fSlewHaDecDec,
+		jd := fJd + fTimeOffset,
+		lon := fLongitude,
+		ra_out => fRightAscensionCalc,
+		dec_out => fDeclinationCalcIcrs);
+	fbEq2Hor(
+		ra := fRightAscensionCalc,
+		dec := fDeclinationCalcIcrs,
+		lon := fLongitude,
+		lat := fLatitude,
+		altitude := fAltitude,
+		refract_to_observed := bRefractionNew,	// OLD: FALSE, as in IAG50cm; NEW: the observed altitude, as the published one
+		pressure := fRefractionPressure,
+		temperature := fRefractionTemperature,
+		temperature_set := bRefractionTemperatureSet,
+		JD := fJd + fTimeOffset,
+		alt => fElevationSlew,
+		az => fAzimuthSlew);
+ELSE
+	fbHor2Eq(
+		alt := fElevation,
+		az := fAzimuth,
+		jd := fJd + fTimeOffset,
+		lat := fLatitude,
+		lon := fLongitude,
+		altitude := fAltitude,
+		alt_is_observed := bSlewAltIsObserved OR bRefractionNew,
+		pressure := fRefractionPressure,
+		temperature := fRefractionTemperature,
+		temperature_set := bRefractionTemperatureSet,
+		ra => fRightAscensionCalc,
+		dec => fDeclinationCalcIcrs,
+		ha => fHourAngleCalc);
+	// FB_HOR2EQ returns the apparent hour angle but the J2000 declination: the axes are driven in apparent HA/Dec, so take
+	// the apparent declination of the same point (IAG50cm#239: mixing the two put the target 0.054 deg off in altitude)
+	fbRaDec2HaDecSlew(
+		ra := fRightAscensionCalc,
+		dec := fDeclinationCalcIcrs,
+		lon := fLongitude,
+		JD := fJd + fTimeOffset,
+		dec_out => fDeclinationCalc);
+	fElevationSlew := fElevation;
+	fAzimuthSlew := fAzimuth;
+END_IF
 ]]></ST>
       </Implementation>
     </Method>

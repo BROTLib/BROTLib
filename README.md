@@ -209,7 +209,8 @@ organised into four layers:
 - **`FB_RaDecTelescopeControl`** — equatorial extension for HA/Dec mounts
   (IAG50cm#17). It holds the `I_RaDecTelescope` offsets and calls
   `FB_RaDecCoordinates` (pure: apparent HA/Dec and Alt/Az of the target,
-  the slew target, the ICRS and Alt/Az position of the axes with the offsets
+  the slew target (Alt/Az, or the apparent HA/Dec of a SlewHaDec; the axes get
+  its apparent declination, IAG50cm#239), the ICRS and Alt/Az position of the axes with the offsets
   and the inverse pointing correction). Like MONETcommon's block, a subclass
   that does not call `SUPER^()` from its body calls `_UpdateClock()` (in the
   base block, sets `fJd`/`fLst`, gated on the clock being valid),
