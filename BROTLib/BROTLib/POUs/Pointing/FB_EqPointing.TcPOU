@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_EqPointing" Id="{3e88e5bf-7007-465f-adb4-4633a5fd4845}" SpecialFunc="None">
+    <Declaration><![CDATA[// The pointing path of an equatorial (HA/Dec) mount with the refraction switch (IAG50cm#7, #3; moved here from IAG50cm's
+// FB_TelescopeControl._ComputeTargets for IAG50cm#17), in the same order and with the same arithmetic.
+// Forward: the offset to add to the apparent target, and the tracking velocity. Inverse: the offset to subtract from the
+// axis position to get the apparent position on the sky.
+// OLD: the model with stCoeffOld (fitted refraction terms), no other refraction. Bit-identical to the model alone.
+// NEW: the axes point at the observed HA/Dec. The refraction shift of the target (FB_RefractionShift, geometric ->
+// observed) is added to the offset, the model (stCoeffNew, no refraction terms) is evaluated at the observed position,
+// and the change of the shift over fRefractionRateStep of sidereal time is added to the velocity. The inverse removes
+// the refraction again (axis - model = observed -> geometric).
+// The weather comes from FB_RaDecCoordinates (fRefractionPressure ...), which also gives the AstroBROT defaults in OLD.
+FUNCTION_BLOCK FB_EqPointing
+VAR_INPUT
+	eRefractionMode		: E_RefractionMode := E_RefractionMode.OLD;
+	stCoeffOld			: ST_EqPointingCoefficients;	// fitted with refraction terms
+	stCoeffNew			: ST_EqPointingCoefficients;	// refit without refraction terms (C_Refr_* = 0)
+	fLatitude			: LREAL;	// degrees
+	fSiteAltitude		: LREAL;	// m above sea level, for the refraction estimate
+	fPressure			: LREAL;	// hPa, 0.0 = estimate (F_RefractionWeather)
+	fTemperature		: LREAL;	// deg C, only used if bTemperatureSet
+	bTemperatureSet		: BOOL;
+	fHourAngleTarget	: LREAL;	// apparent (geometric) hour angle of the target, degrees
+	fDeclinationTarget	: LREAL;	// apparent (geometric) declination of the target, degrees
+	fHourAngleAxis		: LREAL;	// axis position, degrees
+	fDeclinationAxis	: LREAL;
+END_VAR
+VAR_OUTPUT
+	// forward
+	fHourAnglePointingOffset	: LREAL;	// add to the target, degrees (NEW: refraction included)
+	fDeclinationPointingOffset	: LREAL;
+	fHourAngleVelocity			: LREAL;	// tracking velocity, deg/s (sidereal included)
+	fDeclinationVelocity		: LREAL;
+	bForwardValid				: BOOL;		// FB_EqPointingModelForward.bValid (altitude >= 1 deg)
+	fHourAngleRefraction		: LREAL;	// refraction part of the offset (NEW, else 0), degrees
+	fDeclinationRefraction		: LREAL;
+	fHourAngleModelIn			: LREAL;	// where the model is evaluated (the target, observed in NEW)
+	fDeclinationModelIn			: LREAL;
+	// inverse
+	fHourAngleInversionOffset	: LREAL;	// subtract from the axis position, degrees (NEW: refraction included)
+	fDeclinationInversionOffset	: LREAL;
+	bInversionValid				: BOOL;		// FALSE: the iteration did not converge, offsets are 0.0
+END_VAR
+VAR
+	bNew					: BOOL;
+	stCoefficients			: ST_EqPointingCoefficients;	// the set of this call
+	fbForward				: FB_EqPointingModelForward;
+	fbInversion				: FB_EqPointingModelInversion;
+	fbRefractionTarget		: FB_RefractionShift;	// target: geometric -> observed
+	fbRefractionTargetLater	: FB_RefractionShift;	// the same target fRefractionRateStep later, for the tracking rate
+	fbRefractionCurrent		: FB_RefractionShift;	// axis position: observed -> geometric
+END_VAR
+VAR CONSTANT
+	fRefractionRateStep	: LREAL := 10.0;	// s, step of the difference that gives the refraction rate for tracking
+	fSiderealRate		: LREAL := 360.0 / 86164.0905;	// deg/s of hour angle
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[bNew := eRefractionMode = E_RefractionMode.NEW;
+IF bNew THEN
+	stCoefficients := stCoeffNew;
+ELSE
+	stCoefficients := stCoeffOld;
+END_IF
+
+// forward
+fHourAngleModelIn := fHourAngleTarget;
+fDeclinationModelIn := fDeclinationTarget;
+IF bNew THEN
+	fbRefractionTarget(
+		HourAngle		:= fHourAngleModelIn,
+		Declination		:= fDeclinationModelIn,
+		Latitude		:= fLatitude,
+		SiteAltitude	:= fSiteAltitude,
+		Pressure		:= fPressure,
+		Temperature		:= fTemperature,
+		TemperatureSet	:= bTemperatureSet,
+		ToObserved		:= TRUE);
+	fbRefractionTargetLater(
+		HourAngle		:= fHourAngleModelIn + fRefractionRateStep * fSiderealRate,
+		Declination		:= fDeclinationModelIn,
+		Latitude		:= fLatitude,
+		SiteAltitude	:= fSiteAltitude,
+		Pressure		:= fPressure,
+		Temperature		:= fTemperature,
+		TemperatureSet	:= bTemperatureSet,
+		ToObserved		:= TRUE);
+	fHourAngleRefraction := fbRefractionTarget.HourAngleShift;
+	fDeclinationRefraction := fbRefractionTarget.DeclinationShift;
+	fHourAngleModelIn := fHourAngleModelIn + fHourAngleRefraction;
+	fDeclinationModelIn := fDeclinationModelIn + fDeclinationRefraction;
+ELSE
+	fHourAngleRefraction := 0.0;
+	fDeclinationRefraction := 0.0;
+END_IF
+fbForward(
+	HourAngle		:= fHourAngleModelIn,
+	Declination		:= fDeclinationModelIn,
+	Latitude		:= fLatitude,
+	stCoefficients	:= stCoefficients,
+	HourAngle_correction	=> fHourAnglePointingOffset,
+	Declination_correction	=> fDeclinationPointingOffset,
+	HourAngle_velocity		=> fHourAngleVelocity,
+	Declination_velocity	=> fDeclinationVelocity,
+	bValid					=> bForwardValid);
+IF bNew THEN
+	fHourAnglePointingOffset := fHourAnglePointingOffset + fHourAngleRefraction;
+	fDeclinationPointingOffset := fDeclinationPointingOffset + fDeclinationRefraction;
+	fHourAngleVelocity := fHourAngleVelocity
+		+ (fbRefractionTargetLater.HourAngleShift - fbRefractionTarget.HourAngleShift) / fRefractionRateStep;
+	fDeclinationVelocity := fDeclinationVelocity
+		+ (fbRefractionTargetLater.DeclinationShift - fbRefractionTarget.DeclinationShift) / fRefractionRateStep;
+END_IF
+
+// inverse
+fbInversion(
+	HourAngle		:= fHourAngleAxis,
+	Declination		:= fDeclinationAxis,
+	Latitude		:= fLatitude,
+	stCoefficients	:= stCoefficients,
+	HourAngle_correction	=> fHourAngleInversionOffset,
+	Declination_correction	=> fDeclinationInversionOffset,
+	bValid					=> bInversionValid);
+IF bNew THEN
+	// axis - model = the observed HA/Dec; remove the refraction from it, so that the inversion offset is
+	// axis - geometric, the inverse of the forward path above
+	fbRefractionCurrent(
+		HourAngle		:= fHourAngleAxis - fHourAngleInversionOffset,
+		Declination		:= fDeclinationAxis - fDeclinationInversionOffset,
+		Latitude		:= fLatitude,
+		SiteAltitude	:= fSiteAltitude,
+		Pressure		:= fPressure,
+		Temperature		:= fTemperature,
+		TemperatureSet	:= bTemperatureSet,
+		ToObserved		:= FALSE);
+	fHourAngleInversionOffset := fHourAngleInversionOffset - fbRefractionCurrent.HourAngleShift;
+	fDeclinationInversionOffset := fDeclinationInversionOffset - fbRefractionCurrent.DeclinationShift;
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

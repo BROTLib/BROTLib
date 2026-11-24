@@ -1,0 +1,161 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RaDecCoordinatesRefraction_Tests" Id="{98c08273-b5da-4df0-9a00-8c2b6729a373}" SpecialFunc="None">
+    <Declaration><![CDATA[// The refraction switch of BROTLib.FB_RaDecCoordinates (IAG50cm#7, #3): OLD ignores the weather and is unchanged, NEW
+// takes the slew altitude as observed, publishes the observed sky altitude, passes the weather, and keeps the raw
+// fElevationCurrent of the horizon guards. Every test has its own instances (FB_EQ2HOR keeps state between calls).
+FUNCTION_BLOCK FB_RaDecCoordinatesRefraction_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Old_Ignores_The_Weather();
+New_Slew_Altitude_Is_Observed();
+New_Sky_Altitude_Is_Observed();
+New_Uses_The_Weather();
+]]></ST>
+    </Implementation>
+    <Method Name="Setup" Id="{d779e75f-ff05-4106-a216-94970c225823}">
+      <Declaration><![CDATA[// the same site and target as FB_RaDecCoordinates_Tests; axis at HA 0 / Dec 20, El 60 south; slew target El 60 / Az 180
+METHOD PRIVATE Setup
+VAR_IN_OUT
+	fb	: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fb.fJd := 2460000.5;
+fb.fLongitude := 10.0;
+fb.fLatitude := 50.0;
+fb.fAltitude := 300.0;
+fb.fTimeOffset := 0.0;
+fb.fHourAngleOffset := 0.0;
+fb.fDeclinationOffset := 0.0;
+fb.fHourAngleInversion := 0.0;
+fb.fDeclinationInversion := 0.0;
+fb.bInversionValid := TRUE;
+fb.fRightAscension := 100.0;
+fb.fDeclination := 20.0;
+fb.fElevation := 60.0;
+fb.fAzimuth := 180.0;
+fb.fHourAngleCurrent := 0.0;
+fb.fDeclinationCurrent := 20.0;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Old_Ignores_The_Weather" Id="{9d7e8d5c-1b95-4daa-bfb5-777db4213787}">
+      <Declaration><![CDATA[// OLD (the default) with a valid live weather gives exactly what it gives without: the AstroBROT calls keep their defaults.
+METHOD PRIVATE Old_Ignores_The_Weather
+VAR
+	fbA, fbB	: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Ignores_The_Weather');
+Setup(fbA);
+Setup(fbB);
+fbB.stWeather.fPressure := 990.0;
+fbB.stWeather.bPressureValid := TRUE;
+fbB.stWeather.fTemperature := 15.0;
+fbB.stWeather.bTemperatureValid := TRUE;
+fbA.bSlewAltIsObserved := FALSE;
+fbB.bSlewAltIsObserved := FALSE;
+fbA.Target();
+fbA.Current();
+fbB.Target();
+fbB.Current();
+AssertFalse(Condition := fbB.bRefractionNew, Message := 'default mode is OLD');
+AssertEquals_LREAL(Expected := fbA.fElevationCalc, Actual := fbB.fElevationCalc, Delta := 0.0, Message := 'target elevation');
+AssertEquals_LREAL(Expected := fbA.fDeclinationCalc, Actual := fbB.fDeclinationCalc, Delta := 0.0, Message := 'slew declination');
+AssertEquals_LREAL(Expected := fbA.fHourAngleCalc, Actual := fbB.fHourAngleCalc, Delta := 0.0, Message := 'slew hour angle');
+AssertEquals_LREAL(Expected := fbA.fElevationCurrentSky, Actual := fbB.fElevationCurrentSky, Delta := 0.0, Message := 'sky elevation');
+AssertEquals_LREAL(Expected := 0.0, Actual := fbB.fRefractionPressure, Delta := 0.0, Message := 'pressure passed in OLD');
+AssertFalse(Condition := fbB.bRefractionLiveWeather, Message := 'no live weather in OLD');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Slew_Altitude_Is_Observed" Id="{5ec5bee3-ac71-43ac-a0c9-cf73650b1183}">
+      <Declaration><![CDATA[// NEW takes the slew altitude as observed even with bSlewAltIsObserved FALSE (IAG50cm's setting): without live weather it
+// gives exactly what OLD gives with bSlewAltIsObserved TRUE, and differs from OLD with FALSE.
+METHOD PRIVATE New_Slew_Altitude_Is_Observed
+VAR
+	fbNew, fbObs, fbOld	: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Slew_Altitude_Is_Observed');
+Setup(fbNew);
+Setup(fbObs);
+Setup(fbOld);
+fbNew.eRefractionMode := BROTLib.E_RefractionMode.NEW;
+fbNew.bSlewAltIsObserved := FALSE;
+fbObs.bSlewAltIsObserved := TRUE;
+fbOld.bSlewAltIsObserved := FALSE;
+fbNew.Target();
+fbObs.Target();
+fbOld.Target();
+AssertEquals_LREAL(Expected := fbObs.fDeclinationCalc, Actual := fbNew.fDeclinationCalc, Delta := 0.0, Message := 'NEW = observed slew altitude');
+AssertEquals_LREAL(Expected := fbObs.fHourAngleCalc, Actual := fbNew.fHourAngleCalc, Delta := 0.0, Message := 'hour angle too');
+AssertTrue(Condition := ABS(fbNew.fDeclinationCalc - fbOld.fDeclinationCalc) * 3600.0 > 30.0,
+	Message := 'NEW differs from OLD with bSlewAltIsObserved FALSE (about 2R, 64" at El 60)');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Sky_Altitude_Is_Observed" Id="{152a9e89-c3b2-4dac-9ac4-dd1a6f65e075}">
+      <Declaration><![CDATA[// Axis at El 60: NEW publishes the observed sky altitude, OLD the geometric one minus R, so NEW - OLD = 2R, about 64" here
+// (66" measured on the IAG50cm at 100 m on 2026-11-24). The raw fElevationCurrent of the horizon guards is the same.
+METHOD PRIVATE New_Sky_Altitude_Is_Observed
+VAR
+	fbNew, fbOld	: BROTLib.FB_RaDecCoordinates;
+	fDiff			: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Sky_Altitude_Is_Observed');
+Setup(fbNew);
+Setup(fbOld);
+fbNew.eRefractionMode := BROTLib.E_RefractionMode.NEW;
+fbNew.Target();
+fbNew.Current();
+fbOld.Target();
+fbOld.Current();
+fDiff := (fbNew.fElevationCurrentSky - fbOld.fElevationCurrentSky) * 3600.0;
+AssertTrue(Condition := fDiff > 50.0 AND fDiff < 80.0, Message := CONCAT('sky altitude NEW - OLD, arcsec: ', LREAL_TO_STRING(fDiff)));
+AssertEquals_LREAL(Expected := fbOld.fElevationCurrent, Actual := fbNew.fElevationCurrent, Delta := 0.0, Message := 'raw elevation of the guards');
+AssertEquals_LREAL(Expected := 60.0, Actual := fbOld.fElevationCurrent, Delta := 0.1, Message := 'the axis is at El 60');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Uses_The_Weather" Id="{5bf302f4-1834-47c7-9ede-902f3e01d9ef}">
+      <Declaration><![CDATA[// NEW passes a plausible live pressure and temperature on (F_RefractionWeather) and reports it; more pressure, more
+// refraction in the target elevation.
+METHOD PRIVATE New_Uses_The_Weather
+VAR
+	fbLive, fbEst	: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Uses_The_Weather');
+Setup(fbLive);
+Setup(fbEst);
+fbLive.eRefractionMode := BROTLib.E_RefractionMode.NEW;
+fbEst.eRefractionMode := BROTLib.E_RefractionMode.NEW;
+fbLive.stWeather.fPressure := 1010.0;
+fbLive.stWeather.bPressureValid := TRUE;
+fbLive.stWeather.fTemperature := 0.0;
+fbLive.stWeather.bTemperatureValid := TRUE;
+fbLive.Target();
+fbEst.Target();
+AssertTrue(Condition := fbLive.bRefractionLiveWeather, Message := 'live weather used');
+AssertEquals_LREAL(Expected := 1010.0, Actual := fbLive.fRefractionPressure, Delta := 0.0, Message := 'pressure passed');
+AssertTrue(Condition := fbLive.bRefractionTemperatureSet, Message := 'temperature set');
+AssertFalse(Condition := fbEst.bRefractionLiveWeather, Message := 'no weather: the estimate');
+AssertTrue(Condition := fbLive.fElevationCalc > fbEst.fElevationCalc, Message := 'colder and denser air, more refraction');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

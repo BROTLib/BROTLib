@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RefractionShift" Id="{358a04ec-fd6f-4f64-ab26-03cd3d2b6d78}" SpecialFunc="None">
+    <Declaration><![CDATA[// The atmospheric refraction of an apparent hour angle / declination as a shift in hour angle and declination
+// (IAG50cm#7, E_RefractionMode.NEW; moved here from IAG50cm for IAG50cm#17): HA/Dec -> Alt/Az (FB_HADEC2ALTAZ) -> AstroBROT FB_CO_REFRACT -> HA/Dec
+// (FB_ALTAZ2HADEC). ToObserved TRUE: the input is geometric, the output observed (refraction added, the altitude goes
+// up); FALSE: the input is observed, the output geometric (refraction removed).
+// The shift is taken against the same round trip without refraction, so the rounding of the two conversions and the
+// undefined hour angle at the pole cancel, and a zero refraction gives a zero shift.
+// Below the horizon FB_CO_REFRACT applies the horizon refraction (CO_REFRACT_FORWARD limits the altitude to 0) and
+// sets bClamped; the shift stays continuous.
+FUNCTION_BLOCK FB_RefractionShift
+VAR_INPUT
+	HourAngle		: LREAL;	// apparent hour angle, degrees
+	Declination		: LREAL;	// apparent declination, degrees
+	Latitude		: LREAL;	// degrees
+	SiteAltitude	: LREAL;	// m above sea level, for the estimate of pressure and temperature
+	Pressure		: LREAL;	// hPa, 0.0 = estimate from SiteAltitude (F_RefractionWeather)
+	Temperature		: LREAL;	// deg C, only used if TemperatureSet
+	TemperatureSet	: BOOL;		// FALSE = estimate from SiteAltitude
+	ToObserved		: BOOL := TRUE;
+END_VAR
+VAR_OUTPUT
+	HourAngleShift		: LREAL;	// output - input, degrees of hour angle, within +-180
+	DeclinationShift	: LREAL;	// degrees
+	AltitudeIn			: LREAL;	// altitude of the input, degrees
+	AltitudeOut			: LREAL;	// altitude after the refraction step, degrees
+	bClamped			: BOOL;		// FB_CO_REFRACT limited the altitude, pressure or temperature
+END_VAR
+VAR
+	fbHaDec2AltAz	: FB_HADEC2ALTAZ;
+	fbRefract		: FB_CO_REFRACT;
+	fbAltAz2HaDecRefr	: FB_ALTAZ2HADEC;
+	fbAltAz2HaDecPlain	: FB_ALTAZ2HADEC;
+	fAz				: LREAL;
+END_VAR
+VAR CONSTANT
+	fEpsilon		: LREAL := 0.01;	// arcsec, accuracy of the TO_OBSERVED iteration (0.25 by default, too coarse for a round trip)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[fbHaDec2AltAz(ha := HourAngle, dec := Declination, lat := Latitude, alt => AltitudeIn, az => fAz);
+fbRefract(
+	old_alt			:= AltitudeIn,
+	altitude		:= SiteAltitude,
+	pressure		:= Pressure,
+	temperature		:= Temperature,
+	temperature_set	:= TemperatureSet,
+	epsilon			:= fEpsilon,
+	TO_OBSERVED		:= ToObserved,
+	new_alt			=> AltitudeOut,
+	clamped			=> bClamped);
+fbAltAz2HaDecRefr(alt := AltitudeOut, az := fAz, lat := Latitude);
+fbAltAz2HaDecPlain(alt := AltitudeIn, az := fAz, lat := Latitude);
+
+HourAngleShift := fbAltAz2HaDecRefr.ha - fbAltAz2HaDecPlain.ha;
+IF HourAngleShift > 180.0 THEN
+	HourAngleShift := HourAngleShift - 360.0;
+ELSIF HourAngleShift < -180.0 THEN
+	HourAngleShift := HourAngleShift + 360.0;
+END_IF
+DeclinationShift := fbAltAz2HaDecRefr.dec - fbAltAz2HaDecPlain.dec;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

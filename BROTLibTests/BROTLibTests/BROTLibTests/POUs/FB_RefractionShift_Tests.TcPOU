@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RefractionShift_Tests" Id="{a1504efb-79b6-497a-b780-07feb02bde5a}" SpecialFunc="None">
+    <Declaration><![CDATA[// BROTLib.FB_RefractionShift (moved from IAG50cm, IAG50cm#7 / #17): values from the Python port of the same AstroBROT
+// functions (IAG repo tools/pointing/refit_refraction.py), round trip, zenith, weather. The same cases as IAG50cm's
+// IagRefraction_Tests, site IAG50cm (latitude 51.5592378, 100 m).
+FUNCTION_BLOCK FB_RefractionShift_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Refraction_Shift_Values();
+Refraction_Round_Trip();
+Refraction_Zero_At_The_Zenith();
+Refraction_Uses_The_Weather();
+]]></ST>
+    </Implementation>
+    <Method Name="Refraction_Shift_Values" Id="{db119b97-4f47-4c3f-8794-c70d413ddd5c}">
+      <Declaration><![CDATA[METHOD PRIVATE Refraction_Shift_Values
+VAR
+	fbShift	: BROTLib.FB_RefractionShift;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Refraction_Shift_Values');
+// expected values from the Python port of the same AstroBROT functions (IAG repo tools/pointing/refit_refraction.py),
+// site estimate for 100 m (998.08 hPa, 9.35 C), as the PLC uses without live weather
+fbShift(HourAngle := 30.0, Declination := 20.0, Latitude := 51.5592378, SiteAltitude := 100.0, ToObserved := TRUE);
+AssertEquals_LREAL(Expected := 50.6990733217, Actual := fbShift.AltitudeIn, Delta := 1.0E-8, Message := 'altitude in 30.0/20.0');
+AssertEquals_LREAL(Expected := 50.7121349241, Actual := fbShift.AltitudeOut, Delta := 0.01 / 3600.0, Message := 'altitude out 30.0/20.0');
+AssertEquals_LREAL(Expected := -24.5598, Actual := fbShift.HourAngleShift * 3600.0, Delta := 0.02, Message := 'HA shift 30.0/20.0');
+AssertEquals_LREAL(Expected := 40.969, Actual := fbShift.DeclinationShift * 3600.0, Delta := 0.02, Message := 'Dec shift 30.0/20.0');
+fbShift(HourAngle := -60.0, Declination := 10.0, Latitude := 51.5592378, SiteAltitude := 100.0, ToObserved := TRUE);
+AssertEquals_LREAL(Expected := 26.2405146085, Actual := fbShift.AltitudeIn, Delta := 1.0E-8, Message := 'altitude in -60.0/10.0');
+AssertEquals_LREAL(Expected := 26.272731893, Actual := fbShift.AltitudeOut, Delta := 0.01 / 3600.0, Message := 'altitude out -60.0/10.0');
+AssertEquals_LREAL(Expected := 70.7006, Actual := fbShift.HourAngleShift * 3600.0, Delta := 0.02, Message := 'HA shift -60.0/10.0');
+AssertEquals_LREAL(Expected := 92.7599, Actual := fbShift.DeclinationShift * 3600.0, Delta := 0.02, Message := 'Dec shift -60.0/10.0');
+fbShift(HourAngle := 150.0, Declination := 80.0, Latitude := 51.5592378, SiteAltitude := 100.0, ToObserved := TRUE);
+AssertEquals_LREAL(Expected := 42.676459068, Actual := fbShift.AltitudeIn, Delta := 1.0E-8, Message := 'altitude in 150.0/80.0');
+AssertEquals_LREAL(Expected := 42.6937542296, Actual := fbShift.AltitudeOut, Delta := 0.01 / 3600.0, Message := 'altitude out 150.0/80.0');
+AssertEquals_LREAL(Expected := -151.8393, Actual := fbShift.HourAngleShift * 3600.0, Delta := 0.02, Message := 'HA shift 150.0/80.0');
+AssertEquals_LREAL(Expected := 56.4137, Actual := fbShift.DeclinationShift * 3600.0, Delta := 0.02, Message := 'Dec shift 150.0/80.0');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Refraction_Round_Trip" Id="{4c8fc899-6d03-4ccc-95be-64629a277b8b}">
+      <Declaration><![CDATA[METHOD PRIVATE Refraction_Round_Trip
+VAR
+	fbTo	: BROTLib.FB_RefractionShift;
+	fbFrom	: BROTLib.FB_RefractionShift;
+	i, j	: INT;
+	fHa, fDec	: LREAL;
+	fErr, fMax	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Refraction_Round_Trip');
+// geometric -> observed -> geometric gives the start again, above 5 deg altitude to better than 0.05"
+FOR i := -11 TO 12 DO
+	FOR j := -6 TO 17 DO
+		fHa := INT_TO_LREAL(i) * 15.0;
+		fDec := INT_TO_LREAL(j) * 5.0;
+		fbTo(HourAngle := fHa, Declination := fDec, Latitude := 51.5592378, SiteAltitude := 100.0, ToObserved := TRUE);
+		IF fbTo.AltitudeIn > 5.0 THEN
+			fbFrom(HourAngle := fHa + fbTo.HourAngleShift, Declination := fDec + fbTo.DeclinationShift, Latitude := 51.5592378,
+				SiteAltitude := 100.0, ToObserved := FALSE);
+			fErr := ABS(fbFrom.AltitudeOut - fbTo.AltitudeIn) * 3600.0
+				+ ABS(fbTo.DeclinationShift + fbFrom.DeclinationShift) * 3600.0
+				+ ABS(fbTo.HourAngleShift + fbFrom.HourAngleShift) * 3600.0 * COS(fDec * PI / 180.0);
+			fMax := MAX(fMax, fErr);
+		END_IF
+	END_FOR
+END_FOR
+AssertTrue(Condition := fMax < 0.05, Message := CONCAT('round trip error above 0.05 arcsec: ', LREAL_TO_STRING(fMax)));
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Refraction_Zero_At_The_Zenith" Id="{bdb1ce80-d9b7-4690-9c14-8f4f68c378fa}">
+      <Declaration><![CDATA[METHOD PRIVATE Refraction_Zero_At_The_Zenith
+VAR
+	fbShift	: BROTLib.FB_RefractionShift;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Refraction_Zero_At_The_Zenith');
+fbShift(HourAngle := 0.0, Declination := 51.5592378, Latitude := 51.5592378, SiteAltitude := 100.0, ToObserved := TRUE);
+AssertEquals_LREAL(Expected := 0.0, Actual := fbShift.HourAngleShift * 3600.0, Delta := 0.001, Message := 'HA shift');
+AssertEquals_LREAL(Expected := 0.0, Actual := fbShift.DeclinationShift * 3600.0, Delta := 0.001, Message := 'Dec shift');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Refraction_Uses_The_Weather" Id="{4b87856f-bb22-4eb5-b017-557fa097cd0d}">
+      <Declaration><![CDATA[METHOD PRIVATE Refraction_Uses_The_Weather
+VAR
+	fbEstimate	: BROTLib.FB_RefractionShift;
+	fbHigh		: BROTLib.FB_RefractionShift;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Refraction_Uses_The_Weather');
+// a higher pressure gives a larger refraction; the estimate (pressure 0) equals passing the estimated values
+fbEstimate(HourAngle := 30.0, Declination := 20.0, Latitude := 51.5592378, SiteAltitude := 100.0, ToObserved := TRUE);
+fbHigh(HourAngle := 30.0, Declination := 20.0, Latitude := 51.5592378, SiteAltitude := 100.0, Pressure := 1030.0,
+	Temperature := 9.35, TemperatureSet := TRUE, ToObserved := TRUE);
+AssertTrue(Condition := fbHigh.AltitudeOut - fbHigh.AltitudeIn > fbEstimate.AltitudeOut - fbEstimate.AltitudeIn,
+	Message := 'higher pressure, more refraction');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
