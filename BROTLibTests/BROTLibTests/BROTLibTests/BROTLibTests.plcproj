@@ -157,6 +157,21 @@
     <Compile Include="POUs\F_HourAngleOffsetOnAxis_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_EqPointing_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_EqPointingModelForwardLegacy.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_EqPointingModelInversionLegacy.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RaDecCoordinatesRefraction_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RefractionShift_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_RaDecCoordinates_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>

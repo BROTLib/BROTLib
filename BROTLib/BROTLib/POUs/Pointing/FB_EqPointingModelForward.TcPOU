@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_EqPointingModelForward" Id="{a8280a55-3b37-4b27-a210-08b85b7b33d2}" SpecialFunc="None">
+    <Declaration><![CDATA[// Pointing model of an equatorial (HA/Dec) mount: the correction to add to the apparent hour angle / declination and the
+// tracking velocity. Moved here unchanged from IAG50cm's FB_PointingModelForward (IAG50cm#17), with the coefficients
+// as an input instead of IAG50cm's GVL_Pointing: with the same coefficients the results are bit-identical
+// (BROTLibTests FB_EqPointing_Tests). BROTLib's FB_PointingModelForward is the Alt/Az model and is not related.
+FUNCTION_BLOCK FB_EqPointingModelForward
+VAR_INPUT
+	HourAngle		: LREAL;
+	Declination		: LREAL;
+	Latitude		: LREAL;
+	stCoefficients	: ST_EqPointingCoefficients;	// the set of the active E_RefractionMode, chosen by the caller (FB_EqPointing)
+END_VAR
+VAR_OUTPUT
+	HourAngle_correction	: LREAL;
+	Declination_correction	: LREAL;
+	HourAngle_velocity		: LREAL;
+	Declination_velocity 	: LREAL;
+	bValid					: BOOL;	// FALSE if the target is below fMinSinAlt (altitude < 1 deg): the refraction terms divide by sin_alt and are not physical there (IAG50cm#134; kept in NEW too, where they are 0). Corrections and Dec velocity are 0.0, HA velocity is sidereal when FALSE.
+END_VAR
+VAR
+	// inputs in rad
+	tau		: LREAL;
+	dec		: LREAL;
+	alt		: LREAL;
+	lat		: LREAL;
+	// offsets
+	off_tau_esti : LREAL :=0.0;
+	off_dec_esti : LREAL :=0.0;
+	// trackingspeeds
+	track_tau_esti : LREAL := 0.0;
+	track_dec_esti : LREAL := 0.0;
+	// Altitude
+	alt_diff : LREAL;
+	// pre calculated sin/cos
+	sin_tau	: LREAL;
+	cos_tau	: LREAL;
+	sin_dec	: LREAL;
+	cos_dec : LREAL;
+	sin_lat	: LREAL;
+	cos_lat : LREAL;
+	sin_alt : LREAL;
+	sin_alt_rate : LREAL;
+	cos_alt : LREAL;
+END_VAR
+VAR CONSTANT
+	d2r		: LREAL := PI/180.0;
+	omega 	: LREAL := 360.0 / 86164.099 * (PI/180.0); //sidereal velocity
+	fMinSinAlt : LREAL := 0.017452406437283512;	// SIN(1 deg), below this the refraction terms are not evaluated (IAG50cm#134)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// degrees to rad
+tau := HourAngle * d2r;
+dec	:= Declination * d2r;
+lat := Latitude * d2r;
+
+
+// pre-calculate repeating sine and cosine functions
+sin_TAU := SIN(tau);
+cos_TAU := COS(tau);
+sin_DEC := SIN(dec);
+cos_DEC := COS(dec);
+sin_lat := SIN(lat);
+cos_lat := COS(lat);
+
+// alt difference estimation (WITHOUT Nutation, Aberation, Presession)
+sin_alt := sin_DEC * sin_lat + cos_DEC * cos_lat * cos_TAU;
+sin_alt := LIMIT(-1.0, sin_alt, 1.0);	// rounding can give 1 + 2.2E-16 at the zenith, ASIN of that is NaN (IAG50cm#4)
+alt := ASIN(sin_alt);					// diagnostics only, not used below
+cos_alt := SQRT(1.0 - sin_alt * sin_alt);	// = COS(alt) >= 0
+// d(sin alt)/dt = cos(alt) * d(alt)/dt. Finite everywhere; d(alt)/dt itself is 0/0 at the zenith (IAG50cm#4)
+sin_alt_rate := -omega * cos_DEC * cos_lat * sin_TAU;
+IF cos_alt > 1.0E-9 THEN
+	alt_diff := sin_alt_rate / cos_alt;	// diagnostics only, not used below
+ELSE
+	alt_diff := 0.0;
+END_IF
+
+// below 1 deg altitude (also below the horizon) the refraction terms divide by sin_alt (Inf at the horizon) and refraction
+// is not physical there: no correction, sidereal HA velocity, and the caller can refuse the target (IAG50cm#134)
+IF sin_alt < fMinSinAlt THEN
+	bValid := FALSE;
+	HourAngle_correction	:= 0.0;
+	Declination_correction	:= 0.0;
+	HourAngle_velocity		:= omega / d2r;
+	Declination_velocity	:= 0.0;
+	RETURN;
+END_IF
+bValid := TRUE;
+
+// ### TAU offset ###
+off_tau_esti := - stCoefficients.C_mAl_tau * ((cos_TAU * sin_DEC) / cos_DEC);
+off_tau_esti := off_tau_esti + stCoefficients.C_mEl_tau * ((sin_TAU * sin_DEC) / cos_DEC);
+off_tau_esti := off_tau_esti + stCoefficients.C_Coll_tau;
+off_tau_esti := off_tau_esti + stCoefficients.C_Refr_tau * ((sin_TAU * cos_lat) / (sin_alt * cos_DEC)); 
+off_tau_esti := off_tau_esti + stCoefficients.C_Flex_tau * ((sin_TAU * cos_lat) / cos_DEC);
+off_tau_esti := off_tau_esti + stCoefficients.C_Enc_tau / cos_DEC;
+off_tau_esti := off_tau_esti - stCoefficients.C_NP_tau * (sin_DEC / cos_DEC);
+
+
+track_tau_esti := stCoefficients.c_mal_tau * omega * ((sin_TAU * sin_DEC) / cos_DEC);
+track_tau_esti := track_tau_esti + stCoefficients.c_mel_tau * omega * ((cos_TAU * sin_DEC) / cos_DEC);
+track_tau_esti := track_tau_esti + stCoefficients.c_refr_tau * omega * ((cos_TAU * cos_lat) / (sin_alt * cos_DEC)); // 1ST derivative term
+track_tau_esti := track_tau_esti - stCoefficients.c_refr_tau * sin_alt_rate * ((sin_TAU * cos_lat) / (sin_alt*sin_alt * cos_DEC)); // 2nd term
+track_tau_esti := track_tau_esti + stCoefficients.c_flex_tau * omega * ((cos_TAU * cos_lat) / cos_DEC);
+
+
+// ### DEC offset ###
+off_dec_esti := stCoefficients.C_mAl_dec * sin_TAU;
+off_dec_esti := off_dec_esti + stCoefficients.C_mEl_dec * cos_TAU;
+off_dec_esti := off_dec_esti + stCoefficients.C_Coll_dec;
+off_dec_esti := off_dec_esti + stCoefficients.C_Refr_dec * ((sin_lat - sin_alt * sin_DEC) / (cos_DEC * sin_alt));
+off_dec_esti := off_dec_esti - stCoefficients.C_Flex_dec * ((sin_lat - sin_alt * sin_DEC) / cos_DEC);
+
+
+track_dec_esti := stCoefficients.c_mal_dec * omega * cos_TAU;
+track_dec_esti := track_dec_esti - stCoefficients.c_mel_dec * omega * sin_TAU;
+track_dec_esti := track_dec_esti - stCoefficients.c_refr_dec * sin_alt_rate * (sin_DEC / (cos_DEC * sin_alt));//# 1ST term
+track_dec_esti := track_dec_esti - stCoefficients.c_refr_dec * sin_alt_rate * ((sin_lat - sin_alt * sin_DEC) / (cos_DEC * sin_alt*sin_alt)); //# 2nd derivative term
+track_dec_esti := track_dec_esti + stCoefficients.c_flex_dec * sin_alt_rate * (sin_DEC / cos_DEC);
+
+HourAngle_correction	:= off_tau_esti;
+Declination_correction	:= off_dec_esti;
+HourAngle_velocity		:= (track_tau_esti + omega)/d2r;
+Declination_velocity 	:= track_dec_esti/d2r; 
+
+            ]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_EqPointingModelInversion" Id="{be0a5e47-a5cc-40b2-b97b-a7e90c6d4a90}" SpecialFunc="None">
+    <Declaration><![CDATA[// Inverse of FB_EqPointingModelForward by fixed-point iteration: the correction to subtract from the axis position.
+// Moved here unchanged from IAG50cm's FB_PointingModelInversion (IAG50cm#17), coefficients as an input.
+FUNCTION_BLOCK FB_EqPointingModelInversion
+VAR_INPUT
+	HourAngle		: LREAL;
+	Declination		: LREAL;
+	Altitude		: LREAL;
+	Latitude		: LREAL;
+	epsilon			: LREAL := 0.25; //iteration accuracy in arcsec
+	stCoefficients	: ST_EqPointingCoefficients;	// the same set as the forward model
+END_VAR
+VAR_OUTPUT
+	HourAngle_correction	: LREAL;
+	Declination_correction	: LREAL;
+	bValid					: BOOL;	// FALSE if the iteration did not converge within epsilon (e.g. altitude too close to the horizon, where the model is chaotic -- see IAG50cm testing/check_pointing_inversion.py). HourAngle_correction/Declination_correction are 0.0 when FALSE.
+END_VAR
+VAR
+	fbpointing : FB_EqPointingModelForward;
+	d_ha		: LREAL := 0.0;
+	d_dec		: LREAL := 0.0;
+	d_ha_new	: LREAL := 0.0;
+	d_dec_new	: LREAL := 0.0;
+	i			: INT;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// iterate untill diff < epsilon or i_max=7 is reached
+// 5 passes converge to <0.25" for the normal operating envelope (alt >= 3deg);
+// see IAG50cm testing/check_pointing_inversion.py. Kept a small margin over the bare minimum.
+bValid := FALSE;
+FOR i:=0 TO 7 BY 1 DO
+	d_ha := d_ha_new;
+	d_dec := d_dec_new;
+	fbpointing(
+		HourAngle := LMOD(HourAngle-d_ha,360),
+		Declination:= Declination-d_dec,
+		Latitude:= Latitude,
+		stCoefficients := stCoefficients,
+		HourAngle_correction => d_ha_new,
+		Declination_correction => d_dec_new
+	);
+	IF NOT fbpointing.bValid THEN
+		EXIT;	// below 1 deg altitude the forward model gives 0 (IAG50cm#134), that is not a converged result
+	END_IF
+	IF ABS(d_ha - d_ha_new) <= epsilon/3600.0 AND ABS(d_dec - d_dec_new) <= epsilon/3600.0 THEN
+		bValid := TRUE;
+		EXIT;
+	END_IF
+END_FOR;
+// below alt~2-3deg the map is chaotic and never settles within epsilon (see script above);
+// do not hand back whatever the last unconverged pass produced
+IF bValid THEN
+	HourAngle_correction := d_ha_new;
+	Declination_correction := d_dec_new;
+ELSE
+	HourAngle_correction := 0.0;
+	Declination_correction := 0.0;
+END_IF]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

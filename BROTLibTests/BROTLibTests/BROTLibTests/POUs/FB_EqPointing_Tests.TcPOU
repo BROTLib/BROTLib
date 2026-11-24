@@ -1,0 +1,295 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_EqPointing_Tests" Id="{a93ccc16-fcc4-4a7f-9382-5ec72a366663}" SpecialFunc="None">
+    <Declaration><![CDATA[// The equatorial pointing path moved from IAG50cm (IAG50cm#7, #17). OLD: FB_EqPointingModelForward/Inversion and
+// FB_EqPointing give exactly the numbers of IAG50cm's model before #7 (frozen copies FB_EqPointingModel*Legacy).
+// NEW: FB_EqPointing is the chain of IAG50cm's FB_TelescopeControl._ComputeTargets, it inverts, and it agrees with OLD
+// at high altitude. Coefficients and site are IAG50cm's (GVL_Pointing, latitude 51.5592378, 100 m).
+FUNCTION_BLOCK FB_EqPointing_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+	stOld	: BROTLib.ST_EqPointingCoefficients := (C_mAl_tau := 0.01687078, C_mEl_tau := -0.02608578, C_Coll_tau := 0.29826615,
+		C_Refr_tau := -0.00759962, C_Enc_tau := 0.00108764, C_Flex_tau := -0.02462705, C_NP_tau := 0.02128217,
+		C_mAl_dec := 0.01606325, C_mEl_dec := -0.05749048, C_Coll_dec := -0.17376101, C_Refr_dec := 0.01678090,
+		C_Flex_dec := -0.01915146);
+	stNew	: BROTLib.ST_EqPointingCoefficients := (C_mAl_tau := 0.01690121, C_mEl_tau := -0.02889108, C_Coll_tau := 0.29834839,
+		C_Refr_tau := 0.0, C_Enc_tau := 0.00103115, C_Flex_tau := -0.00894541, C_NP_tau := 0.02123962,
+		C_mAl_dec := 0.01606778, C_mEl_dec := -0.05759730, C_Coll_dec := -0.17370353, C_Refr_dec := 0.0,
+		C_Flex_dec := -0.02055715);
+END_VAR
+VAR CONSTANT
+	fLat	: LREAL := 51.5592378;
+	fSite	: LREAL := 100.0;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Old_Model_Is_Bit_Identical();
+Old_Inversion_Is_Bit_Identical();
+Old_Path_Is_The_Model();
+Default_Mode_Is_Old();
+New_Path_Equals_The_Chain();
+New_Path_Round_Trip();
+New_Agrees_With_Old_High_Up();
+New_Refraction_Rate_Sign();
+]]></ST>
+    </Implementation>
+    <Method Name="Old_Model_Is_Bit_Identical" Id="{dbf8dbf5-b385-4f8c-8148-12e9090cf2e4}">
+      <Declaration><![CDATA[// FB_EqPointingModelForward with IAG50cm's old coefficients against the frozen model: the same numbers, not just close.
+// Grid: HA -170..180 in 10 deg, Dec -30..85 in 5 deg (below the 1 deg altitude gate both give 0 / sidereal).
+METHOD PRIVATE Old_Model_Is_Bit_Identical
+VAR
+	fbLib	: BROTLib.FB_EqPointingModelForward;
+	fbRef	: FB_EqPointingModelForwardLegacy;
+	i, j	: INT;
+	fHa, fDec	: LREAL;
+	nDiff	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Model_Is_Bit_Identical');
+FOR i := -17 TO 18 DO
+	FOR j := -6 TO 17 DO
+		fHa := INT_TO_LREAL(i) * 10.0;
+		fDec := INT_TO_LREAL(j) * 5.0;
+		fbLib(HourAngle := fHa, Declination := fDec, Latitude := fLat, stCoefficients := stOld);
+		fbRef(HourAngle := fHa, Declination := fDec, Latitude := fLat);
+		IF fbLib.HourAngle_correction <> fbRef.HourAngle_correction OR fbLib.Declination_correction <> fbRef.Declination_correction
+			OR fbLib.HourAngle_velocity <> fbRef.HourAngle_velocity OR fbLib.Declination_velocity <> fbRef.Declination_velocity
+			OR fbLib.bValid <> fbRef.bValid THEN
+			nDiff := nDiff + 1;
+		END_IF
+	END_FOR
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := nDiff, Message := 'grid points where the library model differs from IAG50cm before #7');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Old_Inversion_Is_Bit_Identical" Id="{1b5d75c2-a371-4977-b955-8649892452d7}">
+      <Declaration><![CDATA[// FB_EqPointingModelInversion against the frozen inversion, the same grid in the same order (both start each iteration
+// from the last result, so the sequence matters and is the same).
+METHOD PRIVATE Old_Inversion_Is_Bit_Identical
+VAR
+	fbLib	: BROTLib.FB_EqPointingModelInversion;
+	fbRef	: FB_EqPointingModelInversionLegacy;
+	i, j	: INT;
+	fHa, fDec	: LREAL;
+	nDiff	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Inversion_Is_Bit_Identical');
+FOR i := -17 TO 18 DO
+	FOR j := -6 TO 17 DO
+		fHa := INT_TO_LREAL(i) * 10.0;
+		fDec := INT_TO_LREAL(j) * 5.0;
+		fbLib(HourAngle := fHa, Declination := fDec, Latitude := fLat, stCoefficients := stOld);
+		fbRef(HourAngle := fHa, Declination := fDec, Latitude := fLat);
+		IF fbLib.HourAngle_correction <> fbRef.HourAngle_correction OR fbLib.Declination_correction <> fbRef.Declination_correction
+			OR fbLib.bValid <> fbRef.bValid THEN
+			nDiff := nDiff + 1;
+		END_IF
+	END_FOR
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := nDiff, Message := 'grid points where the library inversion differs from IAG50cm before #7');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Old_Path_Is_The_Model" Id="{dd3f2ea5-cf9e-4e30-9fd3-2a2ae6d4df8d}">
+      <Declaration><![CDATA[// FB_EqPointing in OLD is the model and nothing else: forward and inverse equal the frozen blocks, no refraction, and
+// the weather inputs are ignored. The axis is put at target + 0.3 deg so that the two halves see different positions.
+METHOD PRIVATE Old_Path_Is_The_Model
+VAR
+	fbPath	: BROTLib.FB_EqPointing;
+	fbFwd	: FB_EqPointingModelForwardLegacy;
+	fbInv	: FB_EqPointingModelInversionLegacy;
+	i, j	: INT;
+	fHa, fDec	: LREAL;
+	nDiff	: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Old_Path_Is_The_Model');
+FOR i := -11 TO 12 DO
+	FOR j := -6 TO 17 DO
+		fHa := INT_TO_LREAL(i) * 15.0;
+		fDec := INT_TO_LREAL(j) * 5.0;
+		fbPath(eRefractionMode := BROTLib.E_RefractionMode.OLD, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+			fSiteAltitude := fSite, fPressure := 1030.0, fTemperature := 20.0, bTemperatureSet := TRUE,
+			fHourAngleTarget := fHa, fDeclinationTarget := fDec, fHourAngleAxis := fHa + 0.3, fDeclinationAxis := fDec + 0.3);
+		fbFwd(HourAngle := fHa, Declination := fDec, Latitude := fLat);
+		fbInv(HourAngle := fHa + 0.3, Declination := fDec + 0.3, Latitude := fLat);
+		IF fbPath.fHourAnglePointingOffset <> fbFwd.HourAngle_correction OR fbPath.fDeclinationPointingOffset <> fbFwd.Declination_correction
+			OR fbPath.fHourAngleVelocity <> fbFwd.HourAngle_velocity OR fbPath.fDeclinationVelocity <> fbFwd.Declination_velocity
+			OR fbPath.bForwardValid <> fbFwd.bValid
+			OR fbPath.fHourAngleInversionOffset <> fbInv.HourAngle_correction
+			OR fbPath.fDeclinationInversionOffset <> fbInv.Declination_correction OR fbPath.bInversionValid <> fbInv.bValid
+			OR fbPath.fHourAngleRefraction <> 0.0 OR fbPath.fDeclinationRefraction <> 0.0
+			OR fbPath.fHourAngleModelIn <> fHa OR fbPath.fDeclinationModelIn <> fDec THEN
+			nDiff := nDiff + 1;
+		END_IF
+	END_FOR
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := nDiff, Message := 'grid points where OLD is not exactly the model');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Default_Mode_Is_Old" Id="{7a149d4c-02aa-41b6-8853-cfb45136209d}">
+      <Declaration><![CDATA[// a caller that does not set eRefractionMode gets the old model, also with stCoeffNew set
+METHOD PRIVATE Default_Mode_Is_Old
+VAR
+	fbPath	: BROTLib.FB_EqPointing;
+	fbFwd	: FB_EqPointingModelForwardLegacy;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('Default_Mode_Is_Old');
+fbPath(stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat, fSiteAltitude := fSite,
+	fHourAngleTarget := 30.0, fDeclinationTarget := 20.0, fHourAngleAxis := 30.0, fDeclinationAxis := 20.0);
+fbFwd(HourAngle := 30.0, Declination := 20.0, Latitude := fLat);
+AssertEquals_LREAL(Expected := fbFwd.HourAngle_correction, Actual := fbPath.fHourAnglePointingOffset, Delta := 0.0, Message := 'HA');
+AssertEquals_LREAL(Expected := fbFwd.Declination_correction, Actual := fbPath.fDeclinationPointingOffset, Delta := 0.0, Message := 'Dec');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Path_Equals_The_Chain" Id="{11597690-de7b-44db-b0ed-c07020e2a7c8}">
+      <Declaration><![CDATA[// FB_EqPointing in NEW against the chain of IAG50cm's FB_TelescopeControl._ComputeTargets written out with the
+// building blocks: the same calls in the same order, so the same numbers. Site estimate (pressure 0).
+METHOD PRIVATE New_Path_Equals_The_Chain
+VAR
+	fbPath		: BROTLib.FB_EqPointing;
+	fbTo		: BROTLib.FB_RefractionShift;
+	fbToLater	: BROTLib.FB_RefractionShift;
+	fbModel		: BROTLib.FB_EqPointingModelForward;
+	fbInv		: BROTLib.FB_EqPointingModelInversion;
+	fbFrom		: BROTLib.FB_RefractionShift;
+	fHa, fDec, fAxHa, fAxDec	: LREAL;
+	fOffHa, fOffDec, fVelHa, fVelDec, fInvHa, fInvDec	: LREAL;
+	i			: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Path_Equals_The_Chain');
+FOR i := 0 TO 2 DO
+	CASE i OF
+		0: fHa := -60.0; fDec := 10.0;
+		1: fHa := 30.0; fDec := 20.0;
+		2: fHa := 10.0; fDec := 60.0;
+	END_CASE
+	fAxHa := fHa + 0.2;
+	fAxDec := fDec - 0.1;
+	fbPath(eRefractionMode := BROTLib.E_RefractionMode.NEW, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+		fSiteAltitude := fSite, fHourAngleTarget := fHa, fDeclinationTarget := fDec, fHourAngleAxis := fAxHa, fDeclinationAxis := fAxDec);
+	fbTo(HourAngle := fHa, Declination := fDec, Latitude := fLat, SiteAltitude := fSite, ToObserved := TRUE);
+	fbToLater(HourAngle := fHa + 10.0 * 360.0 / 86164.0905, Declination := fDec, Latitude := fLat, SiteAltitude := fSite, ToObserved := TRUE);
+	fbModel(HourAngle := fHa + fbTo.HourAngleShift, Declination := fDec + fbTo.DeclinationShift, Latitude := fLat, stCoefficients := stNew);
+	fOffHa := fbModel.HourAngle_correction + fbTo.HourAngleShift;
+	fOffDec := fbModel.Declination_correction + fbTo.DeclinationShift;
+	fVelHa := fbModel.HourAngle_velocity + (fbToLater.HourAngleShift - fbTo.HourAngleShift) / 10.0;
+	fVelDec := fbModel.Declination_velocity + (fbToLater.DeclinationShift - fbTo.DeclinationShift) / 10.0;
+	fbInv(HourAngle := fAxHa, Declination := fAxDec, Latitude := fLat, stCoefficients := stNew);
+	fbFrom(HourAngle := fAxHa - fbInv.HourAngle_correction, Declination := fAxDec - fbInv.Declination_correction, Latitude := fLat,
+		SiteAltitude := fSite, ToObserved := FALSE);
+	fInvHa := fbInv.HourAngle_correction - fbFrom.HourAngleShift;
+	fInvDec := fbInv.Declination_correction - fbFrom.DeclinationShift;
+	AssertEquals_LREAL(Expected := fOffHa, Actual := fbPath.fHourAnglePointingOffset, Delta := 0.0, Message := 'HA offset');
+	AssertEquals_LREAL(Expected := fOffDec, Actual := fbPath.fDeclinationPointingOffset, Delta := 0.0, Message := 'Dec offset');
+	AssertEquals_LREAL(Expected := fVelHa, Actual := fbPath.fHourAngleVelocity, Delta := 0.0, Message := 'HA velocity');
+	AssertEquals_LREAL(Expected := fVelDec, Actual := fbPath.fDeclinationVelocity, Delta := 0.0, Message := 'Dec velocity');
+	AssertEquals_LREAL(Expected := fInvHa, Actual := fbPath.fHourAngleInversionOffset, Delta := 0.0, Message := 'HA inversion');
+	AssertEquals_LREAL(Expected := fInvDec, Actual := fbPath.fDeclinationInversionOffset, Delta := 0.0, Message := 'Dec inversion');
+	AssertEquals_LREAL(Expected := fbTo.DeclinationShift, Actual := fbPath.fDeclinationRefraction, Delta := 0.0, Message := 'Dec refraction');
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Path_Round_Trip" Id="{3f7d62b0-75cc-44e4-afd0-370fff0b64e0}">
+      <Declaration><![CDATA[// NEW: put the axis where the forward path sends it (target + offset); the inverse must give the same offset back
+// (< 0.5", the inversion stops at 0.25"). Three targets at about 20, 50 and 70 deg altitude.
+METHOD PRIVATE New_Path_Round_Trip
+VAR
+	fbPath		: BROTLib.FB_EqPointing;
+	fHa, fDec	: LREAL;
+	i			: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Path_Round_Trip');
+FOR i := 0 TO 2 DO
+	CASE i OF
+		0: fHa := -60.0; fDec := 10.0;
+		1: fHa := 30.0; fDec := 20.0;
+		2: fHa := 10.0; fDec := 60.0;
+	END_CASE
+	fbPath(eRefractionMode := BROTLib.E_RefractionMode.NEW, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+		fSiteAltitude := fSite, fHourAngleTarget := fHa, fDeclinationTarget := fDec, fHourAngleAxis := fHa, fDeclinationAxis := fDec);
+	fbPath(eRefractionMode := BROTLib.E_RefractionMode.NEW, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+		fSiteAltitude := fSite, fHourAngleTarget := fHa, fDeclinationTarget := fDec,
+		fHourAngleAxis := fHa + fbPath.fHourAnglePointingOffset, fDeclinationAxis := fDec + fbPath.fDeclinationPointingOffset);
+	AssertTrue(Condition := fbPath.bInversionValid, Message := 'inversion converged');
+	AssertEquals_LREAL(Expected := fbPath.fHourAnglePointingOffset, Actual := fbPath.fHourAngleInversionOffset, Delta := 0.5 / 3600.0, Message := 'HA back');
+	AssertEquals_LREAL(Expected := fbPath.fDeclinationPointingOffset, Actual := fbPath.fDeclinationInversionOffset, Delta := 0.5 / 3600.0, Message := 'Dec back');
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Agrees_With_Old_High_Up" Id="{6323657e-6965-4e0a-83e3-768628d64c2c}">
+      <Declaration><![CDATA[// The NEW coefficients are a refit of the same pointing data (all of it at 31..86 deg altitude): above 50 deg the total
+// offset of NEW (model + refraction) and OLD agree to a few arcsec (Python port of the same model: at most 4" at these
+// three points). Bound 10" on the sky; a sign error in the refraction step would give 2R, 32" to 66" in Dec here.
+METHOD PRIVATE New_Agrees_With_Old_High_Up
+VAR
+	fbOld, fbNew	: BROTLib.FB_EqPointing;
+	fHa, fDec	: LREAL;
+	i			: INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Agrees_With_Old_High_Up');
+FOR i := 0 TO 2 DO
+	CASE i OF
+		0: fHa := 0.0; fDec := 21.6;	// El 60 south, as in the no-sky check of 2026-11-24
+		1: fHa := -30.0; fDec := 40.0;
+		2: fHa := 20.0; fDec := 70.0;
+	END_CASE
+	fbOld(eRefractionMode := BROTLib.E_RefractionMode.OLD, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+		fSiteAltitude := fSite, fHourAngleTarget := fHa, fDeclinationTarget := fDec, fHourAngleAxis := fHa, fDeclinationAxis := fDec);
+	fbNew(eRefractionMode := BROTLib.E_RefractionMode.NEW, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+		fSiteAltitude := fSite, fHourAngleTarget := fHa, fDeclinationTarget := fDec, fHourAngleAxis := fHa, fDeclinationAxis := fDec);
+	AssertEquals_LREAL(Expected := 0.0, Actual := (fbNew.fHourAnglePointingOffset - fbOld.fHourAnglePointingOffset) * 3600.0 * COS(fDec * PI / 180.0),
+		Delta := 10.0, Message := 'HA offset NEW - OLD on the sky, arcsec');
+	AssertEquals_LREAL(Expected := 0.0, Actual := (fbNew.fDeclinationPointingOffset - fbOld.fDeclinationPointingOffset) * 3600.0,
+		Delta := 10.0, Message := 'Dec offset NEW - OLD, arcsec');
+END_FOR
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_Refraction_Rate_Sign" Id="{8ac2872b-a40c-48e0-a8d9-6f238e43d09e}">
+      <Declaration><![CDATA[// A star setting in the west (HA 60, Dec 0) sinks, its refraction grows and moves it north more and more: NEW adds a
+// positive Dec rate to the model's velocity, below 1"/s.
+METHOD PRIVATE New_Refraction_Rate_Sign
+VAR
+	fbPath	: BROTLib.FB_EqPointing;
+	fbModel	: BROTLib.FB_EqPointingModelForward;
+	fRate	: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_Refraction_Rate_Sign');
+fbPath(eRefractionMode := BROTLib.E_RefractionMode.NEW, stCoeffOld := stOld, stCoeffNew := stNew, fLatitude := fLat,
+	fSiteAltitude := fSite, fHourAngleTarget := 60.0, fDeclinationTarget := 0.0, fHourAngleAxis := 60.0, fDeclinationAxis := 0.0);
+fbModel(HourAngle := fbPath.fHourAngleModelIn, Declination := fbPath.fDeclinationModelIn, Latitude := fLat, stCoefficients := stNew);
+fRate := fbPath.fDeclinationVelocity - fbModel.Declination_velocity;
+AssertTrue(Condition := fRate > 0.0, Message := 'Dec refraction grows while the star sets');
+AssertTrue(Condition := fRate < 1.0 / 3600.0, Message := 'and by less than 1 arcsec/s');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -6,6 +6,10 @@
 // fHourAngleApparent/fDeclinationApparent), Current() after (it needs the axis positions and the inversion).
 // Moved out of IAG50cm's FB_TelescopeControl with the same AstroBROT calls in the same order, and ONE FB_EQ2HOR
 // instance for the three conversions to Alt/Az, as there (FB_EQ2HOR keeps state between calls).
+// eRefractionMode (IAG50cm#7, #3): OLD gives every AstroBROT call its defaults, as before. NEW passes the weather
+// (F_RefractionWeather), takes the slew altitude as observed and publishes the observed sky altitude; the owner then
+// runs FB_EqPointing with the same mode and the fRefraction* outputs. fElevationCurrent (the horizon guards) is the
+// same in both modes.
 FUNCTION_BLOCK FB_RaDecCoordinates
 VAR_INPUT
 	fJd						: LREAL;		// Julian date, UTC
@@ -21,7 +25,9 @@ VAR_INPUT
 	fAzimuth				: LREAL;		// degrees
 	// TRUE: the slew altitude is an observed (refracted) one, FALSE: a theoretical one. IAG50cm runs FALSE
 	// (IAG50cm#3 decides), AstroBROT's own default and MONET's choice is TRUE.
-	bSlewAltIsObserved		: BOOL := TRUE;
+	bSlewAltIsObserved		: BOOL := TRUE;	// NEW always takes the slew altitude as observed
+	eRefractionMode			: E_RefractionMode := E_RefractionMode.OLD;
+	stWeather				: ST_Weather;	// live weather (FB_Comm_MQTT_Influx.Weather), used in NEW only
 	// axis positions and corrections
 	fHourAngleCurrent		: LREAL;		// degrees
 	fDeclinationCurrent		: LREAL;		// degrees
@@ -40,6 +46,11 @@ VAR_OUTPUT
 	fRightAscensionCalc		: LREAL;		// RA/Dec/HA of the slew target
 	fDeclinationCalc		: LREAL;
 	fHourAngleCalc			: LREAL;
+	bRefractionNew			: BOOL;			// eRefractionMode = NEW in the last Target()
+	bRefractionLiveWeather	: BOOL;			// a live pressure or temperature is used (F_RefractionWeather), NEW only
+	fRefractionPressure		: LREAL;		// hPa, 0.0 = estimate; what the AstroBROT calls get (0.0 in OLD)
+	fRefractionTemperature	: LREAL;		// deg C
+	bRefractionTemperatureSet	: BOOL;
 	// Current()
 	fRightAscensionCurrentICRS		: LREAL;	// where the axes point, without offsets and pointing correction
 	fDeclinationCurrentICRS			: LREAL;
@@ -70,7 +81,22 @@ VAR
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[fbRaDec2HaDec(
+        <ST><![CDATA[// the refraction mode of this cycle; the weather only enters in NEW
+bRefractionNew := eRefractionMode = E_RefractionMode.NEW;
+bRefractionLiveWeather := F_RefractionWeather(
+	stWeather		:= stWeather,
+	fSiteAltitude	:= fAltitude,
+	fPressure		=> fRefractionPressure,
+	fTemperature	=> fRefractionTemperature,
+	bTemperatureSet	=> bRefractionTemperatureSet);
+IF NOT bRefractionNew THEN
+	bRefractionLiveWeather := FALSE;
+	fRefractionPressure := 0.0;	// the AstroBROT defaults: OLD stays as it was
+	fRefractionTemperature := 0.0;
+	bRefractionTemperatureSet := FALSE;
+END_IF
+
+fbRaDec2HaDec(
 	ra := fRightAscension,
 	dec := fDeclination,
 	lon := fLongitude,
@@ -85,6 +111,9 @@ fbEq2Hor(
 	altitude := fAltitude,
 	JD := fJd + fTimeOffset,
 	refract_to_observed := TRUE,
+	pressure := fRefractionPressure,
+	temperature := fRefractionTemperature,
+	temperature_set := bRefractionTemperatureSet,
 	alt => fElevationCalc,
 	az => fAzimuthCalc);
 fbHor2Eq(
@@ -94,7 +123,10 @@ fbHor2Eq(
 	lat := fLatitude,
 	lon := fLongitude,
 	altitude := fAltitude,
-	alt_is_observed := bSlewAltIsObserved,
+	alt_is_observed := bSlewAltIsObserved OR bRefractionNew,
+	pressure := fRefractionPressure,
+	temperature := fRefractionTemperature,
+	temperature_set := bRefractionTemperatureSet,
 	ra => fRightAscensionCalc,
 	dec => fDeclinationCalc,
 	ha => fHourAngleCalc);
@@ -138,7 +170,10 @@ fbEq2Hor(
 	lon := fLongitude,
 	lat := fLatitude,
 	altitude := fAltitude,
-	refract_to_observed := FALSE,
+	refract_to_observed := FALSE,	// both modes: the horizon guards keep their physical position (IAG50cm#7)
+	pressure := 0.0,
+	temperature := 0.0,
+	temperature_set := FALSE,
 	JD := fJd + fTimeOffset,
 	alt => fElevationCurrent,
 	az => fAzimuthCurrent);
@@ -148,7 +183,12 @@ fbEq2Hor(
 	lon := fLongitude,
 	lat := fLatitude,
 	altitude := fAltitude,
-	refract_to_observed := FALSE,
+	// OLD: FALSE as before. NEW: the corrected position is geometric, the published altitude is the observed one, as the
+	// commanded altitude of an Alt/Az slew (IAG50cm#3, #7)
+	refract_to_observed := bRefractionNew,
+	pressure := fRefractionPressure,
+	temperature := fRefractionTemperature,
+	temperature_set := bRefractionTemperatureSet,
 	JD := fJd + fTimeOffset,
 	alt => fElevationCurrentSky,
 	az => fAzimuthCurrentSky);

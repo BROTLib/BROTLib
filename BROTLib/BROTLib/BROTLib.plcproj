@@ -299,6 +299,24 @@
     <Compile Include="POUs\NCError_TO_STRING.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DUTs\E_RefractionMode.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DUTs\ST_EqPointingCoefficients.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Pointing\FB_EqPointing.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Pointing\FB_EqPointingModelForward.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Pointing\FB_EqPointingModelInversion.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Pointing\FB_RefractionShift.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\Pointing\FB_PointingModelForward.TcPOU">
       <SubType>Code</SubType>
     </Compile>
