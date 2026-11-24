@@ -71,7 +71,9 @@ BROTLib/
 │   │       ├── Comm/            # FB_Comm_MQTT, FB_Comm_MQTT_Influx, I_Comm
 │   │       ├── Debug/           # FB_InfoConnection, FB_InfoEStop, FB_InfoGroup
 │   │       ├── Hmi/             # FB_HmiGateway (ADS-RPC adapter for the maintenance HMI), GVL_Hmi, ST_Hmi*/E_Hmi*
-│   │       ├── Pointing/        # FB_PointingModelForward, FB_PointingModelInversion
+│   │       ├── Pointing/        # FB_PointingModelForward, FB_PointingModelInversion (Alt/Az),
+│   │       │                    # FB_EqPointing, FB_EqPointingModelForward,
+│   │       │                    # FB_EqPointingModelInversion, FB_RefractionShift (HA/Dec)
 │   │       ├── Tracking/        # F_Azimuthvelocity, F_Elevationvelocity,
 │   │       │                    # F_DerotatorPosition2, F_Derotatorvelocity
 │   │       ├── Telescope/       # FB_BaseTelescopeControl,
@@ -256,6 +258,16 @@ organised into four layers:
   functions below).
 - **`FB_PointingModelInversion`** — inverts the pointing model (11 fixed
   iterations) to compute corrected target coordinates.
+- **`FB_EqPointing`** — the pointing path of an equatorial (HA/Dec) mount,
+  moved from IAG50cm (IAG50cm#7, #17), with the refraction switch
+  `E_RefractionMode`. OLD: `FB_EqPointingModelForward`/`Inversion` (IAG50cm's
+  12-term model, coefficients as `ST_EqPointingCoefficients`) with fitted
+  refraction terms, bit-identical to IAG50cm's model. NEW: AstroBROT
+  refraction (`FB_RefractionShift`, live weather or the site estimate) in front
+  of a model refit without refraction terms, plus the refraction rate in the
+  tracking velocity. `FB_RaDecCoordinates` takes the same `eRefractionMode`
+  and `stWeather`; in NEW its slew altitude is observed and its sky altitude
+  is the observed one.
 - **Tracking functions** — `F_Azimuthvelocity`, `F_Elevationvelocity`,
   `F_DerotatorPosition2`, `F_Derotatorvelocity` compute the velocity setpoints
   for sidereal tracking on an Alt-Az mount and the field derotator position.

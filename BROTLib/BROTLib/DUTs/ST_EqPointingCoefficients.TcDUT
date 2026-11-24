@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="ST_EqPointingCoefficients" Id="{c99e1fed-86d7-45fd-b716-e2a2847a094b}">
+    <Declaration><![CDATA[// The coefficients of FB_EqPointingModelForward in degrees (tau = hour angle, dec = declination). The telescope keeps one
+// set per E_RefractionMode; the NEW set has C_Refr_tau = C_Refr_dec = 0 (IAG50cm#7).
+TYPE ST_EqPointingCoefficients :
+STRUCT
+	C_mAl_tau	: LREAL;
+	C_mEl_tau	: LREAL;
+	C_Coll_tau	: LREAL;
+	C_Refr_tau	: LREAL;	// fitted refraction (OLD only)
+	C_Enc_tau	: LREAL;
+	C_Flex_tau	: LREAL;
+	C_NP_tau	: LREAL;
+
+	C_mAl_dec	: LREAL;
+	C_mEl_dec	: LREAL;
+	C_Coll_dec	: LREAL;
+	C_Refr_dec	: LREAL;	// fitted refraction (OLD only)
+	C_Flex_dec	: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

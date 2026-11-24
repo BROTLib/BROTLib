@@ -157,6 +157,21 @@
     <Compile Include="POUs\F_HourAngleOffsetOnAxis_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\FB_EqPointing_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_EqPointingModelForwardLegacy.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_EqPointingModelInversionLegacy.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RaDecCoordinatesRefraction_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\FB_RefractionShift_Tests.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\FB_RaDecCoordinates_Tests.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -204,6 +219,10 @@
     <PlaceholderReference Include="BROTLib">
       <DefaultResolution>BROTLib, * (BROT)</DefaultResolution>
       <Namespace>BROTLib</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_Math">
+      <DefaultResolution>Tc2_Math, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_Math</Namespace>
     </PlaceholderReference>
     <PlaceholderReference Include="Tc2_MC2">
       <DefaultResolution>Tc2_MC2, * (Beckhoff Automation GmbH)</DefaultResolution>
