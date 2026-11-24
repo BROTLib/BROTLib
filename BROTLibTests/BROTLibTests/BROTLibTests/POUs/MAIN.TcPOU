@@ -38,6 +38,7 @@ VAR
 	fbHourAngleOffsetOnAxisTests	: F_HourAngleOffsetOnAxis_Tests;
 	fbRaDecCoordinatesTests	: FB_RaDecCoordinates_Tests;
 	fbRaDecRefractionTests	: FB_RaDecCoordinatesRefraction_Tests;
+	fbRaDecSlewTests		: FB_RaDecCoordinatesSlew_Tests;
 	fbEqPointingTests		: FB_EqPointing_Tests;
 	fbRefractionShiftTests	: FB_RefractionShift_Tests;
 	fbStopTransactionTests	: FB_StopTransaction_Tests;

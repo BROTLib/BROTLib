@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="FB_RaDecCoordinatesSlew_Tests" Id="{ce535fb3-3bea-4037-b97e-81b7d039ab0e}" SpecialFunc="None">
+    <Declaration><![CDATA[// The slew target of BROTLib.FB_RaDecCoordinates (IAG50cm#17): the apparent declination of an Alt/Az slew (IAG50cm#239)
+// and the SlewHaDec target (IAG50cm X5), as in IAG50cm's FB_TelescopeControl. Site and time as FB_RaDecCoordinates_Tests
+// (latitude 50, 300 m, JD 2460000.5): El 60 / Az 180 is HA 0 / Dec 20 less the refraction, R about 33" there.
+// Every test has its own instances (FB_EQ2HOR keeps state between calls).
+FUNCTION_BLOCK FB_RaDecCoordinatesSlew_Tests EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[AltAz_Slew_Target_Is_Apparent();
+AltAz_Slew_Keeps_Its_AltAz();
+SlewHaDec_Target_Is_The_HaDec();
+SlewHaDec_Icrs_Round_Trip();
+New_SlewHaDec_Altitude_Is_Observed();
+]]></ST>
+    </Implementation>
+    <Method Name="Setup" Id="{dcc8e330-fbe4-41e8-9f77-b14b6a53aee4}">
+      <Declaration><![CDATA[METHOD PRIVATE Setup
+VAR_IN_OUT
+	fb	: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fb.fJd := 2460000.5;
+fb.fLongitude := 10.0;
+fb.fLatitude := 50.0;
+fb.fAltitude := 300.0;
+fb.fTimeOffset := 0.0;
+fb.fRightAscension := 100.0;
+fb.fDeclination := 20.0;
+fb.fElevation := 60.0;
+fb.fAzimuth := 180.0;
+fb.bSlewAltIsObserved := TRUE;
+fb.fSlewHaDecHa := 0.0;
+fb.fSlewHaDecDec := 20.0;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="AltAz_Slew_Target_Is_Apparent" Id="{98e2c7d8-5600-4eb3-bd3e-009a3cbe211d}">
+      <Declaration><![CDATA[// El 60 (observed) / Az 180 is on the meridian at apparent Dec = 20 - R: fDeclinationCalc is that apparent declination
+// (IAG50cm#239: before, it was the ICRS one, up to 0.054 deg off), fHourAngleCalc 0. Bound 0.003 deg (11").
+METHOD PRIVATE AltAz_Slew_Target_Is_Apparent
+VAR
+	fb		: BROTLib.FB_RaDecCoordinates;
+	fHa		: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('AltAz_Slew_Target_Is_Apparent');
+Setup(fb);
+fb.Target();
+fHa := fb.fHourAngleCalc;
+IF fHa > 180.0 THEN
+	fHa := fHa - 360.0;
+END_IF
+AssertEquals_LREAL(Expected := 20.0 - 33.0 / 3600.0, Actual := fb.fDeclinationCalc, Delta := 0.003, Message := 'apparent declination of El 60 south');
+AssertEquals_LREAL(Expected := 0.0, Actual := fHa, Delta := 0.003, Message := 'on the meridian');
+AssertTrue(Condition := fb.fDeclinationCalc <> fb.fDeclinationCalcIcrs, Message := 'the ICRS declination is a separate output');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="AltAz_Slew_Keeps_Its_AltAz" Id="{4433e2b1-6b10-4fb6-a5d9-4dc7ea8bb85f}">
+      <Declaration><![CDATA[// without a SlewHaDec, fElevationSlew/fAzimuthSlew are the commanded Alt/Az
+METHOD PRIVATE AltAz_Slew_Keeps_Its_AltAz
+VAR
+	fb		: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('AltAz_Slew_Keeps_Its_AltAz');
+Setup(fb);
+fb.Target();
+AssertEquals_LREAL(Expected := 60.0, Actual := fb.fElevationSlew, Delta := 0.0, Message := 'elevation');
+AssertEquals_LREAL(Expected := 180.0, Actual := fb.fAzimuthSlew, Delta := 0.0, Message := 'azimuth');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SlewHaDec_Target_Is_The_HaDec" Id="{a0f829a0-5e5f-4143-9ad1-b02f1dd726b1}">
+      <Declaration><![CDATA[// a SlewHaDec to HA 0 / Dec 20 drives the axes there (fHourAngleCalc/fDeclinationCalc exactly), and its Alt/Az is
+// El 60 / Az 180 (OLD: the altitude without refraction minus R, 59.99 or so; 0.02 deg)
+METHOD PRIVATE SlewHaDec_Target_Is_The_HaDec
+VAR
+	fb		: BROTLib.FB_RaDecCoordinates;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('SlewHaDec_Target_Is_The_HaDec');
+Setup(fb);
+fb.bSlewHaDec := TRUE;
+fb.fElevation := 30.0;	// ignored while a SlewHaDec runs
+fb.fAzimuth := 90.0;
+fb.Target();
+AssertEquals_LREAL(Expected := 0.0, Actual := fb.fHourAngleCalc, Delta := 0.0, Message := 'hour angle');
+AssertEquals_LREAL(Expected := 20.0, Actual := fb.fDeclinationCalc, Delta := 0.0, Message := 'declination');
+AssertEquals_LREAL(Expected := 60.0, Actual := fb.fElevationSlew, Delta := 0.02, Message := 'elevation of the target');
+AssertEquals_LREAL(Expected := 180.0, Actual := fb.fAzimuthSlew, Delta := 0.01, Message := 'azimuth of the target');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SlewHaDec_Icrs_Round_Trip" Id="{ec47c6c0-ec08-4ee6-857b-5edf328da7a8}">
+      <Declaration><![CDATA[// the ICRS position of the SlewHaDec target, given back as a target, has the same apparent HA/Dec (1E-5 deg)
+METHOD PRIVATE SlewHaDec_Icrs_Round_Trip
+VAR
+	fbSlew, fbBack	: BROTLib.FB_RaDecCoordinates;
+	fHa				: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('SlewHaDec_Icrs_Round_Trip');
+Setup(fbSlew);
+fbSlew.bSlewHaDec := TRUE;
+fbSlew.fSlewHaDecHa := -40.0;
+fbSlew.fSlewHaDecDec := 35.0;
+fbSlew.Target();
+Setup(fbBack);
+fbBack.fRightAscension := fbSlew.fRightAscensionCalc;
+fbBack.fDeclination := fbSlew.fDeclinationCalcIcrs;
+fbBack.Target();
+fHa := fbBack.fHourAngleApparent;
+IF fHa > 180.0 THEN
+	fHa := fHa - 360.0;
+END_IF
+AssertEquals_LREAL(Expected := -40.0, Actual := fHa, Delta := 1.0E-5, Message := 'hour angle back');
+AssertEquals_LREAL(Expected := 35.0, Actual := fbBack.fDeclinationApparent, Delta := 1.0E-5, Message := 'declination back');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="New_SlewHaDec_Altitude_Is_Observed" Id="{5a3d1c7e-2b8f-4e61-9a0d-7c4e2f1b8d93}">
+      <Declaration><![CDATA[// NEW gives the observed altitude of the SlewHaDec target, OLD the geometric one minus R: NEW - OLD = 2R, 50" to 80" at El 60
+METHOD PRIVATE New_SlewHaDec_Altitude_Is_Observed
+VAR
+	fbNew, fbOld	: BROTLib.FB_RaDecCoordinates;
+	fDiff			: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('New_SlewHaDec_Altitude_Is_Observed');
+Setup(fbNew);
+Setup(fbOld);
+fbNew.bSlewHaDec := TRUE;
+fbOld.bSlewHaDec := TRUE;
+fbNew.eRefractionMode := BROTLib.E_RefractionMode.NEW;
+fbNew.Target();
+fbOld.Target();
+fDiff := (fbNew.fElevationSlew - fbOld.fElevationSlew) * 3600.0;
+AssertTrue(Condition := fDiff > 50.0 AND fDiff < 80.0, Message := CONCAT('slew altitude NEW - OLD, arcsec: ', LREAL_TO_STRING(fDiff)));
+AssertEquals_LREAL(Expected := fbOld.fDeclinationCalc, Actual := fbNew.fDeclinationCalc, Delta := 0.0, Message := 'the axes go to the same HA/Dec');
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
